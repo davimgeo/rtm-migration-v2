@@ -1,11 +1,9 @@
 CFLAGS = -std=c++11 -Wall
 
-SRC = main.cpp src/geometry.cpp
+SRC = main.cpp src/geometry.cpp 
 
-all:
+run: 
 	g++ $(CFLAGS) $(SRC) -o run.out
-
-run: all
 	./run.out
 
 clean:
