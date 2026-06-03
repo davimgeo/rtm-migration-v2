@@ -1,18 +1,16 @@
 #ifndef CONFIG_HPP
 #define CONFIG_HPP
 
-#include <string>
-
-struct Config
+typedef struct
 {
   // ===== General =====
   bool debug = false;
-  std::string engine = "";
+  const char* engine = "";
 
   // ===== RTM =====
-  bool saveImage = false;
-  bool isLaplacian = false;
-  bool isGradient = false;
+  bool save_image = false;
+  bool is_laplacian = false;
+  bool is_gradient = false;
 
   // ===== Modeling =====
   float dh = 0.0f;
@@ -20,15 +18,15 @@ struct Config
   float factor = 0.0f;
 
   // ===== Seismogram =====
-  std::string seismogramMode = "generate";
-  std::string loadSeisPath = "";
+  const char* seismogram_mode = "generate";
+  const char* load_seis_path = "";
   int nt = 0;
   float dt = 0.0f;
   int perc = 99;
 
   // ===== Model =====
-  std::string modelMode = "create";
-  std::string modelPath = "";
+  const char* model_mode = "create";
+  const char* model_path = "";
   int nxLoad = 0;
   int nzLoad = 0;
   int nx = 0;
@@ -37,11 +35,9 @@ struct Config
   float* valueInterfaces;
 
   // ===== Geometry =====
-  std::string geometryMode = "load";
-  std::string receiversPath = 
-    "data/geometry/receivers_2layer.txt";
-  std::string sourcesPath =
-    "data/geometry/sources22.txt";
+  const char* geometry_mode = "load";
+  const char* receivers_path = "data/input/geometry/receivers_2layer.txt";
+  const char* sources_path = "data/input/geometry/sources22.txt";
   int nxGeom = 0;
   int nzGeom = 0;
   float recDepth = 0.0f;
@@ -59,6 +55,6 @@ struct Config
   // ===== Snapshots =====
   bool snapNumNyquist = false;
   int snapNum = 0;
-};
+} config_t;
 
 #endif
