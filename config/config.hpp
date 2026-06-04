@@ -1,6 +1,9 @@
 #ifndef CONFIG_HPP
 #define CONFIG_HPP
 
+#include <cstdlib>
+#include <stdlib.h>
+
 typedef struct
 {
   // ===== General =====
@@ -25,14 +28,13 @@ typedef struct
   int perc = 99;
 
   // ===== Model =====
-  const char* model_mode = "create";
-  const char* model_path = "";
-  int nxLoad = 0;
-  int nzLoad = 0;
-  int nx = 0;
-  int nz = 0;
-  int* interfaces;
-  float* valueInterfaces;
+  char* model_mode = "load";
+  const char* model_path = "data/input/models/vp_351x1701_10m.bin";
+  int nx = 1701;
+  int nz = 351;
+  int num_interfaces = 1;
+  int* interfaces = (int*)calloc(num_interfaces, sizeof(int));
+  float* value_interfaces;
 
   // ===== Geometry =====
   const char* geometry_mode = "load";
