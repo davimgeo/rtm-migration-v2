@@ -1,0 +1,3 @@
+remove config/
+make fortran order the standard in my code
+

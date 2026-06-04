@@ -3,33 +3,41 @@
 
 #include <stdlib.h>
 
-#include "../config/config.hpp"
+#include "../config/config.h"
 #include "geometry.hpp"
 
-class Model 
+class Model
 {
-  private:
-    config_t c;
-    Geometry geom;
+private:
+  config_t c;
+  Geometry geom;
 
-  public:
-    void get();
-    void load();
-    void create();
-    void set_boundary();
+public:
+  int nxx;
+  int nzz;
 
-    int nxx = 2*c.nb + c.nx;
-    int nzz = 2*c.nb + c.nz;
+  float* model;
+  float* model_smooth;
 
-    float* model = (float*)malloc(c.nz * c.nx * sizeof(float));
+  Model(const config_t& config) : c(config)
+  {
+    nxx = 2 * c.nb + c.nx;
+    nzz = 2 * c.nb + c.nz;
 
-    float* model_smooth = (float*)malloc(c.nz * c.nx * sizeof(float));
+    model = (float*)malloc(c.nz * c.nx * sizeof(float));
+    model_smooth = (float*)malloc(c.nz * c.nx * sizeof(float));
+  }
 
-    ~Model()
-    {
-      free(model);
-      free(model_smooth);
-    }
+  void get();
+  void load();
+  void create();
+  void set_boundary();
+
+  ~Model()
+  {
+    free(model);
+    free(model_smooth);
+  }
 };
 
 #endif // MODEL_H
