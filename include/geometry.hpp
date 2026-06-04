@@ -1,7 +1,7 @@
 #ifndef GEOMETRY_HPP
 #define GEOMETRY_HPP
 
-#include "../config/config.hpp"
+#include "../config/config.h"
 
 typedef struct {
   float* x; float* z;
@@ -21,8 +21,6 @@ class Geometry
     void read_sources();
 
   public:
-    ~Geometry() {};
-
     receiver* rec;
     sources* src;
 

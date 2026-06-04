@@ -1,9 +1,11 @@
-CFLAGS = -std=c++11 -Wall 
+CFLAGS = -std=c++11
 
 SRC = main.cpp src/geometry.cpp src/model.cpp
 
+TESTS = tests/marmousi.c
+
 run: 
-	g++ $(CFLAGS) $(SRC) -o run.out
+	g++ $(CFLAGS) $(SRC) $(TESTS) -o run.out
 	./run.out
 
 clean:

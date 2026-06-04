@@ -85,13 +85,13 @@ static inline float* read2d(const char* PATH, int row, int column)
 
 static inline float* read2d_fortran(const char* PATH, int row, int column)
 {
-
   float* arr = (float*)malloc(row*column*sizeof(float));
 
   FILE* bin_data = fopen(PATH, "rb"); 
   if (bin_data == NULL) 
   {
-    printf("Could not read binary file.\n");
+    printf("Could not read binary file at path: %s.\n",
+        PATH);
     exit(-1);
   }
 

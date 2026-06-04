@@ -1,13 +1,13 @@
-#include "include/model.h"
-#include "include/plot.h"
-#include "config/config.hpp"
+#include "src/src.h"
 
 int main()
 {
-  config_t c;
+  config_t c = initialize();
 
-  Model model;
+  Model model(c);
   model.get();
+  // consertar funcao
+  //model.set_boundary();
 
   plot2d(model.model, c.nx, c.nz);
 
