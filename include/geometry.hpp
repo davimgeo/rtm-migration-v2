@@ -21,6 +21,8 @@ class Geometry
     void read_sources();
 
   public:
+    ~Geometry() {};
+
     receiver* rec;
     sources* src;
 

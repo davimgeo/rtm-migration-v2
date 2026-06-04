@@ -1,6 +1,6 @@
-CFLAGS = -std=c++11 -Wall
+CFLAGS = -std=c++11 -Wall 
 
-SRC = main.cpp src/geometry.cpp 
+SRC = main.cpp src/geometry.cpp src/model.cpp
 
 run: 
 	g++ $(CFLAGS) $(SRC) -o run.out
