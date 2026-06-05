@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include "stdbool.h"
 
+#define MAX_SOURCES 100
+
 typedef struct
 {
   float up_value;
@@ -16,44 +18,65 @@ typedef struct
   bool debug;
   const char* engine;
 
+  // RTM
   bool save_image;
   bool is_laplacian;
   bool is_gradient;
 
+  bool snapNumNyquist;
+  int snapNum;
+
+  // Modeling
   float dh;
   int nb;
   float factor;
 
+  // Seismogram
   const char* seismogram_mode;
   const char* load_seis_path;
+
   int nt;
   float dt;
   int perc;
 
+  // Model
   const char* model_mode;
   const char* model_path;
+
   int nx;
   int nz;
 
   parallel_t* p_mdl;
   int interface_count;
 
+  // Geometry
   const char* geometry_mode;
   const char* receivers_path;
   const char* sources_path;
-  int* sources_create;
-  float offset;
-  int* src_create;
-  bool save_create;
-  int nsrc;
+  const char* SAVE_REC_PATH;
+  const char* SAVE_SRC_PATH;
 
+  bool SAVE;
+
+  int rec_depth_create;
+  int src_depth_create;
+  float offset_src;
+  float offset_rec;
+
+  // Wavelet
   float fmax;
   float tlag;
 
-  bool snapNumNyquist;
-  int snapNum;
 } config_t;
 
-config_t* initialize();
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+config_t* initialize(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

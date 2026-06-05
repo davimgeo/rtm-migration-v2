@@ -1,6 +1,8 @@
-Geometry (semi check)
-Model (check)
+Geometry (✔)
+Model (✔)
 Wavelet
 Seismogram
 Propagation
 Migration
+
+make config global
