@@ -8,10 +8,10 @@
 #define DATA_COL 3
 
 #define ASSERT_MALLOC(ptr) \
-  if(!ptr) { \
-    perror("malloc"); \
-    exit(EXIT_FAILURE); \
-  } \
+  if(!ptr) {               \
+    perror("malloc");      \
+    exit(EXIT_FAILURE);    \
+  }                        \
 
 static void read_kernel(
   const char* path,

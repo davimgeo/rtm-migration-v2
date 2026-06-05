@@ -1,7 +1,7 @@
 #ifndef GEOMETRY_HPP
 #define GEOMETRY_HPP
 
-#include "../config/config.h"
+#include "../src/par.h"
 
 typedef struct {
   float* x; float* z;

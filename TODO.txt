@@ -1,3 +1,6 @@
-remove config/
-make fortran order the standard in my code
-
+Geometry (semi check)
+Model (check)
+Wavelet
+Seismogram
+Propagation
+Migration

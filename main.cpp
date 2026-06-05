@@ -1,15 +1,17 @@
-#include "src/src.h"
+#include "src/par.h"
+
+#include "include/model.h"
+#include "include/plot.h"
 
 int main()
 {
-  config_t c = initialize();
+  config_t* c = initialize();
 
   Model model(c);
   model.get();
-  // consertar funcao
   //model.set_boundary();
 
-  plot2d(model.model, c.nx, c.nz);
+  //plot2d(model.model, model.nxx, model.nzz);
 
   return 0;
 }

@@ -109,7 +109,6 @@ static inline float* read2d_fortran(const char* PATH, int row, int column)
   }
 
   return out;
-
 }
 
 #endif

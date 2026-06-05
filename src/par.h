@@ -1,7 +1,15 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include <stdio.h>
 #include "stdbool.h"
+
+typedef struct
+{
+  float up_value;
+  int interface;
+  float down_value;
+} parallel_t;
 
 typedef struct
 {
@@ -22,25 +30,21 @@ typedef struct
   float dt;
   int perc;
 
-  char model_mode[5];
+  const char* model_mode;
   const char* model_path;
   int nx;
   int nz;
-  int num_interfaces;
-  int interfaces[5];
-  float* value_interfaces;
+
+  parallel_t* p_mdl;
+  int interface_count;
 
   const char* geometry_mode;
   const char* receivers_path;
   const char* sources_path;
-  int nxGeom;
-  int nzGeom;
-  float recDepth;
-  int* sourcesCreate;
-  float srcDepth;
+  int* sources_create;
   float offset;
-  int* srcCreate;
-  bool saveCreate;
+  int* src_create;
+  bool save_create;
   int nsrc;
 
   float fmax;
@@ -50,6 +54,6 @@ typedef struct
   int snapNum;
 } config_t;
 
-config_t initialize();
+config_t* initialize();
 
 #endif
