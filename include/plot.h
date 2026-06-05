@@ -92,9 +92,11 @@ static inline void plot2d(
   FILE* gnuplot = popen("gnuplot -persistent", "w");
 
   if (!gnuplot) {
-    fprintf(stderr, "Could not start gnuplot!\n");
-    return;
+      fprintf(stderr, "Could not start gnuplot!\n");
+      return;
   }
+
+  size_t n = (size_t)width * height;
 
   fprintf(gnuplot, "set term qt size 1400,600\n");
 
@@ -107,33 +109,35 @@ static inline void plot2d(
   fprintf(gnuplot, "set yrange [%d:0]\n", height - 1);
 
   fprintf(gnuplot, "set palette gray\n");
+  fprintf(gnuplot, "set colorbox\n");
 
   fprintf(gnuplot, "set lmargin at screen 0.08\n");
-  fprintf(gnuplot, "set rmargin at screen 0.98\n");
+  fprintf(gnuplot, "set rmargin at screen 0.88\n");
   fprintf(gnuplot, "set bmargin at screen 0.08\n");
   fprintf(gnuplot, "set tmargin at screen 0.98\n");
 
   fprintf(gnuplot,
-      "plot '-' binary "
-      "array=(%d,%d) "
-      "format='%%float' "
-      "with image\n",
-      width,
-      height);
+          "plot '-' binary "
+          "array=(%d,%d) "
+          "format='%%float' "
+          "with image\n",
+          width,
+          height);
 
   fflush(gnuplot);
 
   fwrite(arr,
          sizeof(float),
-         (size_t)width * height,
+         n,
          gnuplot);
 
-         
   fprintf(gnuplot, "\n");
-  fprintf(gnuplot, "pause mouse close\n");
-         
-  fflush(gnuplot);
 
+
+  fprintf(gnuplot, "set mouse labels\n");
+  fprintf(gnuplot, "pause mouse close\n");
+
+  fflush(gnuplot);
   pclose(gnuplot);
 }
 

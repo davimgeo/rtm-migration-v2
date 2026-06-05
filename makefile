@@ -2,7 +2,7 @@ CFLAGS = -std=c++11
 
 SRC = main.cpp src/geometry.cpp src/model.cpp
 
-TESTS = tests/marmousi.c
+TESTS = tests/parallel.cpp
 
 run: 
 	g++ $(CFLAGS) $(SRC) $(TESTS) -o run.out

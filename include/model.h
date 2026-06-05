@@ -3,13 +3,13 @@
 
 #include <stdlib.h>
 
-#include "../config/config.h"
+#include "../src/par.h"
 #include "geometry.hpp"
 
 class Model
 {
 private:
-  config_t c;
+  config_t* c;
   Geometry geom;
 
 public:
@@ -19,13 +19,13 @@ public:
   float* model;
   float* model_smooth;
 
-  Model(const config_t& config) : c(config)
+  Model(config_t* config) : c(config)
   {
-    nxx = 2 * c.nb + c.nx;
-    nzz = 2 * c.nb + c.nz;
+    nxx = 2 * c->nb + c->nx;
+    nzz = 2 * c->nb + c->nz;
 
-    model = (float*)malloc(c.nz * c.nx * sizeof(float));
-    model_smooth = (float*)malloc(c.nz * c.nx * sizeof(float));
+    model = (float*)malloc(c->nz * c->nx * sizeof(float));
+    model_smooth = (float*)malloc(c->nz * c->nx * sizeof(float));
   }
 
   void get();
@@ -39,5 +39,13 @@ public:
     free(model_smooth);
   }
 };
+
+void add_interface(
+  parallel_t* p_mdl,
+  int *count,
+  float first,
+  int depth,
+  float last
+);
 
 #endif // MODEL_H
