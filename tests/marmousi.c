@@ -14,7 +14,7 @@ config_t* initialize()
   c->nz = 351;
 
   c->geometry_mode = "load";
-  c->receivers_path = "data/marmousi/receivers_2layer.txt";
+  c->receivers_path = "data/marmousi/receivers_marmousi.txt";
   c->sources_path = "data/marmousi/sources40_marmousi.txt";
 
   return c;

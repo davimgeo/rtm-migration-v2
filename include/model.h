@@ -4,13 +4,14 @@
 #include <stdlib.h>
 
 #include "../src/par.h"
+
+#ifdef __cplusplus
 #include "geometry.hpp"
 
 class Model
 {
 private:
-  config_t* c;
-  Geometry geom;
+  const config_t& c;
 
 public:
   int nxx;
@@ -19,33 +20,38 @@ public:
   float* model;
   float* model_smooth;
 
-  Model(config_t* config) : c(config)
+  Model(const config_t& config)
+      : c(config)
   {
-    nxx = 2 * c->nb + c->nx;
-    nzz = 2 * c->nb + c->nz;
+    nxx = 2 * c.nb + c.nx;
+    nzz = 2 * c.nb + c.nz;
 
-    model = (float*)malloc(c->nz * c->nx * sizeof(float));
-    model_smooth = (float*)malloc(c->nz * c->nx * sizeof(float));
+    model = (float*)malloc(c.nz * c.nx * sizeof(float));
+    model_smooth = (float*)malloc(c.nz * c.nx * sizeof(float));
   }
 
   void get();
   void load();
   void create();
   void set_boundary();
-
-  ~Model()
-  {
-    free(model);
-    free(model_smooth);
-  }
 };
 
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void add_interface(
-  parallel_t* p_mdl,
-  int *count,
-  float first,
-  int depth,
-  float last
+    parallel_t* p_mdl,
+    int *count,
+    float first,
+    int depth,
+    float last
 );
 
-#endif // MODEL_H
+#ifdef __cplusplus
+}
+#endif
+
+#endif

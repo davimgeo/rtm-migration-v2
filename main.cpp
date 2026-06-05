@@ -5,13 +5,16 @@
 
 int main()
 {
-  config_t* c = initialize();
+  const config_t* c = initialize();
 
-  Model model(c);
+  Geometry geom(*c);
+  geom.get();
+
+  Model model(*c);
   model.get();
-  //model.set_boundary();
+  model.set_boundary();
 
-  //plot2d(model.model, model.nxx, model.nzz);
+  plot2d(model.model, model.nxx, model.nzz);
 
   return 0;
 }
