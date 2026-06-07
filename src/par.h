@@ -64,6 +64,8 @@ typedef struct
   float offset_rec;
 
   // Wavelet
+  float ntw;
+  float dtw;
   float fmax;
   float tlag;
 

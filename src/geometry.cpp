@@ -1,11 +1,8 @@
-#include <cstdlib>
-#include <cstring>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stddef.h>
+#include <string.h>
 
-#include "utils.h"
-
+#include "../include/utils.h"
 #include "../include/IO.h"
 #include "../include/geometry.hpp"
 
@@ -28,18 +25,13 @@ void Geometry::get()
   }
   else 
   {
-    perror("Choose a valid mode. (create, load)");
-    exit(-1);
+    err("Choose a valid mode. (create, load)");
   }
 };
 
 void Geometry::create_receivers()
 {
-  rec = (receiver*)malloc(nrec * sizeof(receiver));
-  if (rec == NULL) {
-    perror("Could not allocate\n");
-    exit(EXIT_FAILURE);
-  }
+  rec = alloc_struct(nrec, rec);
 
   for (size_t i = 0; i < nrec; i++) 
   {
@@ -50,11 +42,8 @@ void Geometry::create_receivers()
 
 void Geometry::create_sources()
 {
-  src = (sources*)malloc(nsrc * sizeof(sources));
-  if (src == NULL) {
-    perror("Could not allocate\n");
-    exit(EXIT_FAILURE);
-  }
+
+  src = alloc_struct(nsrc, src);
 
   for (size_t i = 0; i < nsrc; i++) 
   {
@@ -68,42 +57,27 @@ void Geometry::save()
   int BUFFER = 64;
 
   // save receivers
-  FILE *fptr = fopen(c.SAVE_REC_PATH, "wa");
+  FILE *fptr = fopen(c.SAVE_REC_PATH, "w");
 
   fprintf(fptr, "# recId, recx, recz\n");
 
-  char line[BUFFER];  
   for (int i = 0; i < nrec; i++) 
   {
-    snprintf(
-      line,
-      BUFFER,
-      "%d, %.2f, %.2f\n",
-      i, rec[i].x, rec[i].z
-    );
-
-    fprintf(fptr, line, BUFFER);
+    fprintf(fptr, "%d, %.2f, %.2f\n",
+        i, rec[i].x, rec[i].z);
   }
 
   fclose(fptr);
 
-  printf("test\n");
   // save sources
-  FILE *fptr2 = fopen(c.SAVE_SRC_PATH, "wa");
+  FILE *fptr2 = fopen(c.SAVE_SRC_PATH, "w");
 
   fprintf(fptr2, "# srcId, srcx, srcz\n");
 
-  char line2[BUFFER];  
   for (int i = 0; i < nsrc; i++) 
   {
-    snprintf(
-      line2,
-      BUFFER,
-      "%d, %.2f, %.2f\n",
-      i, src[i].x, src[i].z
-    );
-
-    fprintf(fptr2, line2, BUFFER);
+    fprintf(fptr2, "%d, %.2f, %.2f\n",
+        i, src[i].x, src[i].z);
   }
 
   fclose(fptr2);
@@ -129,19 +103,11 @@ void Geometry::read_receivers()
 
   long size = ftell(fptr); rewind(fptr);
 
-  float* result = (float*)malloc(size * sizeof(float));
-  if (result == NULL) {
-    perror("Could not allocate\n");
-    exit(EXIT_FAILURE);
-  }
+  float* result = allocf(size);
 
   IO_read_file_separed_by_comma(fptr, size, result);
 
-  rec = (receiver*)malloc(f_lines * sizeof(receiver));
-  if (rec == NULL) {
-    perror("Could not allocate\n");
-    exit(EXIT_FAILURE);
-  }
+  rec = alloc_struct(f_lines, rec);
 
   for (int i = 0; i < f_lines; i++)
   {
@@ -174,19 +140,9 @@ void Geometry::read_sources()
 
   long size = ftell(fptr); rewind(fptr);
 
-  float* result = (float*)malloc(size * sizeof(float));
-  if (result == NULL) {
-    perror("Could not allocate\n");
-    exit(EXIT_FAILURE);
-  }
+  float* result = allocf(size);
 
   IO_read_file_separed_by_comma(fptr, size, result);
-
-  src = (sources*)malloc(f_lines * sizeof(sources));
-  if (src == NULL) {
-    perror("Could not allocate\n");
-    exit(EXIT_FAILURE);
-  }
 
   for (int i = 0; i < f_lines; i++)
   {
