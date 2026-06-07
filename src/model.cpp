@@ -1,10 +1,10 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "../src/utils.h"
+#include "../include/utils.h"
 
 #include "../include/IO.h"
-#include "../include/model.h"
+#include "../include/model.hpp"
 
 void Model::get()
 {  

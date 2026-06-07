@@ -5,11 +5,11 @@
 
 typedef struct {
   float x, z;
-} receiver;
+} Receiver;
 
 typedef struct {
   float x, z;
-} sources;
+} Sources;
 
 class Geometry
 {
@@ -30,15 +30,15 @@ class Geometry
       nsrc = c.nx / c.offset_src;
     }
 
-    receiver* rec;
-    sources* src;
+    Receiver* rec;
+    Sources* src;
 
     void get();
     void save();
 };
 
 void add_source(
-  sources* src,
+  Sources* src,
   int *count,
   float x,
   float z
