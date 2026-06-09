@@ -16,7 +16,6 @@ typedef struct
 typedef struct
 {
   bool debug;
-  const char* engine;
 
   // RTM
   bool save_image;
@@ -32,7 +31,6 @@ typedef struct
   float factor;
 
   // Seismogram
-  const char* seismogram_mode;
   const char* load_seis_path;
 
   int nt;

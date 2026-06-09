@@ -15,7 +15,6 @@ class Geometry
 {
   private:
     const config_t& c;
-    int nrec, nsrc;
 
     void read_receivers();
     void read_sources();
@@ -29,6 +28,8 @@ class Geometry
       nrec = c.nx / c.offset_rec;
       nsrc = c.nx / c.offset_src;
     }
+
+    int nrec, nsrc;
 
     Receiver* rec;
     Sources* src;

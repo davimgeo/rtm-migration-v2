@@ -2,9 +2,12 @@ CC       = gcc
 CXX      = g++
 
 CFLAGS   = -std=c99 -lm
-CXXFLAGS = -std=c++11 -lm
+CXXFLAGS = -std=c++11 
 
-CPP_SRC  = main.cpp src/geometry.cpp src/model.cpp src/wavelet.cpp
+CPP_SRC  = main.cpp src/geometry.cpp src/model.cpp \
+            src/wavelet.cpp src/seismogram.cpp     \
+            src/propagation.cpp
+
 C_SRC = src/utils.c
 
 INIT ?= tests/parallel.c
@@ -18,6 +21,7 @@ rebuild: clean run
 run: $(CPP_OBJ) $(C_OBJ) $(INIT_OBJ)
 	$(CXX) $^ -o run.out
 	./run.out
+	$(MAKE) clean
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
@@ -32,6 +36,6 @@ marmousi:
 	$(MAKE) run INIT=tests/marmousi.c
 
 clean:
-	rm -f $(CPP_OBJ) tests/*.o run.out
+	rm -f src/*.o tests/*.o run.out
 
 .PHONY: run clean
