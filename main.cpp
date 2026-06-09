@@ -1,8 +1,11 @@
+#include "include/utils.h"
 #include "src/par.h"
 
+#include "include/propagation.hpp"
 #include "include/model.hpp"
 #include "include/geometry.hpp"
 #include "include/wavelet.hpp"
+#include "include/seismogram.hpp"
 
 #include "include/plot.h"
 
@@ -21,7 +24,14 @@ int main()
   model.get();
   model.set_boundary();
 
-  plot1d(wavelet.wavelet_dt, c->ntw, c);
- 
+  Seismogram seismogram(*c, geom);
+
+  Propagation modelling(
+    *c, model, geom, seismogram, wavelet
+  );
+  modelling.fdm_propagation();
+
+  plot2d(seismogram.seismogram, geom.nrec, c->nt);
+
   return 0;
 }
