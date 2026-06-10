@@ -1,29 +1,35 @@
+#include <cstdio>
+#include <cstdlib>
+#include <stdlib.h>
 #include <string.h>
 
 #include "../include/plot.h"
 #include "../include/propagation.hpp"
 
+#define PRINT(x) printf("%d\n", x)
+
 void Propagation::fdm_propagation()
 {
   for (size_t s = 0; s < geometry.nsrc - 1; s++)
   {
-    getSourceIndex(s);
-
-    //resetFields();
-    printf("pass\n");
+    resetFields();
 
     for (int t = 1; t < c.nt - 1; t++)
     {
       injectSource(t);
-      printf("pass2\n");
 
       forwardKernel();
 
       getSeismogram(t);
-    }
 
-    plot2d(seismogram.seismogram, geometry.nrec, c.nt);
+      getSnapshots(t);
+    }
   }
+
+  free(u->past);
+  free(u->present);
+  free(u->future);
+  free(snapshots);
 }
 
 void Propagation::getSourceIndex(int s)
@@ -36,7 +42,8 @@ void Propagation::getSourceIndex(int s)
 
 void Propagation::resetFields()
 {
-  memset(seismogram.seismogram, 0, c.nt * geometry.nrec * sizeof(float));
+  memset(seismogram.seismogram, 0,
+      c.nt * geometry.nrec * sizeof(float));
   memset(u->past, 0, shape * sizeof(float));
   memset(u->present, 0, shape * sizeof(float));
   memset(u->future, 0, shape * sizeof(float));
@@ -46,15 +53,15 @@ void Propagation::resetFields()
 
 inline void Propagation::injectSource(int t)
 {
-  printf("%f\n", u->present[sourceIndex]);
-  //u->present[sourceIndex] += wavelet.wavelet[t] / dh2;
+  u->present[sourceIndex] += wavelet.wavelet[t] / dh2;
 }
 
 void Propagation::forwardKernel()
 {
-   for (int i = 4; i < model.nzz - 4; i++)
+   #pragma omp parallel for schedule(static)
+   for (int i = 4; i < model.nzz - 4; ++i)
     {
-      for (int j = 4; j < model.nxx - 4; j++)
+      for (int j = 4; j < model.nxx - 4; ++j)
       {
         const int idx = i * model.nxx + j;
 
@@ -89,18 +96,18 @@ void Propagation::forwardKernel()
           u->future[idx];
       }
     } // end spacial loop 
-
-    for (int i = 4; i < model.nzz - 4; i++)
+      
+    for (int i = 4; i < model.nzz - 4; ++i)
     {
-      for (int j = 4; j < model.nxx - 4; j++)
+      for (int j = 4; j < model.nxx - 4; ++j)
       {
         const int idx = i * model.nxx + j;
 
-        const float damp =
-          damp_x[j] * damp_z[i];
+        const float damp_prod =
+          damp->x[j] * damp->z[i];
 
-        u->future[idx] = u->present[idx] * damp;
-        u->present[idx] = u->past[idx] * damp;
+        u->future[idx] = u->present[idx] * damp_prod;
+        u->present[idx] = u->past[idx] * damp_prod;
       }
     } // end damping
 }
@@ -117,7 +124,78 @@ void Propagation::getSeismogram(int t)
   }
 }
 
-Propagation::Propagation(
+void Propagation::getSnapshots(int t)
+{
+  if ( (c.isSnap && (!t)) % snap_ratio )
+  {
+    size_t idx = snap_id_src * shape;
+    memcpy(&snapshots[idx],
+           u->present,
+           shape * sizeof(*u->present));
+    snap_id_src++;
+  }
+
+}
+
+damping_t* get_damp(int nxx, int nzz, int nb, float factor)
+{
+  damping_t* damp = alloc_struct(1.0f, damp);
+
+  damp->x = (float *)calloc(nxx, sizeof(float));
+  damp->z = (float *)calloc(nzz, sizeof(float));
+
+  if (!damp->x || !damp->z) 
+  {
+    perror("Could not allocate damping");
+    exit(EXIT_FAILURE);
+  }
+
+  int nz = nzz - 2*nb;
+  int nx = nxx - 2*nb;
+
+  for (int i = 0; i < nzz; i++) 
+  {
+    // same as nb <= i <= nz + nb
+    if ((unsigned)(i - nb) < (nz)) 
+    {
+      damp->z[i] = 1.0f;
+    }
+    else if (i < nb) 
+    {
+      int d = nb - i;
+      damp->z[i] = exp(-(factor * d) * (factor * d));
+    }
+    else 
+    {
+      int d = i - (nb + nz - 1);
+      damp->z[i] = exp(-(factor * d) * (factor * d));
+    }
+
+   }
+
+  for (int j = 0; j < nxx; j++) 
+  {
+    // same as nb <= j <= nz + nb
+    if ((unsigned)(j - nb) < (nx)) 
+    {
+      damp->x[j] = 1.0f;
+    }
+    else if (j < nb) 
+    {
+      int d = nb - j;
+      damp->x[j] = exp(-(factor * d) * (factor * d));
+    }
+    else 
+    {
+      int d = j - (nb + nx - 1);
+      damp->x[j] = exp(-(factor * d) * (factor * d));
+    }
+
+  }
+
+  return damp;
+
+}Propagation::Propagation(
     const config_t& config,
     const Model& m,
     const Geometry& g,
@@ -132,11 +210,15 @@ Propagation::Propagation(
 {
   shape = model.nzz * model.nxx;
 
-  u      = alloc_struct(3*shape, u);
-  u_homo = alloc_struct(3*shape, u);
+  u          = alloc_struct(1.0f, u);
+  u->past    = allocf(shape);
+  u->present = allocf(shape);
+  u->future  = allocf(shape);
 
-  laplacian      = allocf(shape);
-  laplacian_homo = allocf(shape);
+  u_homo = alloc_struct(1.0f, u);
+  u_homo->past    = allocf(shape);
+  u_homo->present = allocf(shape);
+  u_homo->future  = allocf(shape);
 
   model_homo = allocf(shape);
 
@@ -155,12 +237,12 @@ Propagation::Propagation(
     {
       int idx = i * model.nxx + j;
       velocity_term[idx] =
-        c.dt * c.dt * model.model[idx];
+        c.dt * c.dt *
+        model.model[idx] * model.model[idx];
     }
   }
 
-  damp_x = allocf(model.nxx);
-  damp_z = allocf(model.nzz);
+  damp = get_damp(model.nxx, model.nzz, c.nb, c.factor);
 
   float nsnaps = 101.0f;
   snap_ratio = (c.nt - 1) / nsnaps + 1;

@@ -9,14 +9,29 @@
 
 #include "include/plot.h"
 
+#include <time.h>
+#define PROFILE_BEGIN()                                   \
+    struct timespec start, end;                           \
+    clock_gettime(CLOCK_MONOTONIC, &start)                \
+
+#define PROFILE_END() do {                                \
+    clock_gettime(CLOCK_MONOTONIC, &end);                 \
+    double elapsed = (end.tv_sec - start.tv_sec) +        \
+                     (end.tv_nsec - start.tv_nsec) / 1e9; \
+    printf("Elapsed: %.4f seconds\n", elapsed);           \
+} while (0)
+
 int main()
 {
+  PROFILE_BEGIN();
+
   const config_t* c = initialize();
+  debug(c);
 
   Wavelet wavelet(*c);
   wavelet.get();
-  wavelet.second_derivative();
-
+  //wavelet.second_derivative();
+    
   Geometry geom(*c);
   geom.get();
 
@@ -32,6 +47,8 @@ int main()
   modelling.fdm_propagation();
 
   plot2d(seismogram.seismogram, geom.nrec, c->nt);
+
+  PROFILE_END();
 
   return 0;
 }

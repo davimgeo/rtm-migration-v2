@@ -1,5 +1,3 @@
-#include <stdlib.h>
-
 #include "../include/utils.h"
 #include "../include/model.hpp"
 
@@ -26,7 +24,12 @@ config_t* initialize(void)
       .model_mode       = "create",
       .nx               = 201,
       .nz               = 101,
+      .dh               = 10,
+      .isSnap           = false,
+
+      /* modelling */ 
       .nb               = 100,
+      .factor           = 0.0015f,
 
       /* seismogram */
       .nt               = 2001,
@@ -44,7 +47,7 @@ config_t* initialize(void)
   c->p_mdl = alloc_struct(MAX_INTERFACES, c->p_mdl);
 
   add_interface(c->p_mdl, &c->interface_count,
-    1500.0f, 50, 2500.0f);
+    1500.0f, 50, 2000.0f);
 
   return c;
 }

@@ -10,3 +10,4 @@ make function with specific gnuplot themes
 (like matplotlib_style, seismic)
 estudar "perc" do Seismic UNix
 fazer funcoes de plot dentro das classes
+fazer modo debug

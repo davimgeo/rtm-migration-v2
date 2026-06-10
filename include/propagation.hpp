@@ -16,6 +16,12 @@ typedef struct
   float* future;
 } Wavefield;
 
+typedef struct
+{
+  float* x;
+  float* z;
+} damping_t;
+
 class Propagation
 {
 public:
@@ -28,6 +34,7 @@ public:
   );
 
   void fdm_propagation();
+  void remove_direct_wave_model(int sourceIndex);
 
 private:
 
@@ -49,8 +56,7 @@ private:
   float* laplacian_homo;
   float* model_homo;
 
-  float* damp_x;
-  float* damp_z;
+  damping_t* damp;
 
   int snap_ratio;
   float* snapshots;
@@ -64,6 +70,7 @@ private:
   void injectSource(int t);
   void forwardKernel();
   void getSeismogram(int t);
-  void get_snapshots();
+  void getSnapshots(int t);
+  void getDamp();
 };
 #endif
