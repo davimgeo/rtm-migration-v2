@@ -1,6 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "read.h"
 
 #define DATA_COL 3
@@ -42,11 +39,11 @@ static void read_receivers(geometry_t* geom, const char* PATH)
 
   char* line = NULL;
   size_t line_buffer_len = 0;
-  int f_lines = 0;
+  geom->nrec = 0;
 
   while (getline(&line, &line_buffer_len, fptr) != EOF)
   {
-    if (line[0] != '#') f_lines++;
+    if (line[0] != '#') geom->nrec++;
   }
 
   long size = ftell(fptr); rewind(fptr);
@@ -55,12 +52,13 @@ static void read_receivers(geometry_t* geom, const char* PATH)
 
   read_file_separed_by_comma(fptr, size, result);
 
-  geom->rec = alloc_struct(f_lines, geom->rec);
+  geom->rec.x = allocf(geom->nrec);
+  geom->rec.z = allocf(geom->nrec);
 
-  for (int i = 0; i < f_lines; i++)
+  for (int i = 0; i < geom->nrec; i++)
   {
-    geom->rec->x[i] = result[i * DATA_COL + 1];
-    geom->rec->z[i] = result[i * DATA_COL + 2];
+    geom->rec.x[i] = result[i * DATA_COL + 1];
+    geom->rec.z[i] = result[i * DATA_COL + 2];
   }
 
   free(result);
@@ -75,11 +73,11 @@ static void read_sources(geometry_t* geom, const char* PATH)
 
   char* line = NULL;
   size_t line_buffer_len = 0;
-  int f_lines = 0;
+  geom->nsrc = 0;
 
   while (getline(&line, &line_buffer_len, fptr) != EOF)
   {
-    if (line[0] != '#') f_lines++;
+    if (line[0] != '#') geom->nsrc++;
   }
 
   long size = ftell(fptr); rewind(fptr);
@@ -88,10 +86,13 @@ static void read_sources(geometry_t* geom, const char* PATH)
 
   read_file_separed_by_comma(fptr, size, result);
 
-  for (int i = 0; i < f_lines; i++)
+  geom->src.x = allocf(geom->nsrc);
+  geom->src.z = allocf(geom->nsrc);
+
+  for (int i = 0; i < geom->nsrc; i++)
   {
-    geom->src->x[i] = result[i * DATA_COL + 1];
-    geom->src->z[i] = result[i * DATA_COL + 2];
+    geom->src.x[i] = result[i * DATA_COL + 1];
+    geom->src.z[i] = result[i * DATA_COL + 2];
   }
 
   free(result);
@@ -99,7 +100,7 @@ static void read_sources(geometry_t* geom, const char* PATH)
   fclose(fptr);
 }
 
-void geometry_load(
+void load_geometry(
   geometry_t* geom, 
   const char* REC_PATH, 
   const char* SRC_PATH
