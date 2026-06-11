@@ -7,24 +7,39 @@ typedef struct
 {
   float* x;
   float* z;
-  float offset;
 } receivers_t;
 
 typedef struct
 {
   float* x;
   float* z;
-  float offset;
 } sources_t;
 
 typedef struct
 {
-  receivers_t* rec;
-  sources_t* src;
+  int line_length;
+  int src_depth;
+  int rec_depth;
+  int offset;
+} create_t;
 
-  size_t nrec;
-  size_t nsrc;
+typedef struct
+{
+  receivers_t rec;
+  sources_t src;
+
+  create_t cr;
+
+  size_t nrec, nsrc;
 } geometry_t;
+
+void load_geometry(
+  geometry_t* geom, 
+  const char* REC_PATH, 
+  const char* SRC_PATH
+);
+
+void create_geometry(geometry_t *geom);
 
 #endif /* end of include guard: GEOMETRY_H */
 

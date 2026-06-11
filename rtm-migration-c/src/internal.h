@@ -6,6 +6,7 @@
 // flag decided inside makefile
 // put macros here
 
+#include "io.h"
 #include "utils.h"
 
 #define err(...) \
