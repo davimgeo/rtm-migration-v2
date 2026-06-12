@@ -1,5 +1,7 @@
-#include "read.h"
+#include "../internal.h"
+#include "geometry.h"
 
+#define BUFFER_SIZE 256
 #define DATA_COL 3
 
 static void read_file_separed_by_comma(FILE* fptr, int total_size, float* result)
@@ -100,7 +102,7 @@ static void read_sources(geometry_t* geom, const char* PATH)
   fclose(fptr);
 }
 
-void load_geometry(
+void Geometry_Load(
   geometry_t* geom, 
   const char* REC_PATH, 
   const char* SRC_PATH

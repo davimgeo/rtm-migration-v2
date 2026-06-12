@@ -2,6 +2,7 @@
 #define GEOMETRY_H
 
 #include <stdio.h>
+#include <stdlib.h>
 
 typedef struct
 {
@@ -33,13 +34,13 @@ typedef struct
   size_t nrec, nsrc;
 } geometry_t;
 
-void load_geometry(
+void Geometry_Load(
   geometry_t* geom, 
   const char* REC_PATH, 
   const char* SRC_PATH
 );
 
-void create_geometry(geometry_t *geom);
+void Geometry_Create(geometry_t *geom);
 
 #endif /* end of include guard: GEOMETRY_H */
 

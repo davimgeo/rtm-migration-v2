@@ -20,10 +20,10 @@ typedef struct
   float* vp;
 } model_t;
 
-float* load(const char* PATH, int nz, int nx);
-void set_boundary(model_t *m);
-void create(model_t* m);
-void add_interface(
+float* Model_Load(const char* PATH, int nz, int nx);
+void Model_Extent(model_t *m);
+void Model_Create(model_t* m);
+void Model_AddInterface(
   parallel_t* p_mdl,
   int *count,
   float first,

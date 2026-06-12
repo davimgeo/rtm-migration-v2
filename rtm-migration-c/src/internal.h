@@ -9,6 +9,9 @@
 #include "io.h"
 #include "utils.h"
 
+#define debug(...) \
+    debug_impl(__FILE__, __func__, __LINE__, __VA_ARGS__)
+
 #define err(...) \
     err_impl(__FILE__, __func__, __LINE__, __VA_ARGS__)
 
