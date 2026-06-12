@@ -4,6 +4,14 @@
 #define BUFFER_SIZE 256
 #define DATA_COL 3
 
+void Geometry_InitLoad(geometry_t* g)
+{
+  g = alloc_struct(1.0f, g);
+
+  g->nsrc = 0;
+  g->nrec = 0;
+}
+
 static void read_file_separed_by_comma(FILE* fptr, int total_size, float* result)
 {
   char buff[BUFFER_SIZE];

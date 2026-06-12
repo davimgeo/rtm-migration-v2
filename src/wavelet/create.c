@@ -3,6 +3,13 @@
 #include "../internal.h"
 #include "wavelet.h"
 
+void Wavelet_Init(wavelet_t* w, float dt, float nt, float fmax)
+{
+  w->dt = dt;
+  w->nt = nt;
+  w->fmax = fmax;
+}
+
 void Wavelet_Create(wavelet_t* w)
 {
   w->wavelet = allocf(w->nt);
