@@ -4,7 +4,10 @@
 #include <string.h>
 #include <ctype.h>
 
-#include "../include/utils.h"
+#include "utils.h"
+
+#define err(...) \
+    err_impl(__FILE__, __func__, __LINE__, __VA_ARGS__)
 
 static void* alloc(size_t n1, size_t type)
 {
@@ -62,7 +65,7 @@ void err_impl(
   va_list args; 
 
   fprintf(stderr,
-          "ERROR: %s:%d (%s): ",
+          "[ERROR][%s:%d][%s] ",
           file, line, func);
   va_start(args,fmt);
   vfprintf(stderr, fmt, args);
@@ -72,6 +75,27 @@ void err_impl(
   fflush(stderr);
 
   exit(EXIT_FAILURE);
+}
+
+void debug_impl(
+  const char* file,
+  const char* func,
+  int line,
+  const char *fmt, 
+  ...
+) 
+{ 
+  va_list args; 
+
+  fprintf(stderr,
+          "[DEBUG][%s:%d][%s] ",
+          file, line, func);
+  va_start(args,fmt);
+  vfprintf(stderr, fmt, args);
+  va_end(args); 
+  fprintf(stderr, "\n");
+
+  fflush(stderr);
 }
 
 void print2D(float* arr, int ROW, int COLUMN)
@@ -108,5 +132,6 @@ char* upper(const char* str)
 
   return str_upper;
 }
+
 
 

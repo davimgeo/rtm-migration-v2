@@ -1,39 +1,20 @@
-CC       = gcc
-CXX      = g++
+CC      = gcc
+CFLAGS  = -std=gnu99 -g
+INCLUDE = -I/home/lum/rtm-migration-v2/include
 
-CFLAGS   = -std=c99 -O3 -march=native -mavx2 -mfma -g
-CXXFLAGS = -std=c++11 -O3 -march=native -mavx2 -mfma -g
+# Sources
+C_SRC := $(shell find . -name "*.c")
+C_OBJ := $(patsubst ./%.c,obj/%.o,$(C_SRC))
 
-LDFLAGS  = -fopenmp
-OMPFLAGS = -fopenmp
-
-CPP_SRC  = main.cpp src/geometry.cpp src/model.cpp \
-           src/wavelet.cpp src/seismogram.cpp \
-           src/propagation.cpp
-
-C_SRC    = src/utils.c
-
-INIT ?= tests/parallel.c
-
-CPP_OBJ  = $(CPP_SRC:.cpp=.o)
-C_OBJ    = $(C_SRC:.c=.o)
-INIT_OBJ = $(INIT:.c=.o)
-
-run: $(CPP_OBJ) $(C_OBJ) $(INIT_OBJ)
-	$(CXX) $^ $(LDFLAGS) -o run.out
+run: $(C_OBJ)
+	$(CC) $^ -lm -o run.out
 	./run.out
+	$(MAKE) clean
 
-%.o: %.cpp
-	$(CXX) $(CXXFLAGS) $(OMPFLAGS) -c $< -o $@
+obj/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(CC) $(INCLUDE) $(CFLAGS) -c $< -o $@
 
-%.o: %.c
-	$(CC) $(CFLAGS) $(OMPFLAGS) -c $< -o $@
+clean:
+	rm -rf obj run.out
 
-parallel: 
-	$(MAKE) run INIT=tests/parallel.c
-
-marmousi: 
-	$(MAKE) run INIT=tests/marmousi.c
-
-clean: 
-	rm -f src/*.o tests/*.o run.out
