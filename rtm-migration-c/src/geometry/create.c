@@ -1,4 +1,6 @@
-#include "create.h"
+#include "../internal.h"
+
+#include "geometry.h"
 
 static void create_receivers(geometry_t* geom)
 {
@@ -28,7 +30,7 @@ static void create_sources(geometry_t* geom)
   }
 }
 
-void create_geometry(geometry_t *geom)
+void Geometry_Create(geometry_t *geom)
 {
   create_receivers(geom);
   create_sources(geom);

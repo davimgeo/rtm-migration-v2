@@ -11,6 +11,14 @@ void err_impl(
   ...
 );
 
+void debug_impl(
+  const char* file,
+  const char* func,
+  int line,
+  const char *fmt, 
+  ...
+);
+
 float* allocf(size_t size);
 int* alloci(size_t size);
 void* allocs_impl(size_t size, size_t pstruct);

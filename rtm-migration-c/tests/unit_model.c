@@ -1,13 +1,13 @@
-#include "../internal.h"
+#include "../src/internal.h"
+#include "../src/plot.h"
 
-#include "../plot.h"
-#include "model.h"
+#include "../include/model.h"
 
 #define MAX_INTERFACES 100
 
-#define PATH "../../data/marmousi/vp_351x1701_10m.bin"
+#define PATH "../data/marmousi/vp_351x1701_10m.bin"
 
-int main(void)
+void Model_Test()
 {
   model_t* model = alloc_struct(1.0f, model);
 
@@ -31,10 +31,8 @@ int main(void)
   };
 
   model->p_mdl = alloc_struct(MAX_INTERFACES, model->p_mdl);
-  add_interface(model->p_mdl, &(model->interface_count), 1500, 50, 2000);
-  create(model);
+  Model_AddInterface(model->p_mdl, &(model->interface_count), 1500, 50, 2000);
+  Model_Create(model);
 
   plot2d(model->vp, model->nx, model->nz);
-
-  return 0;
 }

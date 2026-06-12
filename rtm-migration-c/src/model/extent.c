@@ -1,13 +1,10 @@
 #include <stdlib.h>
 
-#include "extent.h"
+#include "../internal.h"
 
-float* load(const char* PATH, int nz, int nx)
-{
-  return read2d_fortran(PATH, nz, nx);
-}
+#include "model.h"
 
-void set_boundary(model_t *m)
+void Model_Extent(model_t *m)
 {
   int nxx = m->nx + 2*m->nb;
   int nzz = m->nz + 2*m->nb;

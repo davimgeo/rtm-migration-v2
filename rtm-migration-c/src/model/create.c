@@ -1,6 +1,13 @@
-#include "create.h"
+#include "../internal.h"
 
-void create(model_t* m)
+#include "model.h"
+
+float* Model_Load(const char* PATH, int nz, int nx)
+{
+  return read2d_fortran(PATH, nz, nx);
+}
+
+void Model_Create(model_t* m)
 {
   m->vp = allocf(m->nx * m->nz);
   for (int i = 0; i < m->nz; ++i)
@@ -22,10 +29,9 @@ void create(model_t* m)
     {
       m->vp[i * m->nx + j] = value;
     }
-  }
 }
 
-void add_interface(
+void Model_AddInterface(
   parallel_t* p_mdl,
   int *count,
   float first,
