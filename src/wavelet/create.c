@@ -3,11 +3,15 @@
 #include "../internal.h"
 #include "wavelet.h"
 
-void Wavelet_Init(wavelet_t* w, float dt, float nt, float fmax)
+wavelet_t* Wavelet_Init(wavelet_t* w, float dt, float nt, float fmax)
 {
+  w = alloc_struct(1, w);
+
   w->dt = dt;
   w->nt = nt;
   w->fmax = fmax;
+
+  return w;
 }
 
 void Wavelet_Create(wavelet_t* w)

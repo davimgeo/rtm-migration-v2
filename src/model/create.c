@@ -1,19 +1,22 @@
 #include "../internal.h"
-#include "../plot.h"
 
 #include "model.h"
 
-void Model_Init(model_t *m, int nx, int nz, int nb)
+model_t* Model_Init(model_t *m, int nx, int nz, int nb)
 {
-  //m = alloc_struct(1.0f, m);
+  m = alloc_struct(1, m);
 
   m->nx = nx;
+  m->nxx = nx + 2*nb;
   m->nz = nz;
+  m->nzz = nz + 2*nb;
   m->nb = nb;
   m->vp = NULL;
 
   m->p_mdl = alloc_struct(MAX_INTERFACES, m->p_mdl);
   m->interface_count = 0;
+
+  return m;
 }
 
 void Model_Load(model_t *m, const char* PATH, int nx, int nz)

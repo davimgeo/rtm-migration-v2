@@ -10,10 +10,10 @@ typedef struct
     float down_value;
 } parallel_t;
 
-typedef struct
+typedef struct model_t
 {
-  int nx;
-  int nz;
+  int nx, nxx;
+  int nz, nzz;
   int nb;
 
   parallel_t *p_mdl;
@@ -23,7 +23,7 @@ typedef struct
 
 } model_t;
 
-void Model_Init(model_t *m, int nx, int nz, int nb);
+model_t* Model_Init(model_t *m, int nx, int nz, int nb);
 void Model_Load(model_t *m, const char* PATH, int nx, int nz);
 void Model_Create(model_t* m);
 
