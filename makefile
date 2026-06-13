@@ -1,20 +1,13 @@
 CC      = gcc
-CFLAGS  = -std=gnu99 -g
+CFLAGS  = -std=gnu99 -O3 -g -march=native -fopenmp -mavx2 -mfma
 INCLUDE = -I/home/lum/rtm-migration-v2/include
 
-# Sources
 C_SRC := $(shell find . -name "*.c")
-C_OBJ := $(patsubst ./%.c,obj/%.o,$(C_SRC))
 
-run: $(C_OBJ)
-	$(CC) $^ -lm -o run.out
+run:
+	$(CC) $(CFLAGS) $(INCLUDE) $(C_SRC) -lm -o run.out
 	./run.out
 	$(MAKE) clean
 
-obj/%.o: %.c
-	@mkdir -p $(dir $@)
-	$(CC) $(INCLUDE) $(CFLAGS) -c $< -o $@
-
 clean:
-	rm -rf obj run.out
-
+	rm -f run.out

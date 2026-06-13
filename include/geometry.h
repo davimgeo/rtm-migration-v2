@@ -2,7 +2,6 @@
 #define GEOMETRY_H
 
 #include <stdio.h>
-#include <stdlib.h>
 
 typedef struct
 {
@@ -21,10 +20,11 @@ typedef struct
   int line_length;
   int src_depth;
   int rec_depth;
-  int offset;
+  int offset_rec;
+  int offset_src;
 } create_t;
 
-typedef struct
+typedef struct geometry_t
 {
   receivers_t rec;
   sources_t src;
@@ -34,14 +34,15 @@ typedef struct
   size_t nrec, nsrc;
 } geometry_t;
 
-void Geometry_InitLoad(geometry_t* g);
+geometry_t* Geometry_InitLoad(geometry_t* g);
 
-void Geometry_InitCreate(
+geometry_t* Geometry_InitCreate(
   geometry_t* g,
   int line_length,
   int src_depth,
   int rec_depth,
-  int offset
+  int offset_rec,
+  int offset_src
 );
 
 void Geometry_Load(

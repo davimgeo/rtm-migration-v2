@@ -1,0 +1,4 @@
+CompileFlags:
+  Add:
+    - -I/home/lum/rtm-migration-v2/include
+    - -I/home/lum/rtc-migration-v2/src
