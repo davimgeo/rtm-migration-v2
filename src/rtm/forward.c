@@ -2,12 +2,12 @@
 
 #include "rtm_c.h"
 
-void RTM_ForwardPropagation(propagation_t* p, int t)
+void RTM_ForwardPropagation(rtm_t* r, int t)
 {
-  const int nxx = p->model->nxx;
-  const int nzz = p->model->nzz;
+  const int nxx = r->p->model->nxx;
+  const int nzz = r->p->model->nzz;
 
-  p->u->present[p->sidx] += p->wavelet->wavelet[t] / p->dh2;
+  r->forward->present[r->p->sidx] += r->p->wavelet->wavelet[t] / r->p->dh2;
 
   #pragma omp parallel for schedule(static)
   for (int i = 4; i < nzz - 4; ++i)
@@ -17,30 +17,30 @@ void RTM_ForwardPropagation(propagation_t* p, int t)
       const int idx = i * nxx + j;
 
       const float d2u_dx2 =
-          -9.0f    * p->u->present[(i - 4) * nxx + j] +
-           128.0f  * p->u->present[(i - 3) * nxx + j] -
-          1008.0f  * p->u->present[(i - 2) * nxx + j] +
-          8064.0f  * p->u->present[(i - 1) * nxx + j] -
-         14350.0f  * p->u->present[(i    ) * nxx + j] +
-          8064.0f  * p->u->present[(i + 1) * nxx + j] -
-          1008.0f  * p->u->present[(i + 2) * nxx + j] +
-           128.0f  * p->u->present[(i + 3) * nxx + j] -
-             9.0f  * p->u->present[(i + 4) * nxx + j];
+          -9.0f    * r->forward->present[(i - 4) * nxx + j] +
+           128.0f  * r->forward->present[(i - 3) * nxx + j] -
+          1008.0f  * r->forward->present[(i - 2) * nxx + j] +
+          8064.0f  * r->forward->present[(i - 1) * nxx + j] -
+         14350.0f  * r->forward->present[(i    ) * nxx + j] +
+          8064.0f  * r->forward->present[(i + 1) * nxx + j] -
+          1008.0f  * r->forward->present[(i + 2) * nxx + j] +
+           128.0f  * r->forward->present[(i + 3) * nxx + j] -
+             9.0f  * r->forward->present[(i + 4) * nxx + j];
 
       const float d2u_dz2 =
-          -9.0f    * p->u->present[i * nxx + (j - 4)] +
-           128.0f  * p->u->present[i * nxx + (j - 3)] -
-          1008.0f  * p->u->present[i * nxx + (j - 2)] +
-           8064.0f * p->u->present[i * nxx + (j - 1)] -
-          14350.0f * p->u->present[i * nxx + (j    )] +
-           8064.0f * p->u->present[i * nxx + (j + 1)] -
-          1008.0f  * p->u->present[i * nxx + (j + 2)] +
-           128.0f  * p->u->present[i * nxx + (j + 3)] -
-             9.0f  * p->u->present[i * nxx + (j + 4)];
+          -9.0f    * r->forward->present[i * nxx + (j - 4)] +
+           128.0f  * r->forward->present[i * nxx + (j - 3)] -
+          1008.0f  * r->forward->present[i * nxx + (j - 2)] +
+           8064.0f * r->forward->present[i * nxx + (j - 1)] -
+          14350.0f * r->forward->present[i * nxx + (j    )] +
+           8064.0f * r->forward->present[i * nxx + (j + 1)] -
+          1008.0f  * r->forward->present[i * nxx + (j + 2)] +
+           128.0f  * r->forward->present[i * nxx + (j + 3)] -
+             9.0f  * r->forward->present[i * nxx + (j + 4)];
 
-      float laplacian = (d2u_dx2 + d2u_dz2) * p->inv_dh2;
+      float laplacian = (d2u_dx2 + d2u_dz2) * r->p->inv_dh2;
 
-      p->u->past[idx] = p->vel_arg[idx] * laplacian + 2.0f * p->u->present[idx] - p->u->future[idx];
+      r->forward->past[idx] = r->p->vel_arg[idx] * laplacian + 2.0f * r->forward->present[idx] - r->forward->future[idx];
     }
   }
 
@@ -51,10 +51,10 @@ void RTM_ForwardPropagation(propagation_t* p, int t)
     {
       const int idx = i * nxx + j;
 
-      float damp = p->damp->x[j] * p->damp->z[i];
+      float damp = r->p->damp->x[j] * r->p->damp->z[i];
 
-      p->u->future[idx]  = p->u->present[idx] * damp;
-      p->u->present[idx] = p->u->past[idx] * damp;
+      r->forward->future[idx]  = r->forward->present[idx] * damp;
+      r->forward->present[idx] = r->forward->past[idx] * damp;
     }
   }
 
@@ -62,16 +62,16 @@ void RTM_ForwardPropagation(propagation_t* p, int t)
 
 void RTM_GetSourceSnapshots(rtm_t* r, int t)
 {
-  if ((t % p->snap_ratio) == 0)
+  if ((t % r->p->snap_ratio) == 0)
   {
-    size_t idx = p->snap_id_src * p->model->nxx * p->model->nzz;
+    size_t idx = r->p->snap_id_src * r->p->model->nxx * r->p->model->nzz;
 
     memcpy(
-        &p->snapshots[idx],
-        p->u->present,
-        p->model->nxx * p->model->nzz *
-        sizeof(*p->u->present));
+        &r->p->snapshots[idx],
+        r->forward->present,
+        r->p->model->nxx * r->p->model->nzz *
+        sizeof(*r->forward->present));
 
-    p->snap_id_src++;
+    r->p->snap_id_src++;
   }
 }

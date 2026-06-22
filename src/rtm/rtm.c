@@ -11,13 +11,13 @@ static void RTM_ResetFields(rtm_t* r)
     r->p->nt * r->p->seismogram->nrec * sizeof(float)
   );
 
-  memset(r->p->u->past, 0, r->p->model->nxx * r->p->model->nzz * sizeof(float));
-  memset(r->p->u->present, 0, r->p->model->nxx * r->p->model->nzz * sizeof(float));
-  memset(r->p->u->future, 0, r->p->model->nxx * r->p->model->nzz * sizeof(float));
+  memset(r->forward->past, 0, r->p->model->nxx * r->p->model->nzz * sizeof(float));
+  memset(r->forward->present, 0, r->p->model->nxx * r->p->model->nzz * sizeof(float));
+  memset(r->forward->future, 0, r->p->model->nxx * r->p->model->nzz * sizeof(float));
 
-  memset(r->back->past, 0, r->p->model->nxx * r->p->model->nzz * sizeof(float));
-  memset(r->back->present, 0, r->p->model->nxx * r->p->model->nzz * sizeof(float));
-  memset(r->back->future, 0, r->p->model->nxx * r->p->model->nzz * sizeof(float));
+  memset(r->backward->past, 0, r->p->model->nxx * r->p->model->nzz * sizeof(float));
+  memset(r->backward->present, 0, r->p->model->nxx * r->p->model->nzz * sizeof(float));
+  memset(r->backward->future, 0, r->p->model->nxx * r->p->model->nzz * sizeof(float));
 
   memset(r->num, 0, r->p->model->nxx * r->p->model->nzz * sizeof(float));
   memset(r->dem, 0, r->p->model->nxx * r->p->model->nzz * sizeof(float));
@@ -51,9 +51,9 @@ void rtm(rtm_t* r)
 
     for (int t = 1; t < r->p->nt-1; t++) 
     {
-      RTM_ForwardPropagation(r->p, t);
+      RTM_ForwardPropagation(r, t);
 
-      RTM_GetSourceSnapshots();
+      RTM_GetSourceSnapshots(r, t);
     }
 
     for (int t = r->p->nt-1; t < r->tstop; t++) 

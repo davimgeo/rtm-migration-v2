@@ -7,7 +7,8 @@ typedef struct
 {
   propagation_t* p;
 
-  wavefield_t* back;
+  wavefield_t* forward;
+  wavefield_t* backward;
 
   float* num;
   float* dem;
@@ -17,6 +18,8 @@ typedef struct
   int current_src_id;
   int current_rec_id;
 
+  float* snaps;
+  int snap_ratio;
   int tstop;
 } rtm_t;
 
