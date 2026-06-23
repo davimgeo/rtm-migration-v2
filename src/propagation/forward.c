@@ -4,157 +4,6 @@
 
 #include "propagation.h"
 
-void propagation_debug(const propagation_t *p)
-{
-    if (!p)
-    {
-        printf("propagation_t = NULL\n");
-        return;
-    }
-
-    printf("\n========== PROPAGATION ==========\n");
-
-    printf("nt          : %d\n", p->nt);
-    printf("dt          : %f\n", p->dt);
-    printf("dh          : %f\n", p->dh);
-    printf("factor      : %f\n", p->factor);
-
-    printf("shape       : %d\n", p->shape);
-    printf("dh2         : %d\n", p->dh2);
-    printf("inv_dh2     : %f\n", p->inv_dh2);
-
-    printf("snap_ratio  : %d\n", p->snap_ratio);
-    printf("sidx        : %d\n", p->sidx);
-    printf("snap_id_src : %d\n", p->snap_id_src);
-
-    /* ---------------- MODEL ---------------- */
-
-    if (p->model)
-    {
-        model_t *m = p->model;
-
-        printf("\n---------- MODEL ----------\n");
-
-        printf("nx  = %d\n", m->nx);
-        printf("nz  = %d\n", m->nz);
-        printf("nxx = %d\n", m->nxx);
-        printf("nzz = %d\n", m->nzz);
-        printf("nb  = %d\n", m->nb);
-
-        printf("interface_count = %d\n", m->interface_count);
-
-        if (m->vp)
-        {
-            int n = m->nxx * m->nzz;
-
-            printf("vp[0]      = %f\n", m->vp[0]);
-
-            if (n > 1)
-                printf("vp[last]   = %f\n", m->vp[n - 1]);
-        }
-    }
-
-    /* ---------------- GEOMETRY ---------------- */
-
-    if (p->geometry)
-    {
-        geometry_t *g = p->geometry;
-
-        printf("\n---------- GEOMETRY ----------\n");
-
-        printf("nsrc = %zu\n", g->nsrc);
-        printf("nrec = %zu\n", g->nrec);
-
-        printf("src_depth   = %d\n", g->create.src_depth);
-        printf("rec_depth   = %d\n", g->create.rec_depth);
-        printf("offset_rec  = %d\n", g->create.offset_rec);
-        printf("offset_src  = %d\n", g->create.offset_src);
-        printf("line_length = %d\n", g->create.line_length);
-
-        if (g->nsrc > 0)
-        {
-            printf("src[0] = (%f, %f)\n",
-                   g->src.x[0],
-                   g->src.z[0]);
-        }
-
-        if (g->nrec > 0)
-        {
-            printf("rec[0] = (%f, %f)\n",
-                   g->rec.x[0],
-                   g->rec.z[0]);
-        }
-    }
-
-    /* ---------------- WAVELET ---------------- */
-
-    if (p->wavelet)
-    {
-        wavelet_t *w = p->wavelet;
-
-        printf("\n---------- WAVELET ----------\n");
-
-        printf("dt   = %f\n", w->dt);
-        printf("nt   = %f\n", w->nt);
-        printf("fmax = %f\n", w->fmax);
-
-        if (w->wavelet)
-        {
-            printf("wavelet[0] = %f\n", w->wavelet[0]);
-
-            if (w->nt > 1)
-                printf("wavelet[last] = %f\n",
-                       w->wavelet[(int)w->nt - 1]);
-        }
-    }
-
-
-    /* ---------------- WAVEFIELDS ---------------- */
-
-    if (p->u)
-    {
-        printf("\n---------- WAVEFIELD U ----------\n");
-
-        if (p->u->past)
-            printf("past[0]    = %f\n", p->u->past[0]);
-
-        if (p->u->present)
-            printf("present[0] = %f\n", p->u->present[0]);
-
-        if (p->u->future)
-            printf("future[0]  = %f\n", p->u->future[0]);
-    }
-
-    if (p->u_homo)
-    {
-        printf("\n---------- WAVEFIELD U_HOMO ----------\n");
-
-        if (p->u_homo->past)
-            printf("past[0]    = %f\n", p->u_homo->past[0]);
-
-        if (p->u_homo->present)
-            printf("present[0] = %f\n", p->u_homo->present[0]);
-
-        if (p->u_homo->future)
-            printf("future[0]  = %f\n", p->u_homo->future[0]);
-    }
-
-    /* ---------------- DAMPING ---------------- */
-
-    if (p->damp)
-    {
-        printf("\n---------- DAMPING ----------\n");
-
-        if (p->damp->x)
-            printf("damp->x[0] = %f\n", p->damp->x[0]);
-
-        if (p->damp->z)
-            printf("damp->z[0] = %f\n", p->damp->z[0]);
-    }
-
-    printf("=======================================\n\n");
-}
-
 propagation_t* Propagation_Init(
   propagation_t *p,
   model_t *m,
@@ -191,6 +40,15 @@ propagation_t* Propagation_Init(
   for (size_t idx = 0; idx < p->shape; ++idx)
     p->vel_arg[idx] = dt * dt * m->vp[idx] * m->vp[idx];
 
+  p->u_homo = alloc_struct(1.0, p->u_homo);
+  p->u_homo->past    = allocf(p->shape);
+  p->u_homo->present = allocf(p->shape);
+  p->u_homo->future  = allocf(p->shape);
+
+  p->vel_arg_homo = allocf(p->shape);
+  for (size_t idx = 0; idx < p->shape; ++idx)
+    p->vel_arg_homo[idx] = dt * dt * m->vp[0] * m->vp[0];
+
   p->damp = alloc_struct(1.0, p->damp);
   p->damp->x = callocf(p->model->nxx);
   p->damp->z = callocf(p->model->nzz);
@@ -225,12 +83,16 @@ static void Propagation_GetSourceIndex(propagation_t *p, int s)
   p->sidx = (sz + p->model->nb) * p->model->nxx + (sx + p->model->nb);
 }
 
-void Propagation_ForwardKernel(propagation_t *p, int t)
+static void Propagation_ForwardStep(
+    propagation_t *p,
+    wavefield_t *u,
+    const float *vel_arg,
+    int t)
 {
   const int nxx = p->model->nxx;
   const int nzz = p->model->nzz;
 
-  p->u->present[p->sidx] += p->wavelet->wavelet[t] / p->dh2;
+  u->present[p->sidx] += p->wavelet->wavelet[t] / p->dh2;
 
   #pragma omp parallel for schedule(static)
   for (int i = 4; i < nzz - 4; ++i)
@@ -240,30 +102,34 @@ void Propagation_ForwardKernel(propagation_t *p, int t)
       const int idx = i * nxx + j;
 
       const float d2u_dx2 =
-          -9.0f    * p->u->present[(i - 4) * nxx + j] +
-           128.0f  * p->u->present[(i - 3) * nxx + j] -
-          1008.0f  * p->u->present[(i - 2) * nxx + j] +
-          8064.0f  * p->u->present[(i - 1) * nxx + j] -
-         14350.0f  * p->u->present[(i    ) * nxx + j] +
-          8064.0f  * p->u->present[(i + 1) * nxx + j] -
-          1008.0f  * p->u->present[(i + 2) * nxx + j] +
-           128.0f  * p->u->present[(i + 3) * nxx + j] -
-             9.0f  * p->u->present[(i + 4) * nxx + j];
+          -9.0f    * u->present[(i - 4) * nxx + j] +
+           128.0f  * u->present[(i - 3) * nxx + j] -
+          1008.0f  * u->present[(i - 2) * nxx + j] +
+          8064.0f  * u->present[(i - 1) * nxx + j] -
+         14350.0f  * u->present[(i    ) * nxx + j] +
+          8064.0f  * u->present[(i + 1) * nxx + j] -
+          1008.0f  * u->present[(i + 2) * nxx + j] +
+           128.0f  * u->present[(i + 3) * nxx + j] -
+             9.0f  * u->present[(i + 4) * nxx + j];
 
       const float d2u_dz2 =
-          -9.0f    * p->u->present[i * nxx + (j - 4)] +
-           128.0f  * p->u->present[i * nxx + (j - 3)] -
-          1008.0f  * p->u->present[i * nxx + (j - 2)] +
-           8064.0f * p->u->present[i * nxx + (j - 1)] -
-          14350.0f * p->u->present[i * nxx + (j    )] +
-           8064.0f * p->u->present[i * nxx + (j + 1)] -
-          1008.0f  * p->u->present[i * nxx + (j + 2)] +
-           128.0f  * p->u->present[i * nxx + (j + 3)] -
-             9.0f  * p->u->present[i * nxx + (j + 4)];
+          -9.0f    * u->present[i * nxx + (j - 4)] +
+           128.0f  * u->present[i * nxx + (j - 3)] -
+          1008.0f  * u->present[i * nxx + (j - 2)] +
+          8064.0f  * u->present[i * nxx + (j - 1)] -
+         14350.0f  * u->present[i * nxx + (j    )] +
+          8064.0f  * u->present[i * nxx + (j + 1)] -
+          1008.0f  * u->present[i * nxx + (j + 2)] +
+           128.0f  * u->present[i * nxx + (j + 3)] -
+             9.0f  * u->present[i * nxx + (j + 4)];
 
-      float laplacian = (d2u_dx2 + d2u_dz2) * p->inv_dh2;
+      const float laplacian =
+        (d2u_dx2 + d2u_dz2) * p->inv_dh2;
 
-      p->u->past[idx] = p->vel_arg[idx] * laplacian + 2.0f * p->u->present[idx] - p->u->future[idx];
+      u->past[idx] =
+        vel_arg[idx] * laplacian +
+        2.0f * u->present[idx] -
+        u->future[idx];
     }
   }
 
@@ -274,23 +140,34 @@ void Propagation_ForwardKernel(propagation_t *p, int t)
     {
       const int idx = i * nxx + j;
 
-      float damp = p->damp->x[j] * p->damp->z[i];
+      const float damp =
+        p->damp->x[j] * p->damp->z[i];
 
-      p->u->future[idx]  = p->u->present[idx] * damp;
-      p->u->present[idx] = p->u->past[idx] * damp;
+      u->future[idx]  = u->present[idx] * damp;
+      u->present[idx] = u->past[idx] * damp;
     }
   }
 }
 
-static void Propagation_GetSeismogram(propagation_t *p, int t)
+static void Propagation_GetSeismogram(
+    propagation_t *p,
+    const wavefield_t *u,
+    float *seismogram,
+    int t)
 {
-  for (size_t irec = 0; irec < p->geometry->nrec; irec++)
+  for (size_t irec = 0; irec < p->geometry->nrec; ++irec)
   {
-    int rx = p->geometry->rec.x[irec] + p->model->nb;
-    int rz = p->geometry->rec.z[irec] + p->model->nb;
+    const int rx =
+      p->geometry->rec.x[irec] + p->model->nb;
 
-    const int r_idx = t * p->geometry->nrec + irec;
-    p->seismogram->seismogram[r_idx] = p->u->past[rz * p->model->nxx + rx];
+    const int rz =
+      p->geometry->rec.z[irec] + p->model->nb;
+
+    const size_t r_idx =
+      (size_t)t * p->geometry->nrec + irec;
+
+    seismogram[r_idx] =
+      u->past[rz * p->model->nxx + rx];
   }
 }
 
@@ -320,11 +197,50 @@ void Propagation_Run(propagation_t* p)
 
     for (size_t t = 1; t < p->nt-1; ++t) 
     {
-      Propagation_ForwardKernel(p, t);
+      Propagation_ForwardStep(p, p->u, p->vel_arg, t);
 
-      Propagation_GetSeismogram(p, t);
+      Propagation_GetSeismogram(p, p->u, p->seismogram->seismogram, t);
 
       Propagation_GetSnapshots(p, t);
     }
   }
+}
+
+void Propagation_RemoveDirectWave(propagation_t* p, int ix, int iz)
+{
+  const int nxx = p->model->nxx;
+  const int nzz = p->model->nzz;
+
+
+  Propagation_ResetFields(p);
+
+  for (int t = 0; t < p->nt - 1; ++t)
+  {
+    Propagation_ForwardStep(
+      p,
+      p->u,
+      p->vel_arg,
+      t);
+
+
+    Propagation_GetSeismogram(p, p->u, p->seismogram->seismogram, t);
+
+    Propagation_ForwardStep(
+      p,
+      p->u_homo,
+      p->vel_arg_homo,
+      t);
+
+    Propagation_GetSeismogram(p, p->u_homo, p->seismogram->seismogram_homo, t);
+
+    // subtract direct wave
+    for (int t = 0; t < p->seismogram->nt; t++) 
+    {
+      for (int i = 0; i < p->seismogram->nrec; i++) 
+      {
+        int idx = t * p->seismogram->nrec + i;
+        p->seismogram->seismogram[idx] -= p->seismogram->seismogram_homo[idx];
+      }
+    }
+  } 
 }

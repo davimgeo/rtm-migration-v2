@@ -1,7 +1,34 @@
 #include "rtm.h"
 #include <string.h>
 
+#include "propagation.h"
 #include "rtm_c.h"
+
+rtm_t* RTM_Init(rtm_t* r, int nt, int nxx, int nzz, float dt, int fmax)
+{
+
+  r = alloc_struct(1, r);
+
+  size_t size = nxx * nzz;
+
+  r->snap_ratio = 1 / (4.0f * fmax * dt);
+  r->nsnaps = (nt - r->tstop) / r->snap_ratio + 1;
+
+  float* forward = allocf(size);
+  float* backward = allocf(size);
+
+  float* num = allocf(size);
+  float* dem = allocf(size);
+
+  float* snaps = allocf(size * r->nsnaps);
+
+  r->current_rec_id = r->nsnaps = 1;
+  r->current_src_id = 0;
+
+  r->snap_dt = dt * r->snap_ratio;
+
+  return r;
+}
 
 static void RTM_ResetFields(rtm_t* r)
 {
@@ -36,18 +63,29 @@ static void RTM_GetSourceIndexes(rtm_t* r, int isrc)
                 (sx + r->p->model->nb);
 }
 
-static void RTM_ImageCondition()
+static void RTM_ImageCondition(rtm_t* r)
 {
-
+  for (int i = 0; i < r->p->model->nzz; i++) 
+  {
+    for (int j = 0; j < r->p->model->nxx; j++) 
+    {
+      int idx = i * r->p->model->nxx + j;
+      r->image[idx] = r->snap_dt * r->num[idx];
+    }
+  }
 }
 
-void rtm(rtm_t* r)
+void RTM_Run(rtm_t* r)
 {
   for (int isrc = 0; isrc < r->p->geometry->nsrc; isrc++) 
   {
     RTM_ResetFields(r);
 
     RTM_GetSourceIndexes(r, isrc);
+
+    const int sx = r->p->geometry->src.x[isrc];
+    const int sz = r->p->geometry->src.z[isrc];
+    Propagation_RemoveDirectWave(r->p, sx, sz);
 
     for (int t = 1; t < r->p->nt-1; t++) 
     {
@@ -58,12 +96,12 @@ void rtm(rtm_t* r)
 
     for (int t = r->p->nt-1; t < r->tstop; t++) 
     {
-      RTM_Backward_Propagation();
+      RTM_Backward_Propagation(r, t);
 
-      RTM_Accumulate_CrossCorrelation();
+      RTM_Accumulate_CrossCorrelation(r, t);
     }
 
-   RTM_ImageCondition();
+   RTM_ImageCondition(r);
 
    // show_modeling_status
   } 
