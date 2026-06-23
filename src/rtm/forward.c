@@ -67,10 +67,11 @@ void RTM_GetSourceSnapshots(rtm_t* r, int t)
     size_t idx = r->p->snap_id_src * r->p->model->nxx * r->p->model->nzz;
 
     memcpy(
-        &r->p->snapshots[idx],
-        r->forward->present,
-        r->p->model->nxx * r->p->model->nzz *
-        sizeof(*r->forward->present));
+      &r->p->snapshots[idx],
+      r->forward->present,
+      r->p->model->nxx * r->p->model->nzz *
+      sizeof(*r->forward->present)
+    );
 
     r->p->snap_id_src++;
   }

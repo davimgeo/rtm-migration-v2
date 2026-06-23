@@ -43,6 +43,7 @@ typedef struct propagation_t
   int dh2;
   float inv_dh2;
   float* vel_arg;
+  float* vel_arg_homo;
   /************************/
 
   int snap_ratio;
@@ -64,6 +65,7 @@ propagation_t* Propagation_Init(
 void propagation_debug(const propagation_t *p);
 void Propagation_Run(propagation_t* p);
 void Propagation_GetDamp(propagation_t* p);
+void Propagation_RemoveDirectWave(propagation_t* p, int ix, int iz);
 
 #endif
 

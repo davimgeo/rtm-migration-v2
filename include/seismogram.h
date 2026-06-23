@@ -8,6 +8,7 @@ typedef struct seismogram_t
   float dt;
 
   float* seismogram;
+  float* seismogram_homo;
 
 } seismogram_t;
 

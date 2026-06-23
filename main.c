@@ -5,6 +5,7 @@
 #include "propagation.h"
 #include "seismogram.h"
 #include "wavelet.h"
+#include "rtm.h"
 
 #define REC_PATH "data/marmousi/receivers_marmousi.txt"
 #define SRC_PATH "data/marmousi/sources40_marmousi.txt"
@@ -70,11 +71,11 @@ int main()
     dt,
     factor
   );
-
-  /* propagation_debug(prop); */
-
   Propagation_GetDamp(prop);
-  Propagation_Run(prop);
+
+  rtm_t* r;
+  r = RTM_Init(r, nt, model->nxx, model->nzz, dt, fmax);
+  RTM_Run(r);
 
   return 0;
 }

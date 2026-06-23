@@ -71,11 +71,11 @@ void RTM_Accumulate_CrossCorrelation(rtm_t* r, int t)
     {
       for (int j = 0; j < nxx; ++j) 
       {
-        float src = r->snaps[i * ]
-        r->num[i * nxx + j] +=
-      
+        float src = r->snaps[idx * nzz * nxx + i * nxx + j];
+        float rec = r->forward->present[i * nxx + j];
+
+        r->num[i * nxx + j] += src * rec;
       }
     }
-  
   }
 }
