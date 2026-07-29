@@ -26,7 +26,6 @@ void Model_Load(model_t *m, const char* PATH, int nx, int nz)
 
 void Model_Create(model_t* m)
 {
-
   m->vp = allocf(m->nz * m->nx);
 
   for (int i = 0; i < m->nz; ++i)
@@ -38,32 +37,27 @@ void Model_Create(model_t* m)
       for (int l_count = 0; l_count < m->interface_count; ++l_count)
       {
         if (i >= m->p_mdl[l_count].interface)
-        {
-          value = m->p_mdl[l_count].down_value;
-        }
+         value = m->p_mdl[l_count].down_value;
       }
     }
 
     for (int j = 0; j < m->nx; ++j)
-    {
       m->vp[i * m->nx + j] = value;
-    }
    }
 }
 
 void Model_AddInterface(
   model_t* m,
-  int *count,
-  float first,
-  int depth,
-  float last
+  float up_value,
+  int interface_depth,
+  float down_value
 )
 {
   parallel_t p = {
-    .up_value = first,
-    .interface = depth,
-    .down_value = last
+    .up_value = up_value,
+    .interface = interface_depth,
+    .down_value = down_value
   };
 
-  m->p_mdl[(*count)++] = p;
+  m->p_mdl[m->interface_count++] = p;
 }

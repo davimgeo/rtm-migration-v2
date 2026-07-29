@@ -4,39 +4,50 @@
 #include "propagation.h"
 #include "rtm_c.h"
 
-rtm_t* RTM_Init(rtm_t* r, int nt, int nxx, int nzz, float dt, int fmax)
+rtm_t* RTM_Init(rtm_t* r, propagation_t* p)
 {
-
   r = alloc_struct(1, r);
 
-  size_t size = nxx * nzz;
+  r->p = p;
 
-  r->snap_ratio = 1 / (4.0f * fmax * dt);
-  r->nsnaps = (nt - r->tstop) / r->snap_ratio + 1;
+  const size_t size = (size_t)p->model->nxx * p->model->nzz;
 
-  float* forward = allocf(size);
-  float* backward = allocf(size);
+  r->forward = alloc_struct(1, r->forward);
+  r->backward = alloc_struct(1, r->backward);
 
-  float* num = allocf(size);
-  float* dem = allocf(size);
+  r->forward->past    = allocf(size);
+  r->forward->present = allocf(size);
+  r->forward->future  = allocf(size);
 
-  float* snaps = allocf(size * r->nsnaps);
+  r->backward->past    = allocf(size);
+  r->backward->present = allocf(size);
+  r->backward->future  = allocf(size);
 
-  r->current_rec_id = r->nsnaps = 1;
+  r->tstop = 0;
+
+  r->snap_ratio = p->snap_ratio;
+  if (r->snap_ratio < 1)
+      r->snap_ratio = 1;
+
+  r->snap_dt = p->dt * r->snap_ratio;
+
+  r->nsnaps = (p->nt - r->tstop) / r->snap_ratio + 1;
+
+  r->num   = allocf(size);
+  r->dem   = allocf(size);
+  r->snaps = allocf(size * r->nsnaps);
+  r->image = allocf(size);
+
   r->current_src_id = 0;
-
-  r->snap_dt = dt * r->snap_ratio;
+  r->current_rec_id = r->nsnaps - 1;
+  r->current_step   = 1;
 
   return r;
 }
 
 static void RTM_ResetFields(rtm_t* r)
 {
-  memset(
-    r->p->seismogram->seismogram,
-    0,
-    r->p->nt * r->p->seismogram->nrec * sizeof(float)
-  );
+  memset(r->p->seismogram->seismogram, 0, r->p->nt * r->p->seismogram->nrec * sizeof(float));
 
   memset(r->forward->past, 0, r->p->model->nxx * r->p->model->nzz * sizeof(float));
   memset(r->forward->present, 0, r->p->model->nxx * r->p->model->nzz * sizeof(float));
@@ -75,6 +86,14 @@ static void RTM_ImageCondition(rtm_t* r)
   }
 }
 
+static void RTM_ShowModelingStatus(rtm_t* r)
+{
+  printf("\e[1;1H\e[2J"); // SYSTEM CLEAR
+  float progress = (float)r->current_step / r->p->geometry->nsrc;
+  printf("Progress: %.1f%%\n", 100.0f * progress);
+  r->current_step++;
+}
+
 void RTM_Run(rtm_t* r)
 {
   for (int isrc = 0; isrc < r->p->geometry->nsrc; isrc++) 
@@ -94,16 +113,17 @@ void RTM_Run(rtm_t* r)
       RTM_GetSourceSnapshots(r, t);
     }
 
-    for (int t = r->p->nt-1; t < r->tstop; t++) 
+    for (int t = r->p->nt-1; t >= r->tstop; t--) 
     {
       RTM_Backward_Propagation(r, t);
 
+      plot2d(r->backward->present, r->p->model->nxx, r->p->model->nzz);
       RTM_Accumulate_CrossCorrelation(r, t);
     }
 
    RTM_ImageCondition(r);
 
-   // show_modeling_status
+   RTM_ShowModelingStatus(r);
   } 
 }
 

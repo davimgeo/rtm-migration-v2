@@ -163,11 +163,9 @@ static void Propagation_GetSeismogram(
     const int rz =
       p->geometry->rec.z[irec] + p->model->nb;
 
-    const size_t r_idx =
-      (size_t)t * p->geometry->nrec + irec;
+    const size_t r_idx = (size_t)t * p->geometry->nrec + irec;
 
-    seismogram[r_idx] =
-      u->past[rz * p->model->nxx + rx];
+    seismogram[r_idx] = u->past[rz * p->model->nxx + rx];
   }
 }
 
@@ -234,11 +232,11 @@ void Propagation_RemoveDirectWave(propagation_t* p, int ix, int iz)
     Propagation_GetSeismogram(p, p->u_homo, p->seismogram->seismogram_homo, t);
 
     // subtract direct wave
-    for (int t = 0; t < p->seismogram->nt; t++) 
+    for (int j = 0; j < p->seismogram->nt; j++) 
     {
       for (int i = 0; i < p->seismogram->nrec; i++) 
       {
-        int idx = t * p->seismogram->nrec + i;
+        int idx = j * p->seismogram->nrec + i;
         p->seismogram->seismogram[idx] -= p->seismogram->seismogram_homo[idx];
       }
     }

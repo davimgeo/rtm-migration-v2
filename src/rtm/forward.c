@@ -57,7 +57,6 @@ void RTM_ForwardPropagation(rtm_t* r, int t)
       r->forward->present[idx] = r->forward->past[idx] * damp;
     }
   }
-
 }
 
 void RTM_GetSourceSnapshots(rtm_t* r, int t)
