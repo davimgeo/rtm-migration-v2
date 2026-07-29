@@ -13,6 +13,7 @@ seismogram_t* Seismogram_Init(seismogram_t* s, int nt, float dt, int nrec)
   s->nrec = nrec;
 
   s->seismogram = allocf(nt * nrec);
+  s->seismogram_homo = allocf(nt * nrec);
 
   return s;
 }

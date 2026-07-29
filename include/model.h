@@ -27,8 +27,12 @@ model_t* Model_Init(model_t *m, int nx, int nz, int nb);
 void Model_Load(model_t *m, const char* PATH, int nx, int nz);
 void Model_Create(model_t* m);
 
-void Model_AddInterface(model_t* m, int *count,
-  float first, int depth, float last);
+void Model_AddInterface(
+  model_t* m,
+  float up_value,
+  int interface_depth,
+  float down_value
+);
 
 void Model_Extent(model_t *m);
 
