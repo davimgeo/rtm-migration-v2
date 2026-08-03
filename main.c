@@ -1,5 +1,7 @@
 #include "src/plot.h"
 
+#include "config/config.h"
+
 #include "geometry.h"
 #include "model.h"
 #include "propagation.h"
@@ -7,59 +9,30 @@
 #include "wavelet.h"
 #include "rtm.h"
 
-#define REC_PATH "data/marmousi/receivers_marmousi.txt"
-#define SRC_PATH "data/marmousi/sources40_marmousi.txt"
-
 int main()
 {
-  int line_length = 2001;
-  int src_depth   = 10;
-  int rec_depth   = 8;
-  int offset_rec  = 15;
-  int offset_src  = 100;
+  SpecsContext* specs = Specs_Init(specs);
 
-  int nt          = 2001;
-  int fmax        = 30;
-  float dt        = 1e-3f;
-
-  const char* MODEL_PATH = "data/marmousi/vp_351x1701_10m.bin";
-
-  int nx          = 201;
-  int nz          = 201;
-  int nb          = 100;
-
-  int nrec        = 170;
-
-  int dh          = 10;
-  float factor    = 0.0015f;
-
-  geometry_t* geom;
-  geom = Geometry_InitCreate(geom, line_length, src_depth, rec_depth, offset_rec, offset_src);
+  geometry_t* geom = Geometry_InitCreate(geom, &specs->geometry);
   Geometry_Create(geom);
 
-  wavelet_t* wave;
-  wave = Wavelet_Init(wave, dt, nt, fmax);
+  wavelet_t* wave = Wavelet_Init(wave, &specs->wavelet);
   Wavelet_Create(wave);
 
-  model_t* model;
-  model = Model_Init(model, nx, nz, nb);
-  Model_AddInterface(model, 1500.0f, nx/2, 2000.0f);
+  model_t* model = Model_Init(model, &specs->model);
   Model_Create(model);
   Model_Extent(model);
-  plot2d(model->vp, model->nxx, model->nzz);
 
-  seismogram_t* seis;
-  seis = Seismogram_Init(seis, nt, dt, nrec);
+  seismogram_t* seis = Seismogram_Init(seis, &specs->seismogram, geom->nrec);
 
-  propagation_t* prop;
-  prop = Propagation_Init(prop, model, geom, wave, seis, dh, nt, dt, factor);
+  propagation_t* prop = Propagation_Init(prop, &specs->propagation, model, geom, wave, seis);
   Propagation_GetDamp(prop);
+  Propagation_Run(prop);
 
-  rtm_t* r;
-  r = RTM_Init(r, prop);
-  RTM_Run(r);
+  //rtm_t* r = RTM_Init(r, prop);
+  //RTM_Run(r);
 
-  plot2d(r->image, model->nxx, model->nzz);
+  //plot2d(r->image, model->nxx, model->nzz);
 
   return 0;
 }

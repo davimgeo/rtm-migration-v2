@@ -1,19 +1,19 @@
-#include "../internal.h"
+#include "internal.h"
 
 #include "seismogram.h"
 
 #define BUFFER 256
 
-seismogram_t* Seismogram_Init(seismogram_t* s, int nt, float dt, int nrec)
+seismogram_t* Seismogram_Init(seismogram_t* s, seismogram_specs_t* specs, int nrec)
 {
   s = alloc_struct(1, s);
 
-  s->nt = nt;
-  s->dt = dt;
+  s->nt = specs->nt;
+  s->dt = specs->dt;
   s->nrec = nrec;
 
-  s->seismogram = allocf(nt * nrec);
-  s->seismogram_homo = allocf(nt * nrec);
+  s->seismogram = allocf(specs->nt * nrec);
+  s->seismogram_homo = allocf(specs->nt * nrec);
 
   return s;
 }

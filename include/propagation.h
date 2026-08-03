@@ -1,7 +1,7 @@
 #ifndef PROPAGATION_H
 #define PROPAGATION_H
 
-#include "../src/internal.h"
+#include "internal.h"
 
 #include "model.h"
 #include "geometry.h"
@@ -20,6 +20,15 @@ typedef struct
   float* present;
   float* future;
 } wavefield_t;
+
+typedef struct
+{
+  int nt;
+  float dt;
+  float dh;
+
+  float factor;
+} propagation_specs_t;
 
 typedef struct propagation_t
 {
@@ -54,14 +63,12 @@ typedef struct propagation_t
 
 propagation_t* Propagation_Init(
   propagation_t *p,
+  propagation_specs_t* specs,
   model_t *m,
   geometry_t *g,
   wavelet_t *w,
-  seismogram_t *s,
-  int dh, int nt, 
-  float dt, float factor
+  seismogram_t *s
 );
-
 void propagation_debug(const propagation_t *p);
 void Propagation_Run(propagation_t* p);
 void Propagation_GetDamp(propagation_t* p);
