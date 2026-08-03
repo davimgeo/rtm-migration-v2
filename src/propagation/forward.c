@@ -1,17 +1,16 @@
 #include <string.h>
 
-#include "../plot.h"
+#include "plot.h"
 
 #include "propagation.h"
 
 propagation_t* Propagation_Init(
   propagation_t *p,
+  propagation_specs_t* specs,
   model_t *m,
   geometry_t *g,
   wavelet_t *w,
-  seismogram_t *s,
-  int dh, int nt, 
-  float dt, float factor
+  seismogram_t *s
 )
 {
   p = alloc_struct(1.0, p);
@@ -23,13 +22,13 @@ propagation_t* Propagation_Init(
 
   p->shape = (size_t)m->nxx * (size_t)m->nzz;
 
-  p->dh      = dh;
-  p->dh2     = dh * dh;
+  p->dh      = specs->dh;
+  p->dh2     = specs->dh * specs->dh;
   p->inv_dh2 = 1.0f / (5040.0f * p->dh2);
 
-  p->dt = dt;
-  p->nt = nt;
-  p->factor = factor;
+  p->dt = specs->dt;
+  p->nt = specs->nt;
+  p->factor = specs->factor;
 
   p->u = alloc_struct(1.0, p->u);
   p->u->past    = allocf(p->shape);
@@ -38,7 +37,7 @@ propagation_t* Propagation_Init(
 
   p->vel_arg = allocf(p->shape);
   for (size_t idx = 0; idx < p->shape; ++idx)
-    p->vel_arg[idx] = dt * dt * m->vp[idx] * m->vp[idx];
+    p->vel_arg[idx] = specs->dt * specs->dt * m->vp[idx] * m->vp[idx];
 
   p->u_homo = alloc_struct(1.0, p->u_homo);
   p->u_homo->past    = allocf(p->shape);
@@ -47,7 +46,7 @@ propagation_t* Propagation_Init(
 
   p->vel_arg_homo = allocf(p->shape);
   for (size_t idx = 0; idx < p->shape; ++idx)
-    p->vel_arg_homo[idx] = dt * dt * m->vp[0] * m->vp[0];
+    p->vel_arg_homo[idx] = specs->dt * specs->dt * m->vp[0] * m->vp[0];
 
   p->damp = alloc_struct(1.0, p->damp);
   p->damp->x = callocf(p->model->nxx);
@@ -55,13 +54,12 @@ propagation_t* Propagation_Init(
 
   const size_t nsnaps = 101;
 
-  p->snap_ratio = (nt - 1) / nsnaps + 1;
+  p->snap_ratio = (specs->nt - 1) / nsnaps + 1;
 
   p->snapshots = allocf(nsnaps * p->shape);
 
   return p;
 }
-
 static void Propagation_ResetFields(propagation_t *p)
 {
   memset(p->seismogram->seismogram, 0, p->nt * p->seismogram->nrec * sizeof(float));
@@ -196,6 +194,7 @@ void Propagation_Run(propagation_t* p)
     for (size_t t = 1; t < p->nt-1; ++t) 
     {
       Propagation_ForwardStep(p, p->u, p->vel_arg, t);
+      if(!(t % 100)) plot2d(p->u->present, p->model->nxx, p->model->nzz);
 
       Propagation_GetSeismogram(p, p->u, p->seismogram->seismogram, t);
 

@@ -1,15 +1,15 @@
 #include <math.h>
 
-#include "../internal.h"
+#include "internal.h"
 #include "wavelet.h"
 
-wavelet_t* Wavelet_Init(wavelet_t* w, float dt, float nt, float fmax)
+wavelet_t* Wavelet_Init(wavelet_t* w, wavelet_spec_t* spec)
 {
   w = alloc_struct(1, w);
 
-  w->dt = dt;
-  w->nt = nt;
-  w->fmax = fmax;
+  w->dt = spec->dt;
+  w->nt = spec->nt;
+  w->fmax = spec->fmax;
 
   return w;
 }

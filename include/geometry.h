@@ -22,28 +22,25 @@ typedef struct
   int rec_depth;
   int offset_rec;
   int offset_src;
-} create_t;
+} geometry_specs_t;
 
 typedef struct geometry_t
 {
   receivers_t rec;
   sources_t src;
 
-  create_t create;
+  int line_length;
+  int src_depth;
+  int rec_depth;
+  int offset_rec;
+  int offset_src;
 
   size_t nrec, nsrc;
 } geometry_t;
 
 geometry_t* Geometry_InitLoad(geometry_t* g);
 
-geometry_t* Geometry_InitCreate(
-  geometry_t* g,
-  int line_length,
-  int src_depth,
-  int rec_depth,
-  int offset_rec,
-  int offset_src
-);
+geometry_t* Geometry_InitCreate(geometry_t* g, geometry_specs_t* specs);
 
 void Geometry_Load(
   geometry_t* geom, 

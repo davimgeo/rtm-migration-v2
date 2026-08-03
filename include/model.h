@@ -1,14 +1,28 @@
 #ifndef MODEL_H
 #define MODEL_H
 
-#define MAX_INTERFACES 100
+#define MAX_INTERFACES 32
 
 typedef struct
 {
-    float up_value;
-    int interface;
-    float down_value;
+  int interfaces[MAX_INTERFACES];
+  int interfaces_size;
+
+  float values[MAX_INTERFACES + 1];
 } parallel_t;
+
+typedef struct
+{
+  int nx;
+  int nz;
+  int nb;
+
+  // parallel
+  int interfaces[MAX_INTERFACES];
+  int interfaces_size;
+
+  float values[MAX_INTERFACES + 1];
+} model_specs_t;
 
 typedef struct model_t
 {
@@ -16,24 +30,15 @@ typedef struct model_t
   int nz, nzz;
   int nb;
 
-  parallel_t *p_mdl;
+  parallel_t *parallel_model;
   int interface_count;
 
   float *vp;
-
 } model_t;
 
-model_t* Model_Init(model_t *m, int nx, int nz, int nb);
+model_t* Model_Init(model_t *m, model_specs_t* specs);
 void Model_Load(model_t *m, const char* PATH, int nx, int nz);
 void Model_Create(model_t* m);
-
-void Model_AddInterface(
-  model_t* m,
-  float up_value,
-  int interface_depth,
-  float down_value
-);
-
 void Model_Extent(model_t *m);
 
 #endif 

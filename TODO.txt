@@ -1,0 +1,1 @@
+- Add BITMASK flags in Geometry(LOAD and READ)

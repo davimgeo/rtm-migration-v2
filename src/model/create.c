@@ -1,20 +1,25 @@
-#include "../internal.h"
+#include <string.h>
+
+#include "internal.h"
 
 #include "model.h"
 
-model_t* Model_Init(model_t *m, int nx, int nz, int nb)
+model_t* Model_Init(model_t *m, model_specs_t* specs)
 {
   m = alloc_struct(1, m);
 
-  m->nx = nx;
-  m->nxx = nx + 2*nb;
-  m->nz = nz;
-  m->nzz = nz + 2*nb;
-  m->nb = nb;
+  m->nx = specs->nx;
+  m->nxx = specs->nx + 2*specs->nb;
+  m->nz = specs->nz;
+  m->nzz = specs->nz + 2*specs->nb;
+  m->nb = specs->nb;
   m->vp = NULL;
 
-  m->p_mdl = alloc_struct(MAX_INTERFACES, m->p_mdl);
-  m->interface_count = 0;
+  m->parallel_model = alloc_struct(MAX_INTERFACES, m->parallel_model);
+  m->parallel_model->interfaces_size = specs->interfaces_size;
+  memcpy(m->parallel_model->interfaces, specs->interfaces, specs->interfaces_size * sizeof(int));
+
+  memcpy(m->parallel_model->values, specs->values, (specs->interfaces_size + 1) * sizeof(float));
 
   return m;
 }
@@ -24,40 +29,21 @@ void Model_Load(model_t *m, const char* PATH, int nx, int nz)
   m->vp = read2d_fortran(PATH, nz, nx);
 }
 
-void Model_Create(model_t* m)
+void Model_Create(model_t *m)
 {
-  m->vp = allocf(m->nz * m->nx);
+  parallel_t *pm = m->parallel_model;
 
-  for (int i = 0; i < m->nz; ++i)
+  m->vp = allocf(m->nx * m->nz);
+
+  int layer = 0;
+
+  for (int z = 0; z < m->nz; ++z)
   {
-    float value = m->p_mdl[0].up_value;
+    while (layer < pm->interfaces_size && z >= pm->interfaces[layer])
+      layer++;
 
-    if (m->p_mdl[0].interface != 0)
-    {
-      for (int l_count = 0; l_count < m->interface_count; ++l_count)
-      {
-        if (i >= m->p_mdl[l_count].interface)
-         value = m->p_mdl[l_count].down_value;
-      }
-    }
-
-    for (int j = 0; j < m->nx; ++j)
-      m->vp[i * m->nx + j] = value;
-   }
+    for (int x = 0; x < m->nx; ++x)
+      m->vp[z * m->nx + x] = pm->values[layer];
+  }
 }
 
-void Model_AddInterface(
-  model_t* m,
-  float up_value,
-  int interface_depth,
-  float down_value
-)
-{
-  parallel_t p = {
-    .up_value = up_value,
-    .interface = interface_depth,
-    .down_value = down_value
-  };
-
-  m->p_mdl[m->interface_count++] = p;
-}
