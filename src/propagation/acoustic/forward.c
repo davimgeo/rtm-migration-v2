@@ -4,7 +4,7 @@
 
 #include "propagation.h"
 
-propagation_t* Propagation_Init(
+propagation_t* Propagation_InitAcoustic(
   propagation_t *p,
   propagation_specs_t* specs,
   model_t *m,
@@ -60,6 +60,7 @@ propagation_t* Propagation_Init(
 
   return p;
 }
+
 static void Propagation_ResetFields(propagation_t *p)
 {
   memset(p->seismogram->seismogram, 0, p->nt * p->seismogram->nrec * sizeof(float));
@@ -194,7 +195,7 @@ void Propagation_Run(propagation_t* p)
     for (size_t t = 1; t < p->nt-1; ++t) 
     {
       Propagation_ForwardStep(p, p->u, p->vel_arg, t);
-      if(!(t % 100)) plot2d(p->u->present, p->model->nxx, p->model->nzz);
+      //if(!(t % 100)) plot2d(p->u->present, p->model->nxx, p->model->nzz);
 
       Propagation_GetSeismogram(p, p->u, p->seismogram->seismogram, t);
 
