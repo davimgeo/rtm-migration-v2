@@ -21,6 +21,17 @@ typedef struct
   float* future;
 } wavefield_t;
 
+typedef struct 
+{ 
+  float *txx;
+  float *tzz;
+  float *txz;
+  float *vx;
+  float *vz;
+  
+  float *vp;
+} fields_t;
+
 typedef struct
 {
   int nt;
@@ -39,6 +50,9 @@ typedef struct propagation_t
 
   wavefield_t* u;
   wavefield_t* u_homo;
+
+  // elastic
+  fields_t* fld;
   
   int nt;
   float dt;
@@ -50,6 +64,7 @@ typedef struct propagation_t
   /* simulation constants */
   int shape;
   int dh2;
+  float inv_dh;
   float inv_dh2;
   float* vel_arg;
   float* vel_arg_homo;

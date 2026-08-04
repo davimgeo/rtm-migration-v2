@@ -20,8 +20,10 @@ int main()
   Wavelet_Create(wave);
 
   model_t* model = Model_Init(model, &specs->model);
-  Model_Create(model);
+  Model_CreateElastic(model);
   Model_Extent(model);
+
+  plot2d(model->vs, model->nxx, model->nzz);
 
   seismogram_t* seis = Seismogram_Init(seis, &specs->seismogram, geom->nrec);
 
