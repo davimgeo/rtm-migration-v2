@@ -16,6 +16,7 @@ model_t* Model_Init(model_t *m, model_specs_t* specs)
   m->nz = specs->nz;
   m->nzz = specs->nz + 2*specs->nb;
   m->nb = specs->nb;
+
   m->vp  = allocf(m->nx * m->nz);
   m->vs  = allocf(m->nx * m->nz);
   m->rho = allocf(m->nx * m->nz);

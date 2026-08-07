@@ -26,8 +26,7 @@ rtm_t* RTM_Init(rtm_t* r, propagation_t* p)
   r->tstop = 0;
 
   r->snap_ratio = p->snap_ratio;
-  if (r->snap_ratio < 1)
-      r->snap_ratio = 1;
+  if (r->snap_ratio < 1) r->snap_ratio = 1;
 
   r->snap_dt = p->dt * r->snap_ratio;
 
@@ -96,28 +95,32 @@ static void RTM_ShowModelingStatus(rtm_t* r)
 
 void RTM_Run(rtm_t* r)
 {
-  for (int isrc = 0; isrc < r->p->geometry->nsrc; isrc++) 
+  propagation_t *p = r->p;
+  geometry_t *g = p->geometry;
+  model_t *m = p->model;
+
+  for (int isrc = 0; isrc < g->nsrc; isrc++) 
   {
     RTM_ResetFields(r);
 
     RTM_GetSourceIndexes(r, isrc);
 
-    const int sx = r->p->geometry->src.x[isrc];
-    const int sz = r->p->geometry->src.z[isrc];
-    Propagation_RemoveDirectWave(r->p, sx, sz);
+    const int sx = g->src.x[isrc];
+    const int sz = g->src.z[isrc];
 
-    for (int t = 1; t < r->p->nt-1; t++) 
+    Propagation_RemoveDirectWave(p, sx, sz);
+
+    for (int t = 1; t < p->nt-1; t++) 
     {
       RTM_ForwardPropagation(r, t);
-
       RTM_GetSourceSnapshots(r, t);
     }
 
-    for (int t = r->p->nt-1; t >= r->tstop; t--) 
+    for (int t = p->nt-1; t >= r->tstop; t--) 
     {
       RTM_Backward_Propagation(r, t);
 
-      plot2d(r->backward->present, r->p->model->nxx, r->p->model->nzz);
+      plot2d(r->backward->present, m->nxx, m->nzz);
       RTM_Accumulate_CrossCorrelation(r, t);
     }
 

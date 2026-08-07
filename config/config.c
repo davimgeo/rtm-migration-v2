@@ -17,9 +17,11 @@ SpecsContext* Specs_Init(SpecsContext* specs)
 
     .geometry =
     {
+      .dh = 10,
+
       .line_length = 2001,
 
-      .src_depth = 10,
+      .src_depth = 50,
       .rec_depth = 8,
 
       .offset_rec = 15,

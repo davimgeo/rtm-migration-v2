@@ -210,14 +210,11 @@ static void Propagation_VelocityUpdate(propagation_t* p)
     }
   }
 }
-static void Propagation_ForwardStep(
-    propagation_t *p,
-    wavefield_t *u,
-    const float *vel_arg,
-    int t)
-{
 
-  u->present[p->sidx] += p->wavelet->wavelet[t] / p->dh2;
+static void Propagation_ForwardStep(propagation_t *p, int t)
+{
+  p->fld->txx[p->sidx] += p->wavelet->wavelet[t] / p->dh2;
+  p->fld->tzz[p->sidx] += p->wavelet->wavelet[t] / p->dh2;
 
   Propagation_VelocityUpdate(p);
   Propagation_PressureUpdate(p);
@@ -225,21 +222,21 @@ static void Propagation_ForwardStep(
 
 static void Propagation_GetSeismogram(
     propagation_t *p,
-    const float *vp,
+    const float *field,
     float *seismogram,
     int t)
 {
   for (size_t irec = 0; irec < p->geometry->nrec; ++irec)
   {
-    const int rx =
-      p->geometry->rec.x[irec] + p->model->nb;
+    const int rx = p->geometry->rec.x[irec] + p->model->nb;
 
-    const int rz =
-      p->geometry->rec.z[irec] + p->model->nb;
+    const int rz = p->geometry->rec.z[irec] + p->model->nb;
+
+    //printf("rx: %g, rz: %d\n", p->geometry->rec.x[irec], rz);
 
     const size_t r_idx = (size_t)t * p->geometry->nrec + irec;
 
-    seismogram[r_idx] = vp[rz * p->model->nxx + rx];
+    seismogram[r_idx] = field[rz * p->model->nxx + rx];
   }
 }
 
@@ -259,7 +256,7 @@ static void Propagation_GetSnapshots(propagation_t *p, int t)
   }
 }
 
-void Propagation_Run(propagation_t* p)
+void Propagation_Run(propagation_t* p, unsigned flags)
 {
   for (size_t s = 0; s < p->geometry->nsrc; ++s) 
   {
@@ -269,13 +266,11 @@ void Propagation_Run(propagation_t* p)
 
     for (size_t t = 0; t < p->nt; t++)
     {
-      Propagation_VelocityUpdate(p);
-      Propagation_PressureUpdate(p);
-      if(!(t % 100)) plot2d(p->fld->vp, p->model->nxx, p->model->nzz);
+      Propagation_ForwardStep(p, t);
 
       Propagation_GetSeismogram(p, p->fld->vp, p->seismogram->seismogram, t);
 
-      //Propagation_GetSnapshots(p, t);
+      if(flags & PROPAGATION_SAVE_SNAPSHOTS) Propagation_GetSnapshots(p, t);
     }
   }
 }

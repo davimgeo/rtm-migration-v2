@@ -6,8 +6,21 @@
 // flag decided inside makefile
 // put macros here
 
+#include <time.h>
+
 // do a check if user has GNUPLOT
 #include "plot.h"
+
+#define PROFILE_BEGIN()                                   \
+    struct timespec start, end;                           \
+    clock_gettime(CLOCK_MONOTONIC, &start)                \
+
+#define PROFILE_END() do {                                \
+    clock_gettime(CLOCK_MONOTONIC, &end);                 \
+    double elapsed = (end.tv_sec - start.tv_sec) +        \
+                     (end.tv_nsec - start.tv_nsec) / 1e9; \
+    printf("Elapsed: %.4f seconds\n", elapsed);           \
+} while (0)
 
 #define debug(...) \
     debug_impl(__FILE__, __func__, __LINE__, __VA_ARGS__)
