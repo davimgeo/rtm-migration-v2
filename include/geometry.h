@@ -22,6 +22,8 @@ typedef struct
   int rec_depth;
   int offset_rec;
   int offset_src;
+
+  int dh;
 } geometry_specs_t;
 
 typedef struct geometry_t
@@ -34,6 +36,8 @@ typedef struct geometry_t
   int rec_depth;
   int offset_rec;
   int offset_src;
+
+  int dh;
 
   size_t nrec, nsrc;
 } geometry_t;

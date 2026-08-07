@@ -43,5 +43,6 @@ void Model_Load(model_t *m, const char* PATH, int nx, int nz);
 void Model_Create(model_t* m);
 void Model_CreateElastic(model_t* m);
 void Model_Extent(model_t *m);
+void Model_ExtentElastic(model_t *m);
 
 #endif 

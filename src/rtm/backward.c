@@ -1,11 +1,30 @@
+#include "plot.h"
 #include "rtm_c.h"
 
 void RTM_Backward_Propagation(rtm_t* r, int t)
 {
-  const int nxx = r->p->model->nxx;
-  const int nzz = r->p->model->nzz;
+  propagation_t *p = r->p;
+  model_t *m = p->model;
+  geometry_t *g = p->geometry;
+  seismogram_t *s = p->seismogram;
+  wavefield_t *bw = r->backward;
 
-  r->backward->present[r->p->sidx] += r->p->wavelet->wavelet[t] / r->p->dh2;
+  const int nxx = m->nxx;
+  const int nzz = m->nzz;
+  const int nb = m->nb;
+  const int nrec = g->nrec;
+  const float inv_dh2 = 1.0f / p->dh2;
+
+  for (int irec = 0; irec < nrec; ++irec)
+  {
+    const int rx = g->rec.x[irec] + nb;
+    const int rz = g->rec.z[irec] + nb;
+
+    const int uidx = rz * nxx + rx;
+    const int ridx = (size_t)t * nrec + irec;
+
+    r->backward->present[uidx] += s->seismogram[ridx] * inv_dh2;
+  }
 
   #pragma omp parallel for schedule(static)
   for (int i = 4; i < nzz - 4; ++i)
@@ -36,10 +55,10 @@ void RTM_Backward_Propagation(rtm_t* r, int t)
            128.0f  * r->backward->present[i * nxx + (j + 3)] -
              9.0f  * r->backward->present[i * nxx + (j + 4)];
 
-      float laplacian = (d2u_dx2 + d2u_dz2) * r->p->inv_dh2;
+      float laplacian = (d2u_dx2 + d2u_dz2) * inv_dh2;
 
       r->backward->past[idx] = 
-        r->p->vel_arg[idx] * laplacian + 2.0f * r->backward->present[idx] - r->backward->future[idx];
+        p->vel_arg[idx] * laplacian + 2.0f * r->backward->present[idx] - r->backward->future[idx];
     }
   }
 
@@ -50,7 +69,7 @@ void RTM_Backward_Propagation(rtm_t* r, int t)
     {
       const int idx = i * nxx + j;
 
-      float damp = r->p->damp->x[j] * r->p->damp->z[i];
+      float damp = p->damp->x[j] * p->damp->z[i];
 
       r->backward->future[idx]  = r->backward->present[idx] * damp;
       r->backward->present[idx] = r->backward->past[idx] * damp;
@@ -62,7 +81,7 @@ void RTM_Accumulate_CrossCorrelation(rtm_t* r, int t)
 {
   if (t % r->snap_ratio) 
   {
-    int idx = t - r->tstop / r->snap_ratio;
+    int idx = (t - r->tstop) / r->snap_ratio;
 
     const int nxx = r->p->model->nxx;
     const int nzz = r->p->model->nzz;

@@ -4,7 +4,7 @@
 
 #include "propagation.h"
 
-propagation_t* Propagation_InitAcoustic(
+propagation_t* Propagation_Init(
   propagation_t *p,
   propagation_specs_t* specs,
   model_t *m,
@@ -156,11 +156,9 @@ static void Propagation_GetSeismogram(
 {
   for (size_t irec = 0; irec < p->geometry->nrec; ++irec)
   {
-    const int rx =
-      p->geometry->rec.x[irec] + p->model->nb;
+    const int rx = p->geometry->rec.x[irec] + p->model->nb;
 
-    const int rz =
-      p->geometry->rec.z[irec] + p->model->nb;
+    const int rz = p->geometry->rec.z[irec] + p->model->nb;
 
     const size_t r_idx = (size_t)t * p->geometry->nrec + irec;
 
@@ -184,22 +182,42 @@ static void Propagation_GetSnapshots(propagation_t *p, int t)
   }
 }
 
-void Propagation_Run(propagation_t* p)
+static void Propagation_SaveSeismogram(float* seismogram, int nt, int nrec, int nshot)
 {
+  char path[256];
+
+  snprintf(
+    path,
+    sizeof(path),
+    "data/seismogram_%dx%d_shot%d.bin",
+    nt,
+    nrec,
+    nshot
+  );
+
+  write2d(path, seismogram, sizeof(float), nt, nrec);
+}
+
+void Propagation_Run(propagation_t* p, unsigned flags)
+{
+  seismogram_t* seis = p->seismogram;
+
   for (size_t s = 0; s < p->geometry->nsrc; ++s) 
   {
     Propagation_GetSourceIndex(p, s);
 
     Propagation_ResetFields(p);
 
-    for (size_t t = 1; t < p->nt-1; ++t) 
+    for (size_t t = 1; t < p->nt - 1; ++t) 
     {
       Propagation_ForwardStep(p, p->u, p->vel_arg, t);
-      //if(!(t % 100)) plot2d(p->u->present, p->model->nxx, p->model->nzz);
 
-      Propagation_GetSeismogram(p, p->u, p->seismogram->seismogram, t);
+      Propagation_GetSeismogram(p, p->u, seis->seismogram, t);
 
-      Propagation_GetSnapshots(p, t);
+      if(flags & PROPAGATION_SAVE_SNAPSHOTS) Propagation_GetSnapshots(p, t);
+
+      if(flags & PROPAGATION_SAVE_SEISMOGRAM) 
+        Propagation_SaveSeismogram(seis->seismogram, seis->nt, seis->nrec, s);
     }
   }
 }
@@ -209,25 +227,17 @@ void Propagation_RemoveDirectWave(propagation_t* p, int ix, int iz)
   const int nxx = p->model->nxx;
   const int nzz = p->model->nzz;
 
-
   Propagation_ResetFields(p);
 
   for (int t = 0; t < p->nt - 1; ++t)
   {
-    Propagation_ForwardStep(
-      p,
-      p->u,
-      p->vel_arg,
-      t);
-
+    //actual model
+    Propagation_ForwardStep(p, p->u, p->vel_arg, t);
 
     Propagation_GetSeismogram(p, p->u, p->seismogram->seismogram, t);
 
-    Propagation_ForwardStep(
-      p,
-      p->u_homo,
-      p->vel_arg_homo,
-      t);
+    // homogeneous model
+    Propagation_ForwardStep(p, p->u_homo, p->vel_arg_homo, t);
 
     Propagation_GetSeismogram(p, p->u_homo, p->seismogram->seismogram_homo, t);
 

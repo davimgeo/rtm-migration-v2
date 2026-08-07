@@ -2,6 +2,8 @@
 
 #include "config/config.h"
 
+#include "internal.h"
+
 #include "geometry.h"
 #include "model.h"
 #include "propagation.h"
@@ -11,6 +13,8 @@
 
 int main()
 {
+  PROFILE_BEGIN();
+
   SpecsContext* specs = Specs_Init(specs);
 
   geometry_t* geom = Geometry_InitCreate(geom, &specs->geometry);
@@ -20,21 +24,20 @@ int main()
   Wavelet_Create(wave);
 
   model_t* model = Model_Init(model, &specs->model);
-  Model_CreateElastic(model);
+  Model_Create(model);
   Model_Extent(model);
-
-  plot2d(model->vs, model->nxx, model->nzz);
 
   seismogram_t* seis = Seismogram_Init(seis, &specs->seismogram, geom->nrec);
 
   propagation_t* prop = Propagation_Init(prop, &specs->propagation, model, geom, wave, seis);
   Propagation_GetDamp(prop);
-  Propagation_Run(prop);
 
-  //rtm_t* r = RTM_Init(r, prop);
-  //RTM_Run(r);
+  rtm_t* r = RTM_Init(r, prop);
+  RTM_Run(r);
 
-  //plot2d(r->image, model->nxx, model->nzz);
+  plot2d(r->image, model->nxx, model->nzz);
+
+  PROFILE_END();
 
   return 0;
 }

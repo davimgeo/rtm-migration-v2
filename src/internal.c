@@ -159,39 +159,50 @@ void write2d(
   fclose(bin_data);   
 }
 
-float* read2d(const char* PATH, int row, int column) 
+float *read2d(const char *path, int row, int column)
 {
-  float* arr = (float*)malloc(row*column*sizeof(float));
+  size_t count = (size_t)row * (size_t)column;
 
-  FILE* bin_data = fopen(PATH, "rb"); 
-  if (bin_data == NULL) 
+  float *arr = malloc(count * sizeof(*arr));
+  if (arr == NULL)
   {
-      printf("Could not read binary file.\n");
-      exit(-1);
+      perror("malloc");
+      exit(EXIT_FAILURE);
   }
 
-  fread(arr, sizeof(float), row * column, bin_data); 
+  FILE *bin_data = fopen(path, "rb");
+  if (bin_data == NULL)
+  {
+      perror(path);
+      free(arr);
+      exit(EXIT_FAILURE);
+  }
 
-  fclose(bin_data);   
+  if (fread(arr, sizeof(*arr), count, bin_data) != count)
+  {
+      fprintf(stderr, "Failed to read %zu floats from '%s'\n", count, path);
+      fclose(bin_data);
+      free(arr);
+      exit(EXIT_FAILURE);
+  }
 
+  fclose(bin_data);
   return arr;
 }
 
 float* read2d_fortran(const char* PATH, int row, int column)
 {
-  float* arr = (float*)malloc(row*column*sizeof(float));
+    
+  size_t count = (size_t)row * (size_t)column;
 
-  FILE* bin_data = fopen(PATH, "rb"); 
-  if (bin_data == NULL) 
+  float *arr = malloc(count * sizeof(*arr));
+  if (arr == NULL)
   {
-    printf("Could not read binary file at path: %s.\n",
-        PATH);
-    exit(-1);
+    perror("malloc");
+    exit(EXIT_FAILURE);
   }
+  
 
-  fread(arr, sizeof(float), row * column, bin_data); 
-
-  fclose(bin_data);   
 
   float* out = (float*)malloc(row*column*sizeof(float));
 

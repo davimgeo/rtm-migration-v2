@@ -8,6 +8,10 @@
 #include "seismogram.h"
 #include "wavelet.h"
 
+#define PROPAGATION_NONE            (0U)
+#define PROPAGATION_SAVE_SNAPSHOTS  (1U << 0)
+#define PROPAGATION_SAVE_SEISMOGRAM (1U << 1)
+
 typedef struct
 {
   float* x;
@@ -84,8 +88,9 @@ propagation_t* Propagation_Init(
   wavelet_t *w,
   seismogram_t *s
 );
+
 void propagation_debug(const propagation_t *p);
-void Propagation_Run(propagation_t* p);
+void Propagation_Run(propagation_t* p, unsigned flags);
 void Propagation_GetDamp(propagation_t* p);
 void Propagation_RemoveDirectWave(propagation_t* p, int ix, int iz);
 
