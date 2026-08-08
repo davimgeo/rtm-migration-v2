@@ -22,6 +22,8 @@
     printf("Elapsed: %.4f seconds\n", elapsed);           \
 } while (0)
 
+#define PRINT(x) printf("%d\n", x)
+
 #define debug(...) \
     debug_impl(__FILE__, __func__, __LINE__, __VA_ARGS__)
 
