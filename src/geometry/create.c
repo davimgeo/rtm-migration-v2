@@ -17,6 +17,8 @@ geometry_t* Geometry_InitCreate(geometry_t* g, geometry_specs_t* cfg)
   g->nrec = cfg->line_length / cfg->offset_rec;
   g->nsrc = cfg->line_length / cfg->offset_src;
 
+  PRINT(g->nrec);
+
   return g;
 }
 
@@ -25,9 +27,9 @@ static void create_receivers(geometry_t* geom)
   geom->rec.x = allocf(geom->nrec);
   geom->rec.z = allocf(geom->nrec);
 
-  for (int i = 0; i < geom->nrec; i++) 
+  for (int i = 0; i <= geom->nrec; i++) 
   {
-    geom->rec.x[i] = i * geom->offset_rec / geom->dh;
+    geom->rec.x[i] = i * geom->offset_rec;
     geom->rec.z[i] = geom->rec_depth;
   }
 }
@@ -37,9 +39,9 @@ static void create_sources(geometry_t* geom)
   geom->src.x = allocf(geom->nsrc);
   geom->src.z = allocf(geom->nsrc);
 
-  for (int i = 0; i < geom->nsrc; i++) 
+  for (int i = 0; i <= geom->nsrc; i++) 
   {
-    geom->src.x[i] = i * geom->offset_src / geom->dh;
+    geom->src.x[i] = i * geom->offset_src;
     geom->src.z[i] = geom->src_depth;
   }
 }

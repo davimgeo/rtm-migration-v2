@@ -34,6 +34,75 @@ static inline void plot1d(
   pclose(gnuplot);
 }
 
+static void plot_geometry_model(
+    const float* model,
+    int nx, int nz,
+    const float* rec_x, const float* rec_z, int nrec,
+    const float* src_x, const float* src_z, int nsrc)
+{
+    FILE* gnuplot_pipe = popen("gnuplot -persistent", "w");
+
+    if (!gnuplot_pipe) {
+        fprintf(stderr, "Could not start gnuplot!\n");
+        return;
+    }
+
+    fprintf(gnuplot_pipe,
+        "set title '%s'\n"
+        "set xlabel 'X'\n"
+        "set ylabel 'Z'\n"
+        "set size ratio -1\n"
+        "set yrange [%d:0]\n"
+        "set key outside\n",
+        "Figure", nz - 1);
+
+    fprintf(gnuplot_pipe,
+        "plot '-' matrix with image notitle, "
+        "'-' with points pt 7 ps 1.5 title 'Receivers', "
+        "'-' with points pt 5 ps 1.5 title 'Sources'\n");
+
+    for (int z = 0; z < nz; ++z) {
+        for (int x = 0; x < nx; ++x) {
+            fprintf(
+                gnuplot_pipe,
+                "%f ",
+                model[z * nx + x]
+            );
+        }
+
+        fprintf(gnuplot_pipe, "\n");
+    }
+
+    fprintf(gnuplot_pipe, "e\n");
+
+    for (int i = 0; i <= nrec; ++i) {
+        fprintf(
+            gnuplot_pipe,
+            "%f %f\n",
+            rec_x[i],
+            rec_z[i]
+        );
+    }
+
+    fprintf(gnuplot_pipe, "e\n");
+
+    for (int i = 0; i <= nsrc; ++i) {
+        fprintf(
+            gnuplot_pipe,
+            "%f %f\n",
+            src_x[i],
+            src_z[i]
+        );
+    }
+
+    fprintf(gnuplot_pipe, "e\n");
+
+    fprintf(gnuplot_pipe, "pause mouse close\n");
+
+    fflush(gnuplot_pipe);
+    pclose(gnuplot_pipe);
+}
+
 static inline void plot1d_2(
   const float* arr1,
   const float* arr2,

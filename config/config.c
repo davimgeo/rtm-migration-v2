@@ -19,13 +19,13 @@ SpecsContext* Specs_Init(SpecsContext* specs)
     {
       .dh = 10,
 
-      .line_length = 2001,
+      .line_length = 201,
 
-      .src_depth = 50,
-      .rec_depth = 8,
+      .src_depth = 10,
+      .rec_depth = 0,
 
-      .offset_rec = 15,
-      .offset_src = 100
+      .offset_rec = 5,
+      .offset_src = 50
     },
 
     .model =

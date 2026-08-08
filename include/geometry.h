@@ -39,7 +39,7 @@ typedef struct geometry_t
 
   int dh;
 
-  size_t nrec, nsrc;
+  int nrec, nsrc;
 } geometry_t;
 
 geometry_t* Geometry_InitLoad(geometry_t* g);
