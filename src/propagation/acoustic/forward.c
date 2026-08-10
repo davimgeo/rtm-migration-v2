@@ -1,182 +1,55 @@
 #include <string.h>
 
+#include "internal.h"
+
 #include "plot.h"
 
-#include "propagation.h"
+#include "../propagation_c.h"
+#include "acoustic_c.h"
 
-propagation_t* Propagation_Init(
-  propagation_t *p,
-  propagation_specs_t* specs,
-  model_t *m,
-  geometry_t *g,
-  wavelet_t *w,
-  seismogram_t *s
-)
+void Propagation_InitAcoustic(propagation_t* p)
 {
-  p = alloc_struct(1.0, p);
+  acoustic_state_t* a = calloc(1, sizeof(*a));
 
-  p->model      = m;
-  p->geometry   = g;
-  p->wavelet    = w;
-  p->seismogram = s;
+  p->physics_data = a;
 
-  p->shape = (size_t)m->nxx * (size_t)m->nzz;
-
-  p->dh      = specs->dh;
-  p->dh2     = specs->dh * specs->dh;
-  p->inv_dh2 = 1.0f / (5040.0f * p->dh2);
-
-  p->dt = specs->dt;
-  p->nt = specs->nt;
-  p->factor = specs->factor;
-
-  p->u = alloc_struct(1.0, p->u);
-  p->u->past    = allocf(p->shape);
-  p->u->present = allocf(p->shape);
-  p->u->future  = allocf(p->shape);
-
-  p->vel_arg = allocf(p->shape);
-  for (size_t idx = 0; idx < p->shape; ++idx)
-    p->vel_arg[idx] = specs->dt * specs->dt * m->vp[idx] * m->vp[idx];
-
-  p->u_homo = alloc_struct(1.0, p->u_homo);
-  p->u_homo->past    = allocf(p->shape);
-  p->u_homo->present = allocf(p->shape);
-  p->u_homo->future  = allocf(p->shape);
-
-  p->vel_arg_homo = allocf(p->shape);
-  for (size_t idx = 0; idx < p->shape; ++idx)
-    p->vel_arg_homo[idx] = specs->dt * specs->dt * m->vp[0] * m->vp[0];
-
-  p->damp = alloc_struct(1.0, p->damp);
-  p->damp->x = callocf(p->model->nxx);
-  p->damp->z = callocf(p->model->nzz);
-
-  const size_t nsnaps = 101;
-
-  p->snap_ratio = (specs->nt - 1) / nsnaps + 1;
-
-  p->snapshots = allocf(nsnaps * p->shape);
-
-  return p;
+  a->upas    = allocf(p->shape);
+  a->upre    = allocf(p->shape);
+  a->ufut    = allocf(p->shape);
+  a->vel_arg = allocf(p->shape);
 }
 
 static void Propagation_ResetFields(propagation_t *p)
 {
-  memset(p->seismogram->seismogram, 0, p->nt * p->seismogram->nrec * sizeof(float));
+  acoustic_state_t* a = p->physics_data;
+  seismogram_t* s     = p->seismogram;
 
-  memset(p->u->past, 0, p->model->nxx * p->model->nzz * sizeof(float));
+  const int nxx = p->model->nxx;
+  const int nzz = p->model->nzz;
 
-  memset(p->u->present, 0, p->model->nxx * p->model->nzz * sizeof(float));
+  memset(s->seismogram, 0, s->nt * s->nrec * sizeof(float));
 
-  memset(p->u->future, 0, p->model->nxx * p->model->nzz * sizeof(float));
+  memset(a->upas, 0, nxx * nzz * sizeof(float));
+
+  memset(a->upre, 0, nxx * nzz * sizeof(float));
+
+  memset(a->ufut, 0, nxx * nzz * sizeof(float));
 
   p->snap_id_src = 0;
 }
 
-static void Propagation_GetSourceIndex(propagation_t *p, int s)
+static void Propagation_GetSnapshots(propagation_t *p, int t)
 {
-  int sx = p->geometry->src.x[s];
-  int sz = p->geometry->src.z[s];
+  acoustic_state_t* a = p->physics_data;
 
-  p->sidx = (sz + p->model->nb) * p->model->nxx + (sx + p->model->nb);
-}
-
-static void Propagation_ForwardStep(
-    propagation_t *p,
-    wavefield_t *u,
-    const float *vel_arg,
-    int t)
-{
   const int nxx = p->model->nxx;
   const int nzz = p->model->nzz;
 
-  u->present[p->sidx] += p->wavelet->wavelet[t] / p->dh2;
-
-  #pragma omp parallel for schedule(static)
-  for (int i = 4; i < nzz - 4; ++i)
-  {
-    for (int j = 4; j < nxx - 4; ++j)
-    {
-      const int idx = i * nxx + j;
-
-      const float d2u_dx2 =
-          -9.0f    * u->present[(i - 4) * nxx + j] +
-           128.0f  * u->present[(i - 3) * nxx + j] -
-          1008.0f  * u->present[(i - 2) * nxx + j] +
-          8064.0f  * u->present[(i - 1) * nxx + j] -
-         14350.0f  * u->present[(i    ) * nxx + j] +
-          8064.0f  * u->present[(i + 1) * nxx + j] -
-          1008.0f  * u->present[(i + 2) * nxx + j] +
-           128.0f  * u->present[(i + 3) * nxx + j] -
-             9.0f  * u->present[(i + 4) * nxx + j];
-
-      const float d2u_dz2 =
-          -9.0f    * u->present[i * nxx + (j - 4)] +
-           128.0f  * u->present[i * nxx + (j - 3)] -
-          1008.0f  * u->present[i * nxx + (j - 2)] +
-          8064.0f  * u->present[i * nxx + (j - 1)] -
-         14350.0f  * u->present[i * nxx + (j    )] +
-          8064.0f  * u->present[i * nxx + (j + 1)] -
-          1008.0f  * u->present[i * nxx + (j + 2)] +
-           128.0f  * u->present[i * nxx + (j + 3)] -
-             9.0f  * u->present[i * nxx + (j + 4)];
-
-      const float laplacian =
-        (d2u_dx2 + d2u_dz2) * p->inv_dh2;
-
-      u->past[idx] =
-        vel_arg[idx] * laplacian +
-        2.0f * u->present[idx] -
-        u->future[idx];
-    }
-  }
-
-  #pragma omp parallel for schedule(static)
-  for (int i = 4; i < nzz - 4; ++i)
-  {
-    for (int j = 4; j < nxx - 4; ++j)
-    {
-      const int idx = i * nxx + j;
-
-      const float damp =
-        p->damp->x[j] * p->damp->z[i];
-
-      u->future[idx]  = u->present[idx] * damp;
-      u->present[idx] = u->past[idx] * damp;
-    }
-  }
-}
-
-static void Propagation_GetSeismogram(
-    propagation_t *p,
-    const wavefield_t *u,
-    float *seismogram,
-    int t)
-{
-  for (size_t irec = 0; irec < p->geometry->nrec; ++irec)
-  {
-    const int rx = p->geometry->rec.x[irec] + p->model->nb;
-
-    const int rz = p->geometry->rec.z[irec] + p->model->nb;
-
-    const size_t r_idx = (size_t)t * p->geometry->nrec + irec;
-
-    seismogram[r_idx] = u->past[rz * p->model->nxx + rx];
-  }
-}
-
-static void Propagation_GetSnapshots(propagation_t *p, int t)
-{
   if ((t % p->snap_ratio) == 0)
   {
-    size_t idx = p->snap_id_src * p->model->nxx * p->model->nzz;
+    size_t idx = p->snap_id_src * nxx * nzz;
 
-    memcpy(
-        &p->snapshots[idx],
-        p->u->present,
-        p->model->nxx * p->model->nzz *
-        sizeof(*p->u->present));
+    memcpy(&p->snapshots[idx], a->upre, nxx * nzz  * sizeof(*a->upre));
 
     p->snap_id_src++;
   }
@@ -186,42 +59,189 @@ static void Propagation_SaveSeismogram(float* seismogram, int nt, int nrec, int 
 {
   char path[256];
 
-  snprintf(
-    path,
-    sizeof(path),
-    "data/seismogram_%dx%d_shot%d.bin",
-    nt,
-    nrec,
-    nshot
-  );
+  char* seismogram_path = "data/seismogram_%dx%d_shot%d.bin";
+
+  snprintf(path, sizeof(path), seismogram_path, nt, nrec, nshot);
 
   write2d(path, seismogram, sizeof(float), nt, nrec);
 }
 
-void Propagation_Run(propagation_t* p, unsigned flags)
+void Propagation_RunAcoustic(propagation_t *p, unsigned flags)
 {
-  seismogram_t* seis = p->seismogram;
+  acoustic_state_t *a = p->physics_data;
+  geometry_t *g = p->geometry;
+  seismogram_t *s = p->seismogram;
 
-  for (size_t s = 0; s < p->geometry->nsrc; ++s) 
+  float *restrict upre = a->upre;
+  float *restrict upas = a->upas;
+  float *restrict ufut = a->ufut;
+
+  float *restrict seis = s->seismogram;
+  float *restrict wavelet = p->wavelet->wavelet;
+
+  float *restrict velocity_arg = allocf(p->shape);
+
+  const float *restrict vp = p->model->vp;
+  const float *restrict damp_x = p->damp->x;
+  const float *restrict damp_z = p->damp->z;
+
+  const int nxx = p->model->nxx;
+  const int nzz = p->model->nzz;
+  const int nb = p->model->nb;
+
+  const int nt = p->nt;
+  const int nrec = g->nrec;
+  const int nsrc = g->nsrc;
+
+  const float dt = p->dt;
+  const float dh = p->dh;
+
+  const float dt2 = dt * dt;
+  const float dh2 = dh * dh;
+
+  const float source_scale = 1.0f / dh2;
+
+  const float lap_arg = 1.0f / (5040.0f * dh2);
+
+  const size_t shape = p->shape;
+
+  const size_t field_size = (size_t)nxx * nzz;
+
+  for (size_t idx = 0; idx < shape; ++idx)
+    velocity_arg[idx] = dt2 * vp[idx] * vp[idx];
+
+  for (int shot = 0; shot < nsrc; ++shot)
   {
-    Propagation_GetSourceIndex(p, s);
+    const int sx = g->src.x[shot];
+    const int sz = g->src.z[shot];
+
+    const int sidx = (sz + nb) * nxx + (sx + nb);
 
     Propagation_ResetFields(p);
 
-    for (size_t t = 1; t < p->nt - 1; ++t) 
+    #pragma omp parallel
     {
-      Propagation_ForwardStep(p, p->u, p->vel_arg, t);
+      for (int t = 1; t < nt - 1; ++t)
+      {
+        // inject source
+        #pragma omp single
+        {
+          upre[sidx] += wavelet[t] * source_scale;
+        } // end inject source
 
-      Propagation_GetSeismogram(p, p->u, seis->seismogram, t);
+        #pragma omp for schedule(static)
+        for (int i = 4; i < nzz - 4; ++i)
+        {
+          /* restrict tells the compiler that 
+           * no other pointer will access the exact 
+           * same memory location
+           */
+          const float *restrict r0 = upre + (i - 4) * nxx;
 
-      if(flags & PROPAGATION_SAVE_SNAPSHOTS) Propagation_GetSnapshots(p, t);
+          const float *restrict r1 = upre + (i - 3) * nxx;
 
-      if(flags & PROPAGATION_SAVE_SEISMOGRAM) 
-        Propagation_SaveSeismogram(seis->seismogram, seis->nt, seis->nrec, s);
-    }
-  }
+          const float *restrict r2 = upre + (i - 2) * nxx;
+
+          const float *restrict r3 = upre + (i - 1) * nxx;
+
+          const float *restrict r4 = upre + i * nxx;
+
+          const float *restrict r5 = upre + (i + 1) * nxx;
+
+          const float *restrict r6 = upre + (i + 2) * nxx;
+
+          const float *restrict r7 = upre + (i + 3) * nxx;
+
+          const float *restrict r8 = upre + (i + 4) * nxx;
+
+          float *restrict out = upas + i * nxx;
+
+          //ensure SIMD in the inner loop 
+          //(where the data is contiguous)
+          #pragma omp simd 
+          for (int j = 4; j < nxx - 4; ++j)
+          {
+            const float d2u_dx2 =
+                -9.0f * r0[j] +
+                128.0f * r1[j] -
+                1008.0f * r2[j] +
+                8064.0f * r3[j] -
+                14350.0f * r4[j] +
+                8064.0f * r5[j] -
+                1008.0f * r6[j] +
+                128.0f * r7[j] -
+                9.0f * r8[j];
+
+            const float d2u_dz2 =
+                -9.0f * r4[j - 4] +
+                128.0f * r4[j - 3] -
+                1008.0f * r4[j - 2] +
+                8064.0f * r4[j - 1] -
+                14350.0f * r4[j] +
+                8064.0f * r4[j + 1] -
+                1008.0f * r4[j + 2] +
+                128.0f * r4[j + 3] -
+                9.0f * r4[j + 4];
+
+            const float laplacian = (d2u_dx2 + d2u_dz2) * lap_arg;
+
+            out[j] =
+                velocity_arg[i * nxx + j] * laplacian +
+                2.0f * r4[j] -
+                ufut[i * nxx + j];
+          }
+        } // end velocity update
+
+        // get damping
+        #pragma omp for schedule(static)
+        for (int i = 4; i < nzz - 4; ++i)
+        {
+          const float damp_z_i = damp_z[i];
+
+          float *restrict previous =upre + i * nxx;
+
+          float *restrict current = upas + i * nxx;
+
+          float *restrict future =ufut + i * nxx;
+
+          const float *restrict damp_x_row = damp_x;
+
+          #pragma omp simd
+          for (int j = 4; j < nxx - 4; ++j)
+          {
+            const float damp = damp_x_row[j] * damp_z_i;
+
+            future[j] = previous[j] * damp;
+
+            previous[j] = current[j] * damp;
+          }
+        } // end get damping
+
+        // get seismogram
+        for (int irec = 0; irec < nrec; ++irec)
+        {
+          const int rx = g->rec.x[irec] + nb;
+
+          const int rz = g->rec.z[irec] + nb;
+
+          const size_t r_idx = (size_t)t * nrec + irec;
+
+          seis[r_idx] = upas[rz * nxx + rx];
+        } // end get seismogram
+
+      } // end time loop
+
+    } // end parallel region
+
+    if(flags & PROPAGATION_SAVE_SEISMOGRAM)
+      Propagation_SaveSeismogram(seis, s->nt, s->nrec, shot);
+  } // end shot
+
+  free(velocity_arg);
 }
 
+// TODO: move to RTM class
+/*
 void Propagation_RemoveDirectWave(propagation_t* p, int ix, int iz)
 {
   const int nxx = p->model->nxx;
@@ -252,3 +272,4 @@ void Propagation_RemoveDirectWave(propagation_t* p, int ix, int iz)
     }
   } 
 }
+*/

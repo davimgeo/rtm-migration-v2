@@ -1,6 +1,6 @@
 #include <math.h>
 
-#include "propagation.h"
+#include "propagation_c.h"
 
 void Propagation_GetDamp(propagation_t* p)
 {

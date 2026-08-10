@@ -17,8 +17,6 @@ geometry_t* Geometry_InitCreate(geometry_t* g, geometry_specs_t* cfg)
   g->nrec = cfg->line_length / cfg->offset_rec;
   g->nsrc = cfg->line_length / cfg->offset_src;
 
-  PRINT(g->nrec);
-
   return g;
 }
 
