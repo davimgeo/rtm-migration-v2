@@ -42,7 +42,7 @@ int main()
 
   PROFILE_END();
 
-  //plot2d(seis->seismogram, seis->nrec, seis->nt);
+  plot2d(seis->seismogram, seis->nrec, seis->nt);
 
   return 0;
 }
