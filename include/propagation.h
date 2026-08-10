@@ -1,99 +1,34 @@
-#ifndef PROPAGATION_H
-#define PROPAGATION_H
+#pragma once
 
-#include "internal.h"
-
-#include "model.h"
-#include "geometry.h"
-#include "seismogram.h"
-#include "wavelet.h"
-
-#define PROPAGATION_NONE            (0U)
 #define PROPAGATION_SAVE_SNAPSHOTS  (1U << 0)
 #define PROPAGATION_SAVE_SEISMOGRAM (1U << 1)
+#define PROPAGATION_ACOUSTIC        (1U << 2)
+#define PROPAGATION_ELASTIC         (1U << 3)
 
-typedef struct
-{
-  float* x;
-  float* z;
-} damping_t;
+typedef struct propagation_t propagation_t;
 
-typedef struct
-{
-  float* past;
-  float* present;
-  float* future;
-} wavefield_t;
-
-typedef struct 
-{ 
-  float *txx;
-  float *tzz;
-  float *txz;
-  float *vx;
-  float *vz;
-  
-  float *vp;
-} fields_t;
-
-typedef struct
+typedef struct propagation_specs_t
 {
   int nt;
   float dt;
   float dh;
-
   float factor;
 } propagation_specs_t;
 
-typedef struct propagation_t
-{
-  model_t* model;
-  geometry_t* geometry;
-  seismogram_t* seismogram;
-  wavelet_t* wavelet;
+typedef struct model_t      model_t;
+typedef struct geometry_t   geometry_t;
+typedef struct wavelet_t    wavelet_t;
+typedef struct seismogram_t seismogram_t;
 
-  wavefield_t* u;
-  wavefield_t* u_homo;
-
-  // elastic
-  fields_t* fld;
-  
-  int nt;
-  float dt;
-  float dh;
-
-  damping_t* damp;
-  float factor;
-
-  /* simulation constants */
-  int shape;
-  int dh2;
-  float inv_dh;
-  float inv_dh2;
-  float* vel_arg;
-  float* vel_arg_homo;
-  /************************/
-
-  int snap_ratio;
-  int sidx;
-  int snap_id_src;
-  float* snapshots;
-} propagation_t;
-
-propagation_t* Propagation_Init(
+propagation_t *Propagation_Init(
   propagation_t *p,
-  propagation_specs_t* specs,
+  propagation_specs_t *specs,
   model_t *m,
   geometry_t *g,
   wavelet_t *w,
-  seismogram_t *s
+  seismogram_t *s,
+  unsigned flags
 );
 
-void propagation_debug(const propagation_t *p);
-void Propagation_Run(propagation_t* p, unsigned flags);
-void Propagation_GetDamp(propagation_t* p);
-void Propagation_RemoveDirectWave(propagation_t* p, int ix, int iz);
-
-#endif
-
-
+void Propagation_Run(propagation_t *p, unsigned flags);
+void Propagation_GetDamp(propagation_t *p);

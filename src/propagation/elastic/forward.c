@@ -1,8 +1,11 @@
 #include <string.h>
 
+#include "internal.h"
+
 #include "plot.h"
 
-#include "propagation.h"
+#include "../propagation_c.h"
+#include "elastic_c.h"
 
 /* finite-difference coefficients */
 #define FDM8E1 6.97545e-4f
@@ -10,65 +13,21 @@
 #define FDM8E3 7.97526e-2f
 #define FDM8E4 1.19628906f
 
-propagation_t* Propagation_Init(
-  propagation_t *p,
-  propagation_specs_t* specs,
-  model_t *m,
-  geometry_t *g,
-  wavelet_t *w,
-  seismogram_t *s
-)
-{
-  p = alloc_struct(1.0, p);
+void Propagation_InitElastic(propagation_t *p)
+{  
+  elastic_state_t* e = calloc(1, sizeof(*e));
 
-  p->model      = m;
-  p->geometry   = g;
-  p->wavelet    = w;
-  p->seismogram = s;
+  p->physics_data = e;
 
-  p->shape = (size_t)p->model->nxx * (size_t)p->model->nzz;
-
-  p->dh      = specs->dh;
-  p->dh2     = specs->dh * specs->dh;
-  p->inv_dh  = 1.0f / specs->dh;
-  p->inv_dh2 = 1.0f / (5040.0f * p->dh2);
-
-  p->dt = specs->dt;
-  p->nt = specs->nt;
-  p->factor = specs->factor;
-
-  p->u = alloc_struct(1.0, p->u);
-  p->u->past    = allocf(p->shape);
-  p->u->present = allocf(p->shape);
-  p->u->future  = allocf(p->shape);
-
-  p->vel_arg = allocf(p->shape);
-  for (size_t idx = 0; idx < p->shape; ++idx)
-    p->vel_arg[idx] = specs->dt * specs->dt * p->model->vp[idx] * p->model->vp[idx];
-
-  size_t n = p->model->nxx * p->model->nzz;
-
-  p->fld      = alloc_struct(1.0, p->fld);
-  p->fld->txx = (float *)calloc(n, sizeof(float));
-  p->fld->tzz = (float *)calloc(n, sizeof(float));
-  p->fld->txz = (float *)calloc(n, sizeof(float));
-  p->fld->vx  = (float *)calloc(n, sizeof(float));
-  p->fld->vz  = (float *)calloc(n, sizeof(float));
-  p->fld->vp  = (float *)calloc(n, sizeof(float));
-
-  p->damp = alloc_struct(1.0, p->damp);
-  p->damp->x = callocf(p->model->nxx);
-  p->damp->z = callocf(p->model->nzz);
-
-  const size_t nsnaps = 101;
-
-  p->snap_ratio = (specs->nt - 1) / nsnaps + 1;
-
-  p->snapshots = allocf(nsnaps * p->shape);
-
-  return p;
+  e->txx     = allocf(p->shape);
+  e->tzz     = allocf(p->shape);
+  e->txz     = allocf(p->shape);
+  e->vx      = allocf(p->shape);
+  e->vz      = allocf(p->shape);
+  e->calc_vp = allocf(p->shape);
 }
 
+/*
 static void Propagation_ResetFields(propagation_t *p)
 {
   memset(p->seismogram->seismogram, 0, p->nt * p->seismogram->nrec * sizeof(float));
@@ -81,160 +40,234 @@ static void Propagation_ResetFields(propagation_t *p)
 
   p->snap_id_src = 0;
 }
+*/
 
-static void Propagation_GetSourceIndex(propagation_t *p, int s)
+static void Propagation_GetSourceIndex(propagation_t *p, int shot)
 {
-  int sx = p->geometry->src.x[s];
-  int sz = p->geometry->src.z[s];
+  const int sx = p->geometry->src.x[shot];
+  const int sz = p->geometry->src.z[shot];
 
   p->sidx = (sz + p->model->nb) * p->model->nxx + (sx + p->model->nb);
 }
 
 static void Propagation_PressureUpdate(propagation_t *p)
 {
-  int nxx = p->model->nxx;
-  int nzz = p->model->nzz;
+  const int nxx = p->model->nxx;
+  const int nzz = p->model->nzz;
 
-  // pressure update
+  const float *vp  = p->model->vp;
+  const float *vs  = p->model->vs;
+  const float *rho = p->model->rho;
+
+  const float *damp_x = p->damp->x;
+  const float *damp_z = p->damp->z;
+
+  const float dt     = p->dt;
+  const float inv_dh = 1.0f / p->dh;
+
+  elastic_state_t *e = p->physics_data;
+
+  float *txx       = e->txx;
+  float *tzz       = e->tzz;
+  float *txz       = e->txz;
+  const float *vx  = e->vx;
+  const float *vz  = e->vz;
+  float *calc_vp   = e->calc_vp;
+
+  const float c1 = FDM8E1;
+  const float c2 = FDM8E2;
+  const float c3 = FDM8E3;
+  const float c4 = FDM8E4;
+
   #pragma omp parallel for schedule(static)
   for (int i = 4; i < nzz - 4; i++)
   {
     for (int j = 4; j < nxx - 4; j++)
     {
+      const int idx = i * nxx + j;
+
       float dvx_dx =
-        (FDM8E1 * (p->fld->vx[i * nxx + (j - 3)] - p->fld->vx[i * nxx + (j + 4)]) +
-         FDM8E2 * (p->fld->vx[i * nxx + (j + 3)] - p->fld->vx[i * nxx + (j - 2)]) +
-         FDM8E3 * (p->fld->vx[i * nxx + (j - 1)] - p->fld->vx[i * nxx + (j + 2)]) +
-         FDM8E4 * (p->fld->vx[i * nxx + (j + 1)] - p->fld->vx[i * nxx + j])) * p->inv_dh;
+        (c1 * (vx[idx - 3] - vx[idx + 4]) +
+         c2 * (vx[idx + 3] - vx[idx - 2]) +
+         c3 * (vx[idx - 1] - vx[idx + 2]) +
+         c4 * (vx[idx + 1] - vx[idx])) * inv_dh;
 
       float dvz_dz =
-        (FDM8E1 * (p->fld->vz[(i - 3) * nxx + j] - p->fld->vz[(i + 4) * nxx + j]) +
-         FDM8E2 * (p->fld->vz[(i + 3) * nxx + j] - p->fld->vz[(i - 2) * nxx + j]) +
-         FDM8E3 * (p->fld->vz[(i - 1) * nxx + j] - p->fld->vz[(i + 2) * nxx + j]) +
-         FDM8E4 * (p->fld->vz[(i + 1) * nxx + j] - p->fld->vz[i * nxx + j])) * p->inv_dh;
+        (c1 * (vz[idx - 3 * nxx] - vz[idx + 4 * nxx]) +
+         c2 * (vz[idx + 3 * nxx] - vz[idx - 2 * nxx]) +
+         c3 * (vz[idx - nxx] - vz[idx + 2 * nxx]) +
+         c4 * (vz[idx + nxx] - vz[idx])) * inv_dh;
 
       float dvx_dz =
-        (FDM8E1 * (p->fld->vx[(i - 4) * nxx + j] - p->fld->vx[(i + 3) * nxx + j]) +
-         FDM8E2 * (p->fld->vx[(i + 2) * nxx + j] - p->fld->vx[(i - 3) * nxx + j]) +
-         FDM8E3 * (p->fld->vx[(i - 2) * nxx + j] - p->fld->vx[(i + 1) * nxx + j]) +
-         FDM8E4 * (p->fld->vx[i * nxx + j] - p->fld->vx[(i - 1) * nxx + j])) * p->inv_dh;
+        (c1 * (vx[idx - 4 * nxx] - vx[idx + 3 * nxx]) +
+         c2 * (vx[idx + 2 * nxx] - vx[idx - 3 * nxx]) +
+         c3 * (vx[idx - 2 * nxx] - vx[idx + nxx]) +
+         c4 * (vx[idx] - vx[idx - nxx])) * inv_dh;
 
       float dvz_dx =
-        (FDM8E1 * (p->fld->vz[i * nxx + (j - 4)] - p->fld->vz[i * nxx + (j + 3)]) +
-         FDM8E2 * (p->fld->vz[i * nxx + (j + 2)] - p->fld->vz[i * nxx + (j - 3)]) +
-         FDM8E3 * (p->fld->vz[i * nxx + (j - 2)] - p->fld->vz[i * nxx + (j + 1)]) +
-         FDM8E4 * (p->fld->vz[i * nxx + j] - p->fld->vz[i * nxx + (j - 1)])) * p->inv_dh;
+        (c1 * (vz[idx - 4] - vz[idx + 3]) +
+         c2 * (vz[idx + 2] - vz[idx - 3]) +
+         c3 * (vz[idx - 2] - vz[idx + 1]) +
+         c4 * (vz[idx] - vz[idx - 1])) * inv_dh;
 
-      float vp2 = p->model->vp[i * nxx + j] * p->model->vp[i * nxx + j];
-      float vs2 = p->model->vs[i * nxx + j] * p->model->vs[i * nxx + j];
-      float vs2_xp = p->model->vs[(i + 1) * nxx + j] * p->model->vs[(i + 1) * nxx + j];
-      float vs2_zp = p->model->vs[i * nxx + (j + 1)] * p->model->vs[i * nxx + (j + 1)];
-      float vs2_xp_zp = p->model->vs[(i + 1) * nxx + (j + 1)] * p->model->vs[(i + 1) * nxx + (j + 1)];
+      const float vp0 = vp[idx];
+      const float vs0 = vs[idx];
+      const float rho0 = rho[idx];
 
-      float lamb = p->model->rho[i * nxx + j] * (vp2 - 2.0f * vs2);
-      float mi   = p->model->rho[i * nxx + j] * vs2;
+      const float vp2 = vp0 * vp0;
+      const float vs2 = vs0 * vs0;
 
-      float mi1 = p->model->rho[i * nxx + j] * vs2;
-      float mi2 = p->model->rho[(i + 1) * nxx + j] * vs2_xp;
-      float mi3 = p->model->rho[i * nxx + (j + 1)] * vs2_zp;
-      float mi4 = p->model->rho[(i + 1) * nxx + (j + 1)] * vs2_xp_zp;
-      float mi_avg = 4.0f / ((1.0f / mi1) + (1.0f / mi2) + (1.0f / mi3) + (1.0f / mi4));
+      const float vs_xp = vs[idx + nxx];
+      const float vs_zp = vs[idx + 1];
+      const float vs_xp_zp = vs[idx + nxx + 1];
 
-      p->fld->txx[i * nxx + j] += p->dt * ((lamb + 2.0f * mi) * dvx_dx + lamb * dvz_dz);
-      p->fld->tzz[i * nxx + j] += p->dt * ((lamb + 2.0f * mi) * dvz_dz + lamb * dvx_dx);
-      p->fld->txz[i * nxx + j] += p->dt * mi_avg * (dvx_dz + dvz_dx);
+      const float vs2_xp = vs_xp * vs_xp;
+      const float vs2_zp = vs_zp * vs_zp;
+      const float vs2_xp_zp = vs_xp_zp * vs_xp_zp;
 
-      float damp_prod = p->damp->x[j] * p->damp->z[i];
+      const float lambda = rho0 * (vp2 - 2.0f * vs2);
+      const float mu = rho0 * vs2;
 
-      p->fld->txx[i * nxx + j] *= damp_prod;
-      p->fld->tzz[i * nxx + j] *= damp_prod;
-      p->fld->txz[i * nxx + j] *= damp_prod;
+      const float mu1 = rho0 * vs2;
+      const float mu2 = rho[idx + nxx] * vs2_xp;
+      const float mu3 = rho[idx + 1] * vs2_zp;
+      const float mu4 = rho[idx + nxx + 1] * vs2_xp_zp;
 
-      p->fld->vp[i * nxx + j] =
-        0.5f * (p->fld->txx[i * nxx + j] +
-                p->fld->tzz[i * nxx + j]);
+      const float mu_avg =
+        4.0f / ((1.0f / mu1) +
+                (1.0f / mu2) +
+                (1.0f / mu3) +
+                (1.0f / mu4));
+
+      txx[idx] += dt *
+        ((lambda + 2.0f * mu) * dvx_dx +
+         lambda * dvz_dz);
+
+      tzz[idx] += dt *
+        ((lambda + 2.0f * mu) * dvz_dz +
+         lambda * dvx_dx);
+
+      txz[idx] += dt *
+        mu_avg * (dvx_dz + dvz_dx);
+
+      const float damp_prod = damp_x[j] * damp_z[i];
+
+      txx[idx] *= damp_prod;
+      tzz[idx] *= damp_prod;
+      txz[idx] *= damp_prod;
+
+      calc_vp[idx] = 0.5f * (txx[idx] + tzz[idx]);
     }
   }
 }
 
-static void Propagation_VelocityUpdate(propagation_t* p)
+static void Propagation_VelocityUpdate(propagation_t *p)
 {
-  int nxx = p->model->nxx;
-  int nzz = p->model->nzz;
+  const int nxx = p->model->nxx;
+  const int nzz = p->model->nzz;
 
-  // velocity update
+  const float *rho = p->model->rho;
+
+  const float *damp_x = p->damp->x;
+  const float *damp_z = p->damp->z;
+
+  const float dt     = p->dt;
+  const float inv_dh = 1.0f / p->dh;
+
+  elastic_state_t *e = p->physics_data;
+
+  float *vx = e->vx;
+  float *vz = e->vz;
+  const float *txx = e->txx;
+  const float *tzz = e->tzz;
+  const float *txz = e->txz;
+
+  const float c1 = FDM8E1;
+  const float c2 = FDM8E2;
+  const float c3 = FDM8E3;
+  const float c4 = FDM8E4;
+
   #pragma omp parallel for schedule(static)
   for (int i = 4; i < nzz - 4; i++)
   {
     for (int j = 4; j < nxx - 4; j++)
     {
+      const int idx = i * nxx + j;
+
       float dtxx_dx =
-        (FDM8E1 * (p->fld->txx[i * nxx + (j - 4)] - p->fld->txx[i * nxx + (j + 3)]) +
-         FDM8E2 * (p->fld->txx[i * nxx + (j + 2)] - p->fld->txx[i * nxx + (j - 3)]) +
-         FDM8E3 * (p->fld->txx[i * nxx + (j - 2)] - p->fld->txx[i * nxx + (j + 1)]) +
-         FDM8E4 * (p->fld->txx[i * nxx + j] - p->fld->txx[i * nxx + (j - 1)])) * p->inv_dh;
+        (c1 * (txx[idx - 4] - txx[idx + 3]) +
+         c2 * (txx[idx + 2] - txx[idx - 3]) +
+         c3 * (txx[idx - 2] - txx[idx + 1]) +
+         c4 * (txx[idx] - txx[idx - 1])) * inv_dh;
 
       float dtxz_dz =
-        (FDM8E1 * (p->fld->txz[(i - 3) * nxx + j] - p->fld->txz[(i + 4) * nxx + j]) +
-         FDM8E2 * (p->fld->txz[(i + 3) * nxx + j] - p->fld->txz[(i - 2) * nxx + j]) +
-         FDM8E3 * (p->fld->txz[(i - 1) * nxx + j] - p->fld->txz[(i + 2) * nxx + j]) +
-         FDM8E4 * (p->fld->txz[(i + 1) * nxx + j] - p->fld->txz[i * nxx + j])) * p->inv_dh;
+        (c1 * (txz[idx - 3 * nxx] - txz[idx + 4 * nxx]) +
+         c2 * (txz[idx + 3 * nxx] - txz[idx - 2 * nxx]) +
+         c3 * (txz[idx - nxx] - txz[idx + 2 * nxx]) +
+         c4 * (txz[idx + nxx] - txz[idx])) * inv_dh;
 
       float dtxz_dx =
-        (FDM8E1 * (p->fld->txz[i * nxx + (j - 3)] - p->fld->txz[i * nxx + (j + 4)]) +
-         FDM8E2 * (p->fld->txz[i * nxx + (j + 3)] - p->fld->txz[i * nxx + (j - 2)]) +
-         FDM8E3 * (p->fld->txz[i * nxx + (j - 1)] - p->fld->txz[i * nxx + (j + 2)]) +
-         FDM8E4 * (p->fld->txz[i * nxx + (j + 1)] - p->fld->txz[i * nxx + j])) * p->inv_dh;
+        (c1 * (txz[idx - 3] - txz[idx + 4]) +
+         c2 * (txz[idx + 3] - txz[idx - 2]) +
+         c3 * (txz[idx - 1] - txz[idx + 2]) +
+         c4 * (txz[idx + 1] - txz[idx])) * inv_dh;
 
       float dtzz_dz =
-        (FDM8E1 * (p->fld->tzz[(i - 4) * nxx + j] - p->fld->tzz[(i + 3) * nxx + j]) +
-         FDM8E2 * (p->fld->tzz[(i + 2) * nxx + j] - p->fld->tzz[(i - 3) * nxx + j]) +
-         FDM8E3 * (p->fld->tzz[(i - 2) * nxx + j] - p->fld->tzz[(i + 1) * nxx + j]) +
-         FDM8E4 * (p->fld->tzz[i * nxx + j] - p->fld->tzz[(i - 1) * nxx + j])) * p->inv_dh;
+        (c1 * (tzz[idx - 4 * nxx] - tzz[idx + 3 * nxx]) +
+         c2 * (tzz[idx + 2 * nxx] - tzz[idx - 3 * nxx]) +
+         c3 * (tzz[idx - 2 * nxx] - tzz[idx + nxx]) +
+         c4 * (tzz[idx] - tzz[idx - nxx])) * inv_dh;
 
-      float rho_inv =
-        1.0f / (0.5f * (p->model->rho[i * nxx + j] +
-                        p->model->rho[i * nxx + (j + 1)]));
+      const float rho_xp = rho[idx + 1];
+      const float rho_zp = rho[idx + nxx];
 
-      float rho_inv2 =
-        1.0f / (0.5f * (p->model->rho[i * nxx + j] +
-                        p->model->rho[(i + 1) * nxx + j]));
+      const float rho_inv =
+        1.0f / (0.5f * (rho[idx] + rho_xp));
 
-      p->fld->vx[i * nxx + j] += p->dt * rho_inv * (dtxx_dx + dtxz_dz);
-      p->fld->vz[i * nxx + j] += p->dt * rho_inv2 * (dtxz_dx + dtzz_dz);
+      const float rho_inv2 =
+        1.0f / (0.5f * (rho[idx] + rho_zp));
 
-      float damp_prod = p->damp->x[j] * p->damp->z[i];
+      vx[idx] += dt * rho_inv * (dtxx_dx + dtxz_dz);
+      vz[idx] += dt * rho_inv2 * (dtxz_dx + dtzz_dz);
 
-      p->fld->vx[i * nxx + j] *= damp_prod;
-      p->fld->vz[i * nxx + j] *= damp_prod;
+      const float damp_prod = damp_x[j] * damp_z[i];
+
+      vx[idx] *= damp_prod;
+      vz[idx] *= damp_prod;
     }
   }
 }
 
 static void Propagation_ForwardStep(propagation_t *p, int t)
 {
-  p->fld->txx[p->sidx] += p->wavelet->wavelet[t] / p->dh2;
-  p->fld->tzz[p->sidx] += p->wavelet->wavelet[t] / p->dh2;
+  elastic_state_t* e = p->physics_data;
+
+  float inv_dh2 = 1.0f / (p->dh * p->dh);
+
+  e->txx[p->sidx] += p->wavelet->wavelet[t] * inv_dh2;
+  e->tzz[p->sidx] += p->wavelet->wavelet[t] * inv_dh2;
 
   Propagation_VelocityUpdate(p);
   Propagation_PressureUpdate(p);
 }
 
+// repeat for each field(calc_vp, vz, vx)
+// maybe creating an elastic case for seismogram
 static void Propagation_GetSeismogram(
     propagation_t *p,
     const float *field,
     float *seismogram,
     int t)
 {
-  for (size_t irec = 0; irec < p->geometry->nrec; ++irec)
+  geometry_t* g = p->geometry;
+
+  for (size_t irec = 0; irec < g->nrec; ++irec)
   {
-    const int rx = p->geometry->rec.x[irec] + p->model->nb;
+    const int rx = g->rec.x[irec] + p->model->nb;
 
-    const int rz = p->geometry->rec.z[irec] + p->model->nb;
+    const int rz = g->rec.z[irec] + p->model->nb;
 
-    //printf("rx: %g, rz: %d\n", p->geometry->rec.x[irec], rz);
-
-    const size_t r_idx = (size_t)t * p->geometry->nrec + irec;
+    const size_t r_idx = (size_t)t * g->nrec + irec;
 
     seismogram[r_idx] = field[rz * p->model->nxx + rx];
   }
@@ -242,40 +275,32 @@ static void Propagation_GetSeismogram(
 
 static void Propagation_GetSnapshots(propagation_t *p, int t)
 {
-  if ((t % p->snap_ratio) == 0)
-  {
-    size_t idx = p->snap_id_src * p->model->nxx * p->model->nzz;
-
-    memcpy(
-        &p->snapshots[idx],
-        p->u->present,
-        p->model->nxx * p->model->nzz *
-        sizeof(*p->u->present));
-
-    p->snap_id_src++;
-  }
+// TODO
 }
 
-void Propagation_Run(propagation_t* p, unsigned flags)
+void Propagation_RunElastic(propagation_t* p, unsigned flags)
 {
-  for (size_t s = 0; s < p->geometry->nsrc; ++s) 
-  {
-    Propagation_GetSourceIndex(p, s);
+  elastic_state_t* e = p->physics_data;
 
-    Propagation_ResetFields(p);
+  float* seismogram  = p->seismogram->seismogram;
+
+  for (size_t shot = 0; shot < p->geometry->nsrc; ++shot) 
+  {
+    Propagation_GetSourceIndex(p, shot);
+
+    //Propagation_ResetFields(p);
 
     for (size_t t = 0; t < p->nt; t++)
     {
       Propagation_ForwardStep(p, t);
 
-      Propagation_GetSeismogram(p, p->fld->vp, p->seismogram->seismogram, t);
+      Propagation_GetSeismogram(p, e->calc_vp, seismogram, t);
 
-      if(flags & PROPAGATION_SAVE_SNAPSHOTS) Propagation_GetSnapshots(p, t);
+      if(flags & PROPAGATION_SAVE_SNAPSHOTS) 
+        Propagation_GetSnapshots(p, t);
     }
   }
 }
 
-void Propagation_RemoveDirectWave(propagation_t* p, int ix, int iz) 
-{}
 
 

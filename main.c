@@ -1,15 +1,15 @@
-#include "src/plot.h"
+#include "internal.h"
 
 #include "config/config.h"
 
-#include "internal.h"
+#include "src/plot.h"
 
 #include "geometry.h"
 #include "model.h"
 #include "propagation.h"
 #include "seismogram.h"
 #include "wavelet.h"
-#include "rtm.h"
+//#include "rtm.h"
 
 int main()
 {
@@ -25,26 +25,24 @@ int main()
 
   model_t* model = Model_Init(model, &specs->model);
   Model_Create(model);
-
-  plot_geometry_model(model->vp, model->nx, model->nz,
-      geom->rec.x, geom->rec.z, geom->nrec,
-      geom->src.x, geom->src.z, geom->nsrc);
-
   Model_Extent(model);
 
   seismogram_t* seis = Seismogram_Init(seis, &specs->seismogram, geom->nrec);
 
-  propagation_t* prop = Propagation_Init(prop, &specs->propagation, model, geom, wave, seis);
+  propagation_t* prop = Propagation_Init(
+    prop, 
+    &specs->propagation,
+    model,
+    geom,
+    wave,
+    seis,
+    PROPAGATION_ACOUSTIC);
   Propagation_GetDamp(prop);
   Propagation_Run(prop, 0);
-  plot2d(seis->seismogram, seis->nrec, seis->nt);
-
-  //rtm_t* r = RTM_Init(r, prop);
-  //RTM_Run(r);
-
-  //plot2d(r->image, model->nxx, model->nzz);
 
   PROFILE_END();
+
+  //plot2d(seis->seismogram, seis->nrec, seis->nt);
 
   return 0;
 }
