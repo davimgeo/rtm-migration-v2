@@ -73,7 +73,7 @@ Propagation_VelocityUpdate(propagation_t *p)
 
   const float lap_arg = 1.0f / (5040.0f * p->dh * p->dh);
 
-  #pragma omp for schedule(static) nowait
+  #pragma omp for schedule(static)
   for (int i = 4; i < nzz - 4; ++i)
   {
     const float *restrict r0 = upre + (size_t)(i - 4) * nxx;

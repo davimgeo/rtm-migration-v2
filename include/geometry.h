@@ -1,7 +1,9 @@
-#ifndef GEOMETRY_H
-#define GEOMETRY_H
+#pragma once
 
 #include <stdio.h>
+
+#define GEOMETRY_ONLY_RECEIVERS (1U << 0)
+#define GEOMETRY_VERBOSE        (1U << 1)
 
 typedef struct
 {
@@ -52,7 +54,7 @@ void Geometry_Load(
   const char* SRC_PATH
 );
 
-void Geometry_Create(geometry_t *geom);
+void Geometry_SetSource(geometry_t* geom, int sx, int sz);
+void Geometry_Create(geometry_t *geom, unsigned flags);
 
-#endif /* end of include guard: GEOMETRY_H */
 

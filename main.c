@@ -18,13 +18,16 @@ int main()
   SpecsContext* specs = Specs_Init(specs);
 
   geometry_t* geom = Geometry_InitCreate(geom, &specs->geometry);
-  Geometry_Create(geom);
+  Geometry_Create(geom, GEOMETRY_ONLY_RECEIVERS);
+  Geometry_SetSource(geom, 108, 30);
 
   wavelet_t* wave = Wavelet_Init(wave, &specs->wavelet);
   Wavelet_Create(wave);
 
   model_t* model = Model_Init(model, &specs->model);
   Model_Create(model);
+
+  plot_geometry_model(model->vp, model->nx, model->nz, geom->rec.x, geom->rec.z, geom->nrec, geom->src.x, geom->src.z, geom->nsrc);
   Model_Extent(model);
 
   seismogram_t* seis = Seismogram_Init(seis, &specs->seismogram, geom->nrec);

@@ -30,6 +30,11 @@ model_t* Model_Init(model_t *m, model_specs_t* specs)
   return m;
 }
 
+void Model_Set(model_t*m, float* vp)
+{
+  m->vp = vp; 
+}
+
 void Model_Load(model_t *m, const char* PATH, int nx, int nz)
 {
   m->vp = read2d_fortran(PATH, nz, nx);
