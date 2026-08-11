@@ -75,7 +75,7 @@ static void plot_geometry_model(
 
     fprintf(gnuplot_pipe, "e\n");
 
-    for (int i = 0; i <= nrec; ++i) {
+    for (int i = 0; i < nrec; ++i) {
         fprintf(
             gnuplot_pipe,
             "%f %f\n",
@@ -86,7 +86,7 @@ static void plot_geometry_model(
 
     fprintf(gnuplot_pipe, "e\n");
 
-    for (int i = 0; i <= nsrc; ++i) {
+    for (int i = 0; i < nsrc; ++i) {
         fprintf(
             gnuplot_pipe,
             "%f %f\n",

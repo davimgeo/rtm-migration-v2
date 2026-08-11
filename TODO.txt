@@ -1,3 +1,0 @@
-- Add BITMASK flags in Geometry(LOAD and READ)
-- Make COntext struct to reduce parameters on Prop_Init
-- self tune simd intrinsics on get_damp for testing

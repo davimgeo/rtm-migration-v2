@@ -1,5 +1,14 @@
 #pragma once
 
+// TODO: remove it after making lib
+// not necessary, just used here
+// to transform the project into a 
+// static lib
+#include "geometry.h"
+#include "model.h"
+#include "wavelet.h"
+#include "seismogram.h"
+
 #define PROPAGATION_SAVE_SNAPSHOTS  (1U << 0)
 #define PROPAGATION_SAVE_SEISMOGRAM (1U << 1)
 #define PROPAGATION_ACOUSTIC        (1U << 2)
