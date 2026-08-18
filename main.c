@@ -17,18 +17,18 @@ int main()
   SpecsContext* specs = Specs_Init(specs);
 
   geometry_t* geom = Geometry_InitCreate(geom, &specs->geometry);
-  //Geometry_Create(geom, GEOMETRY_ONLY_RECEIVERS);
-  Geometry_SetReceiver(geom, 108, 0);
+  Geometry_Create(geom, GEOMETRY_ONLY_RECEIVERS);
   Geometry_SetSource(geom, 108, 30);
 
   wavelet_t* wave = Wavelet_Init(wave, &specs->wavelet);
   Wavelet_Create(wave);
 
   model_t* model = Model_Init(model, &specs->model);
-  Model_Create(model);
-  Model_Extent(model);
+  Model_CreateElastic(model);
+  //Model_Create(model);
+  Model_ExtentElastic(model);
 
-  seismogram_t* seis = Seismogram_Init(seis, &specs->seismogram, geom->nrec);
+  seismogram_t* seis = Seismogram_Init(seis, &specs->seismogram, geom->nrec, SEISMOGRAM_ELASTIC);
 
   propagation_t* prop = Propagation_Init(
     prop, 
@@ -37,13 +37,18 @@ int main()
     geom,
     wave,
     seis,
-    PROPAGATION_ACOUSTIC);
+    PROPAGATION_ELASTIC);
   Propagation_GetDamp(prop);
   Propagation_Run(prop, 0);
 
   PROFILE_END();
 
-  plot1d(seis->seismogram, seis->nt);
+  plot_seismogram_elastic(seis, geom->offset_rec);
 
+  Geometry_Destroy(geom);
+  Wavelet_Destroy(wave);
+  Model_Destroy(model);
+  Seismogram_Destroy(seis);
+  Propagation_Destroy(prop);
   return 0;
 }

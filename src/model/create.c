@@ -62,10 +62,6 @@ void Model_CreateElastic(model_t *m)
 {
   parallel_t *pm = m->parallel_model;
 
-  m->vp  = allocf(m->nx * m->nz);
-  m->vs  = allocf(m->nx * m->nz);
-  m->rho = allocf(m->nx * m->nz);
-
   int layer = 0;
 
   for (int z = 0; z < m->nz; ++z)
@@ -82,5 +78,14 @@ void Model_CreateElastic(model_t *m)
       m->rho[z * m->nx + x] = 0.23f * powf(pm->values[layer], 0.25f);
     }
   }
+}
+
+void Model_Destroy(model_t *m)
+{
+  if(m == NULL) return;
+
+  free(m->vp); free(m->vs); free(m->rho);
+  free(m->parallel_model);
+  free(m);
 }
 

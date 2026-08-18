@@ -8,7 +8,6 @@ PYTHON_LIBS    = $(shell python3-config --embed --ldflags)
 
 LIBS     = -lm
 
-LIB      = librtm.a
 TARGET   = run.out
 
 SRC      = $(shell find src -name "*.c") config/config.c
@@ -17,14 +16,11 @@ OBJ      = $(SRC:.c=.o)
 all: $(TARGET)
 	./$(TARGET)
 
-$(LIB): $(OBJ)
-	ar rcs $@ $^
-
-$(TARGET): main.o $(LIB)
-	$(CC) $(CFLAGS) main.o -L. -lrtm $(LIBS) $(PYTHON_LIBS) -o $@
+$(TARGET): $(OBJ) main.o
+	$(CC) $(CFLAGS) $(OBJ) main.o $(LIBS) $(PYTHON_LIBS) -o $@
 
 %.o: %.c
 	$(CC) $(CFLAGS) $(INCLUDE) $(PYTHON_INCLUDE) -I$(NUMPY_INCLUDE) -c $< -o $@
 
 clean:
-	rm -f $(OBJ) main.o $(LIB) $(TARGET)
+	rm -f $(OBJ) main.o $(TARGET)

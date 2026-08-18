@@ -46,4 +46,6 @@ void Model_CreateElastic(model_t* m);
 void Model_Extent(model_t *m);
 void Model_ExtentElastic(model_t *m);
 
+void Model_Destroy(model_t *m);
+
 #endif 
