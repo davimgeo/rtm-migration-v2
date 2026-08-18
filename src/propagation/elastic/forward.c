@@ -27,21 +27,6 @@ void Propagation_InitElastic(propagation_t *p)
   e->calc_vp = allocf(p->shape);
 }
 
-/*
-static void Propagation_ResetFields(propagation_t *p)
-{
-  memset(p->seismogram->seismogram, 0, p->nt * p->seismogram->nrec * sizeof(float));
-
-  memset(p->u->past, 0, p->model->nxx * p->model->nzz * sizeof(float));
-
-  memset(p->u->present, 0, p->model->nxx * p->model->nzz * sizeof(float));
-
-  memset(p->u->future, 0, p->model->nxx * p->model->nzz * sizeof(float));
-
-  p->snap_id_src = 0;
-}
-*/
-
 static void Propagation_GetSourceIndex(propagation_t *p, int shot)
 {
   const int sx = p->geometry->src.x[shot];
@@ -251,15 +236,12 @@ static void Propagation_ForwardStep(propagation_t *p, int t)
   Propagation_PressureUpdate(p);
 }
 
-// repeat for each field(calc_vp, vz, vx)
-// maybe creating an elastic case for seismogram
-static void Propagation_GetSeismogram(
-    propagation_t *p,
-    const float *field,
-    float *seismogram,
-    int t)
+static void Propagation_GetSeismogram(propagation_t *p, int t)
 {
-  geometry_t* g = p->geometry;
+  elastic_state_t* e = p->physics_data;
+
+  seismogram_t* s = p->seismogram;
+  geometry_t* g   = p->geometry;
 
   for (size_t irec = 0; irec < g->nrec; ++irec)
   {
@@ -269,7 +251,9 @@ static void Propagation_GetSeismogram(
 
     const size_t r_idx = (size_t)t * g->nrec + irec;
 
-    seismogram[r_idx] = field[rz * p->model->nxx + rx];
+    s->elastic->calc_p[r_idx] = e->calc_vp[rz * p->model->nxx + rx];
+    s->elastic->vx[r_idx]     = e->vx[rz * p->model->nxx + rx];
+    s->elastic->vz[r_idx]     = e->vz[rz * p->model->nxx + rx];
   }
 }
 
@@ -282,8 +266,6 @@ void Propagation_RunElastic(propagation_t* p, unsigned flags)
 {
   elastic_state_t* e = p->physics_data;
 
-  float* seismogram  = p->seismogram->seismogram;
-
   for (size_t shot = 0; shot < p->geometry->nsrc; ++shot) 
   {
     Propagation_GetSourceIndex(p, shot);
@@ -294,7 +276,7 @@ void Propagation_RunElastic(propagation_t* p, unsigned flags)
     {
       Propagation_ForwardStep(p, t);
 
-      Propagation_GetSeismogram(p, e->calc_vp, seismogram, t);
+      Propagation_GetSeismogram(p, t);
 
       if(flags & PROPAGATION_SAVE_SNAPSHOTS) 
         Propagation_GetSnapshots(p, t);

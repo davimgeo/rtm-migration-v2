@@ -19,3 +19,5 @@ typedef struct wavelet_t
 wavelet_t* Wavelet_Init(wavelet_t* w, wavelet_spec_t* spec);
 void Wavelet_Create(wavelet_t* w);
 float* Wavelet_SecondDerivative(wavelet_t* w);
+
+void Wavelet_Destroy(wavelet_t* w);

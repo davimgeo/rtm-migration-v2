@@ -35,8 +35,52 @@ def plot_seismogram(
 
   plt.show()
 
+def plot_seismogram_elastic(
+    calc_p: np.ndarray, 
+    vx: np.ndarray,
+    vz: np.ndarray,
+    dt: float, 
+    offset: int, 
+    perc=99
+) -> None:
+
+  nt, nrec = calc_p.shape
+  
+  tloc = np.linspace(0, nt - 1, 7, dtype=int)
+  tlab = np.around(tloc * dt, decimals=1)
+
+  xloc = np.linspace(0, nrec - 1, 7)
+  xlab = np.array(offset * 10 * xloc, dtype=int)
+
+  fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(15, 8))
+
+  img = ax[0].imshow(calc_p, aspect="auto", cmap="Greys")
+  ax[0].set_title("Pressure", fontsize=15)
+  plt.colorbar(img, ax=ax[0])
+
+  img1 = ax[1].imshow(vx, aspect="auto", cmap="Greys")
+  ax[1].set_title("Vx", fontsize=15)
+  plt.colorbar(img1, ax=ax[1])
+
+  img2 = ax[2].imshow(vz, aspect="auto", cmap="Greys")
+  ax[2].set_title("Vz", fontsize=15)
+  plt.colorbar(img2, ax=ax[2])
+
+  for axs in ax:
+    axs.set_yticks(tloc)
+    axs.set_yticklabels(tlab)
+
+    axs.set_xticks(xloc)
+    axs.set_xticklabels(xlab)
+
+    axs.set_xlabel("Offset (m)", fontsize=13)
+    axs.set_ylabel("TWT (s)", fontsize=13)
+  
+  plt.tight_layout()
+  plt.show()
+
 def plot_model(model, perc=99) -> None:
-  _, ax = plt.subplots(figsize=(12, 5))
+  _, ax = plt.subplots(figsize=(12, 8))
 
   vmin = np.percentile(model, 100 - perc)
   vmax = np.percentile(model, perc)

@@ -189,6 +189,79 @@ cleanup:
   return status;
 }
 
+int plot_seismogram_elastic(seismogram_t* seismogram, int offset)
+{
+  seismogram_t* s = seismogram;
+
+  int status = -1;
+
+  PyObject *py_calc_p  = NULL;
+  PyObject *py_vx      = NULL;
+  PyObject *py_vz      = NULL;
+  PyObject *dt_obj     = NULL;
+  PyObject *offset_obj = NULL;
+  PyObject *args       = NULL;
+
+  if (plot_python_init() != 0) goto cleanup;
+
+  npy_intp dims[2] = {s->nt, s->nrec};
+
+  py_calc_p = PyArray_SimpleNewFromData(
+    2,
+    dims,
+    NPY_FLOAT32,
+    (void *)s->elastic->calc_p
+  );
+  if (err_py(py_calc_p) != 0) goto cleanup;
+
+  py_vx = PyArray_SimpleNewFromData(
+    2,
+    dims,
+    NPY_FLOAT32,
+    (void *)s->elastic->vx
+  );
+  if (err_py(py_vx) != 0) goto cleanup;
+
+  py_vz = PyArray_SimpleNewFromData(
+    2,
+    dims,
+    NPY_FLOAT32,
+    (void *)s->elastic->vz
+  );
+  if (err_py(py_vz) != 0) goto cleanup;
+
+  dt_obj = PyFloat_FromDouble(s->dt);
+
+  if (err_py(dt_obj) != 0) goto cleanup;
+
+  offset_obj = PyLong_FromLong(offset);
+
+  if (err_py(offset_obj) != 0) goto cleanup;
+
+  args = PyTuple_Pack(
+      5,
+      py_calc_p,
+      py_vx,
+      py_vz,
+      dt_obj,
+      offset_obj
+  );
+
+  if (err_py(args) != 0) goto cleanup;
+
+  status = plot_python_call("plot_seismogram_elastic", args);
+
+cleanup:
+  Py_XDECREF(args);
+  Py_XDECREF(offset_obj);
+  Py_XDECREF(dt_obj);
+  Py_XDECREF(py_calc_p);
+  Py_XDECREF(py_vx);
+  Py_XDECREF(py_vz);
+
+  return status;
+}
+
 int plot_model_geometry(model_t* model, int dh, geometry_t* geometry)
 {
   model_t* m    = model;

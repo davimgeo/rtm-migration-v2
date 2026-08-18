@@ -72,6 +72,14 @@ float* Wavelet_SecondDerivative(wavelet_t* w)
   return wavelet_dt;
 }
 
+void Wavelet_Destroy(wavelet_t* wave)
+{
+  if(wave == NULL) return;
+
+  free(wave->wavelet);
+  free(wave);
+}
+
 
 
 

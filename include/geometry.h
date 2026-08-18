@@ -57,5 +57,5 @@ void Geometry_Load(
 void Geometry_SetReceiver(geometry_t* geom, int rx, int rz);
 void Geometry_SetSource(geometry_t* geom, int sx, int sz);
 void Geometry_Create(geometry_t *geom, unsigned flags);
-
+void Geometry_Destroy(geometry_t* geom);
 

@@ -62,3 +62,12 @@ void Propagation_Run(propagation_t *p, unsigned flags)
 {
   p->physics.Propagation_Run(p, flags);
 }
+
+void Propagation_Destroy(propagation_t *p)
+{
+  if(p == NULL) return;
+
+  free(p->physics_data);
+  free(p->damp);
+  free(p->snapshots);
+}

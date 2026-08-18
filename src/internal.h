@@ -7,6 +7,7 @@
 // put macros here
 
 #include <time.h>
+#include <stdlib.h>
 
 // do a check if user has GNUPLOT
 #include "plot.h"

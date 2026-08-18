@@ -81,6 +81,18 @@ void Geometry_Create(geometry_t *geom, unsigned flags)
     for (int i = 0; i < geom->nrec; i++) 
       printf("rx: %g, rz: %g\n", geom->rec.x[i], geom->rec.z[i]);
   }
-
-
 }
+
+void Geometry_Destroy(geometry_t* geom)
+{
+  if (geom == NULL) return;
+
+  free(geom->rec.x);
+  free(geom->rec.z);
+
+  free(geom->src.x);
+  free(geom->src.z);
+
+  free(geom);
+}
+
