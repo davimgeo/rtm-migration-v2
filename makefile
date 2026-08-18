@@ -1,24 +1,25 @@
 CC       = gcc
 CFLAGS   = -std=gnu99 -O3 -g -march=native -fopenmp -mavx2 -mfma
-
 INCLUDE  = -Iinclude -Isrc
+LIBS     = -lm
 
-PYTHON_INCLUDE = $(shell python3-config --includes)
-NUMPY_INCLUDE  = $(shell python3 -c 'import numpy; print(numpy.get_include())')
+LIB      = librtm.a
+TARGET   = run.out
 
-LIBS    = -lm
-PYTHON_LIBS = $(shell python3-config --embed --ldflags)
+SRC      = $(shell find src -name "*.c") $(shell find config -name "*.c")
+OBJ      = $(SRC:.c=.o)
 
-SRC = $(shell find . -name "*.c")
+all: $(TARGET)
+	./$(TARGET)
 
-all:
-	$(CC) $(CFLAGS) $(INCLUDE) $(PYTHON_INCLUDE) \
-	-I$(NUMPY_INCLUDE) $(SRC) $(LIBS) $(PYTHON_LIBS) -o run.out
+$(LIB): $(OBJ)
+	ar rcs $@ $^
 
-	./run.out
+$(TARGET): main.o $(LIB)
+	$(CC) $(CFLAGS) main.o -L. -lrtm $(LIBS) -o $@
 
-run: all
-	./run.out
+%.o: %.c
+	$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@
 
 clean:
-	rm -f run.out
+	rm -f $(OBJ) main.o $(LIB) $(TARGET)
