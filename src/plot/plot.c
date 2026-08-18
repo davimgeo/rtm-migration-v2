@@ -308,7 +308,7 @@ int plot1d(float* arr, int size)
   npy_intp dims[1] = {size};
 
   py_arr = PyArray_SimpleNewFromData(
-    2,
+    1,
     dims,
     NPY_FLOAT32,
     arr

@@ -17,7 +17,8 @@ int main()
   SpecsContext* specs = Specs_Init(specs);
 
   geometry_t* geom = Geometry_InitCreate(geom, &specs->geometry);
-  Geometry_Create(geom, GEOMETRY_ONLY_RECEIVERS);
+  //Geometry_Create(geom, GEOMETRY_ONLY_RECEIVERS);
+  Geometry_SetReceiver(geom, 108, 0);
   Geometry_SetSource(geom, 108, 30);
 
   wavelet_t* wave = Wavelet_Init(wave, &specs->wavelet);
@@ -42,7 +43,7 @@ int main()
 
   PROFILE_END();
 
-  plot2d(seis->seismogram, seis->nt, seis->nrec);
+  plot1d(seis->seismogram, seis->nt);
 
   return 0;
 }
