@@ -2,7 +2,7 @@
 
 #include "geometry.h"
 
-#define BUFFER_SIZE 128
+#define BUFFER_SIZE 1024
 
 geometry_t* Geometry_InitCreate(geometry_t* g, geometry_specs_t* cfg)
 {
@@ -16,17 +16,20 @@ geometry_t* Geometry_InitCreate(geometry_t* g, geometry_specs_t* cfg)
   g->offset_rec  = cfg->offset_rec;
   g->offset_src  = cfg->offset_src;
 
-  g->nrec = (cfg->line_length / cfg->offset_rec) + 1;
-  g->nsrc = (cfg->line_length / cfg->offset_src) + 1;
+  g->nrec = 0;
+  g->nsrc = 0;
+
+  g->rec.x = allocf(BUFFER_SIZE);
+  g->rec.z = allocf(BUFFER_SIZE);
+
+  g->src.x = allocf(BUFFER_SIZE);
+  g->src.z = allocf(BUFFER_SIZE);
 
   return g;
 }
 
 static void create_receivers(geometry_t* geom)
 {
-  geom->rec.x = allocf(geom->nrec);
-  geom->rec.z = allocf(geom->nrec);
-
   for (int i = 0; i < geom->nrec; i++) 
   {
     geom->rec.x[i] = i * geom->offset_rec;
@@ -34,11 +37,16 @@ static void create_receivers(geometry_t* geom)
   }
 }
 
+void Geometry_SetReceiver(geometry_t* geom, int rx, int rz)
+{
+  geom->rec.x[geom->nrec] = rx;
+  geom->rec.z[geom->nrec] = rz;
+
+  geom->nrec++;
+}
+
 static void create_sources(geometry_t* geom)
 {
-  geom->src.x = allocf(geom->nsrc);
-  geom->src.z = allocf(geom->nsrc);
-
   for (int i = 0; i < geom->nsrc; i++) 
   {
     geom->src.x[i] = i * geom->offset_src;
@@ -56,22 +64,14 @@ void Geometry_SetSource(geometry_t* geom, int sx, int sz)
 
 void Geometry_Create(geometry_t *geom, unsigned flags)
 {
-  if(flags & GEOMETRY_ONLY_RECEIVERS)
-  {
-    geom->nsrc = 0;
-    
-    // allocating source with a buffer_size
-    // just in case the user wants to set a source
-    geom->src.x = allocf(BUFFER_SIZE);
-    geom->src.z = allocf(BUFFER_SIZE);
 
-    create_receivers(geom);
+  geom->nrec = (geom->line_length / geom->offset_rec) + 1;
+  geom->nsrc = (geom->line_length / geom->offset_src) + 1;
 
-  } else {
+  if(flags & GEOMETRY_ONLY_RECEIVERS) geom->nsrc = 0;
 
-    create_receivers(geom);
-    create_sources(geom);
-  }
+  create_receivers(geom);
+  create_sources(geom);
 
   if(flags & GEOMETRY_VERBOSE)
   {
