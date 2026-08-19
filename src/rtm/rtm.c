@@ -81,8 +81,6 @@ void RTM_RemoveDirectWave(rtm_t* r, int isrc)
     }
   }
 
-  plot_seismogram(s, g->offset_rec);
-
   for (int j = 0; j < p->seismogram->nt; j++) 
   {
     for (int i = 0; i < p->seismogram->nrec; i++) 
@@ -170,7 +168,7 @@ void RTM_Run(rtm_t* r)
 
   for (int isrc = 0; isrc < g->nsrc; isrc++) 
   {
-    //RTM_ResetFields(r);
+    RTM_ResetFields(r);
 
     const int sx = g->src.x[isrc];
     const int sz = g->src.z[isrc];
@@ -181,7 +179,7 @@ void RTM_Run(rtm_t* r)
     {
       for(int t = 1; t < p->nt - 1; ++t)
       {
-        Propagation_InjectSource(p, isrc, t);
+        Propagation_InjectSource(p, sidx, t);
 
         Propagation_VelocityUpdate(p, a->vel_arg);
         Propagation_GetDamping(p);
@@ -191,8 +189,8 @@ void RTM_Run(rtm_t* r)
       }
     }
 
-    plot_seismogram(s, g->offset_rec);
     //RTM_RemoveDirectWave(r, sidx);
+    //plot_seismogram(s, g->offset_rec);
 
     #pragma omp parallel
     {

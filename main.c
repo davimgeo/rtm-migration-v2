@@ -8,7 +8,7 @@
 #include "propagation.h"
 #include "seismogram.h"
 #include "wavelet.h"
-//#include "rtm.h"
+#include "rtm.h"
 
 int main()
 {
@@ -17,8 +17,7 @@ int main()
   SpecsContext* specs = Specs_Init(specs);
 
   geometry_t* geom = Geometry_InitCreate(geom, &specs->geometry);
-  Geometry_Create(geom, GEOMETRY_ONLY_RECEIVERS);
-  Geometry_SetSource(geom, 108, 30);
+  Geometry_Create(geom, 0);
 
   wavelet_t* wave = Wavelet_Init(wave, &specs->wavelet);
   Wavelet_Create(wave);
@@ -39,11 +38,15 @@ int main()
     seis,
     PROPAGATION_ACOUSTIC);
   Propagation_GetDamp(prop);
-  Propagation_Run(prop, 0);
+  //Propagation_Run(prop, 0);
+
+  rtm_t* rtm = RTM_Init(rtm, prop);
+  RTM_Run(rtm);
 
   PROFILE_END();
 
-  plot_seismogram(seis, geom->offset_rec);
+  //plot_seismogram(seis, geom->offset_rec);
+  plot2d(rtm->image, model->nzz, model->nxx);
 
   Geometry_Destroy(geom);
   Wavelet_Destroy(wave);
