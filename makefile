@@ -11,16 +11,18 @@ LIBS     = -lm
 TARGET   = run.out
 
 SRC      = $(shell find src -name "*.c") config/config.c
-OBJ      = $(SRC:.c=.o)
+OBJ      = $(SRC:%.c=build/%.o)
+MAIN_OBJ = build/main.o
 
 all: $(TARGET)
 	./$(TARGET)
 
-$(TARGET): $(OBJ) main.o
-	$(CC) $(CFLAGS) $(OBJ) main.o $(LIBS) $(PYTHON_LIBS) -o $@
+$(TARGET): $(OBJ) $(MAIN_OBJ)
+	$(CC) $(CFLAGS) $(OBJ) $(MAIN_OBJ) $(LIBS) $(PYTHON_LIBS) -o $@
 
-%.o: %.c
+build/%.o: %.c
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(INCLUDE) $(PYTHON_INCLUDE) -I$(NUMPY_INCLUDE) -c $< -o $@
 
 clean:
-	rm -f $(OBJ) main.o $(TARGET)
+	rm -rf build $(TARGET)

@@ -34,5 +34,6 @@ seismogram_t* Seismogram_Init(
     unsigned flags);
 void Seismogram_Save(seismogram_t* s);
 void Seismogram_Load(seismogram_t* s, const char* PATH);
+void Seismogram_Set(seismogram_t* s, float* seismogram);
 void Seismogram_Destroy(seismogram_t* s);
 

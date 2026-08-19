@@ -34,6 +34,11 @@ seismogram_t* Seismogram_Init(
   return s;
 }
 
+void Seismogram_Set(seismogram_t* s, float* seismogram)
+{
+  s->seismogram = seismogram;
+}
+
 void Seismogram_Save(seismogram_t* s)
 {
   char path[BUFFER];

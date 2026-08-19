@@ -18,6 +18,14 @@ void Propagation_InitAcoustic(propagation_t* p)
   a->upre    = allocf(p->shape);
   a->ufut    = allocf(p->shape);
   a->vel_arg = allocf(p->shape);
+
+  float dt2 = p->dt * p->dt;
+  float* vp = p->model->vp;
+
+  for (size_t idx = 0; idx < p->shape; ++idx)
+    a->vel_arg[idx] = dt2 * vp[idx] * vp[idx];
+
+  a->vel_arg_homo = dt2 * vp[0] * vp[0];
 }
 
 static void Propagation_ResetFields(propagation_t *p)
@@ -39,11 +47,7 @@ static void Propagation_ResetFields(propagation_t *p)
   p->snap_id_src = 0;
 }
 
-static inline void
-Propagation_InjectSource(
-    propagation_t *p,
-    int sidx,
-    int t)
+inline void Propagation_InjectSource(propagation_t *p, int sidx, int t)
 {
   acoustic_state_t *a = p->physics_data;
 
@@ -57,8 +61,35 @@ Propagation_InjectSource(
   }
 }
 
-static inline void
-Propagation_VelocityUpdate(propagation_t *p)
+inline void Propagation_InjectSeismogram(propagation_t *p, int t)
+{
+  acoustic_state_t *a = p->physics_data;
+  seismogram_t *s     = p->seismogram;
+  geometry_t *geom    = p->geometry;
+
+  const float *restrict seis = s->seismogram;
+
+  const int nxx = p->model->nxx;
+  const int nb  = p->model->nb;
+
+  const float source_scale = 1.0f / (p->dh * p->dh);
+
+  #pragma omp single
+  {
+    for (int irec = 0; irec < s->nrec; ++irec)
+    {
+      const int rx = geom->rec.x[irec] + nb;
+      const int rz = geom->rec.z[irec] + nb;
+
+      const size_t ridx = (size_t)rz * nxx + rx;
+      const size_t sidx = (size_t)t * s->nrec + irec;
+
+      a->upre[ridx] += seis[sidx] * source_scale;
+    }
+  }
+}
+
+inline void Propagation_VelocityUpdate(propagation_t *p, const float* vel_arg)
 {
   acoustic_state_t *a = p->physics_data;
 
@@ -66,7 +97,7 @@ Propagation_VelocityUpdate(propagation_t *p)
   float *restrict upas = a->upas;
   float *restrict ufut = a->ufut;
 
-  const float *restrict velocity_arg = a->vel_arg;
+  const float *restrict velocity_arg = vel_arg;
 
   const int nxx = p->model->nxx;
   const int nzz = p->model->nzz;
@@ -126,8 +157,7 @@ Propagation_VelocityUpdate(propagation_t *p)
  }
 }
 
-static inline void
-Propagation_GetDamping(propagation_t *p)
+inline void Propagation_GetDamping(propagation_t *p)
 {
   acoustic_state_t *a = p->physics_data;
 
@@ -180,14 +210,10 @@ static void Propagation_GetSnapshots(propagation_t *p, int t)
   }
 }
 
-static inline void
-Propagation_GetSeismogram(
-    propagation_t *p,
-    int t)
+inline void
+Propagation_GetSeismogram(propagation_t *p, float* seismogram, int t)
 {
   geometry_t *g = p->geometry;
-  seismogram_t *s = p->seismogram;
-
   acoustic_state_t *a = p->physics_data;
 
   const int nxx  = p->model->nxx;
@@ -195,7 +221,7 @@ Propagation_GetSeismogram(
   const int nrec = g->nrec;
 
   const float *restrict upas = a->upas;
-  float *restrict seis = s->seismogram;
+  float *restrict seis = seismogram;
 
   for (int irec = 0; irec < nrec; ++irec)
   {
@@ -228,9 +254,6 @@ void Propagation_RunAcoustic(propagation_t *p, unsigned flags)
 
   const float dt2 = p->dt * p->dt;
 
-  for (size_t idx = 0; idx < p->shape; ++idx)
-    a->vel_arg[idx] = dt2 * m->vp[idx] * m->vp[idx];
-
   for (int shot = 0; shot < g->nsrc; ++shot)
   {
     const int sx = g->src.x[shot];
@@ -246,54 +269,17 @@ void Propagation_RunAcoustic(propagation_t *p, unsigned flags)
       {
         Propagation_InjectSource(p, sidx, t);
 
-        Propagation_VelocityUpdate(p);
+        Propagation_VelocityUpdate(p, a->vel_arg);
 
         Propagation_GetDamping(p);
 
-        Propagation_GetSeismogram(p, t);
+        Propagation_GetSeismogram(p, s->seismogram, t);
       }
     }
 
     if (flags & PROPAGATION_SAVE_SEISMOGRAM)
-      Propagation_SaveSeismogram(
-        s->seismogram,
-        s->nt,
-        s->nrec,
-        shot
-      );
+      Propagation_SaveSeismogram(s->seismogram, s->nt, s->nrec, shot);
   }
 }
 
-// TODO: move to RTM class
-/*
-void Propagation_RemoveDirectWave(propagation_t* p, int ix, int iz)
-{
-  const int nxx = p->model->nxx;
-  const int nzz = p->model->nzz;
 
-  Propagation_ResetFields(p);
-
-  for (int t = 0; t < p->nt - 1; ++t)
-  {
-    //actual model
-    Propagation_ForwardStep(p, p->u, p->vel_arg, t);
-
-    Propagation_GetSeismogram(p, p->u, p->seismogram->seismogram, t);
-
-    // homogeneous model
-    Propagation_ForwardStep(p, p->u_homo, p->vel_arg_homo, t);
-
-    Propagation_GetSeismogram(p, p->u_homo, p->seismogram->seismogram_homo, t);
-
-    // subtract direct wave../
-    for (int j = 0; j < p->seismogram->nt; j++) 
-    {
-      for (int i = 0; i < p->seismogram->nrec; i++) 
-      {
-        int idx = j * p->seismogram->nrec + i;
-        p->seismogram->seismogram[idx] -= p->seismogram->seismogram_homo[idx];
-      }
-    }
-  } 
-}
-*/

@@ -27,7 +27,7 @@ void Propagation_InitElastic(propagation_t *p)
   e->calc_vp = allocf(p->shape);
 }
 
-static void Propagation_GetSourceIndex(propagation_t *p, int shot)
+void Propagation_GetSourceIndex(propagation_t *p, int shot)
 {
   const int sx = p->geometry->src.x[shot];
   const int sz = p->geometry->src.z[shot];
@@ -35,7 +35,7 @@ static void Propagation_GetSourceIndex(propagation_t *p, int shot)
   p->sidx = (sz + p->model->nb) * p->model->nxx + (sx + p->model->nb);
 }
 
-static void Propagation_PressureUpdate(propagation_t *p)
+void Propagation_PressureUpdate(propagation_t *p)
 {
   const int nxx = p->model->nxx;
   const int nzz = p->model->nzz;
@@ -146,7 +146,7 @@ static void Propagation_PressureUpdate(propagation_t *p)
   }
 }
 
-static void Propagation_VelocityUpdate(propagation_t *p)
+void Propagation_VelocityUpdateElastic(propagation_t *p)
 {
   const int nxx = p->model->nxx;
   const int nzz = p->model->nzz;
@@ -223,7 +223,7 @@ static void Propagation_VelocityUpdate(propagation_t *p)
   }
 }
 
-static void Propagation_ForwardStep(propagation_t *p, int t)
+void Propagation_ForwardStep(propagation_t *p, int t)
 {
   elastic_state_t* e = p->physics_data;
 
@@ -232,11 +232,11 @@ static void Propagation_ForwardStep(propagation_t *p, int t)
   e->txx[p->sidx] += p->wavelet->wavelet[t] * inv_dh2;
   e->tzz[p->sidx] += p->wavelet->wavelet[t] * inv_dh2;
 
-  Propagation_VelocityUpdate(p);
+  Propagation_VelocityUpdateElastic(p);
   Propagation_PressureUpdate(p);
 }
 
-static void Propagation_GetSeismogram(propagation_t *p, int t)
+void Propagation_GetElasticSeismogram(propagation_t *p, int t)
 {
   elastic_state_t* e = p->physics_data;
 
@@ -257,7 +257,7 @@ static void Propagation_GetSeismogram(propagation_t *p, int t)
   }
 }
 
-static void Propagation_GetSnapshots(propagation_t *p, int t)
+void Propagation_GetElasticSnapshots(propagation_t *p, int t)
 {
 // TODO
 }
@@ -276,10 +276,10 @@ void Propagation_RunElastic(propagation_t* p, unsigned flags)
     {
       Propagation_ForwardStep(p, t);
 
-      Propagation_GetSeismogram(p, t);
+      Propagation_GetElasticSeismogram(p, t);
 
       if(flags & PROPAGATION_SAVE_SNAPSHOTS) 
-        Propagation_GetSnapshots(p, t);
+        Propagation_GetElasticSnapshots(p, t);
     }
   }
 }
