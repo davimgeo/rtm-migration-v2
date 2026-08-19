@@ -1,14 +1,13 @@
-#ifndef RTM_H
-#define RTM_H
+#pragma once 
 
-#include "propagation.h"
+#include "propagation/propagation_c.h"
+#include "propagation/acoustic/acoustic_c.h"
+
+typedef struct propagation_t propagation_t;
 
 typedef struct
 {
   propagation_t* p;
-
-  wavefield_t* forward;
-  wavefield_t* backward;
 
   float* num;
   float* dem;
@@ -30,4 +29,3 @@ typedef struct
 rtm_t* RTM_Init(rtm_t* r, propagation_t* p);
 void RTM_Run(rtm_t* r);
 
-#endif /* end of include guard: RTM_H */

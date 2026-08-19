@@ -24,11 +24,11 @@ int main()
   Wavelet_Create(wave);
 
   model_t* model = Model_Init(model, &specs->model);
-  Model_CreateElastic(model);
+  Model_Create(model);
   //Model_Create(model);
-  Model_ExtentElastic(model);
+  Model_Extent(model);
 
-  seismogram_t* seis = Seismogram_Init(seis, &specs->seismogram, geom->nrec, SEISMOGRAM_ELASTIC);
+  seismogram_t* seis = Seismogram_Init(seis, &specs->seismogram, geom->nrec, 0);
 
   propagation_t* prop = Propagation_Init(
     prop, 
@@ -37,13 +37,13 @@ int main()
     geom,
     wave,
     seis,
-    PROPAGATION_ELASTIC);
+    PROPAGATION_ACOUSTIC);
   Propagation_GetDamp(prop);
   Propagation_Run(prop, 0);
 
   PROFILE_END();
 
-  plot_seismogram_elastic(seis, geom->offset_rec);
+  plot_seismogram(seis, geom->offset_rec);
 
   Geometry_Destroy(geom);
   Wavelet_Destroy(wave);
