@@ -21,7 +21,7 @@ rtm_t* RTM_Init(rtm_t* r, propagation_t* p)
   r->num   = allocf(size);
   r->dem   = allocf(size);
   r->snaps = allocf(size * r->nsnaps);
-  r->image = allocf(size);
+  r->image = callocf(size);
 
   r->current_src_id = 0;
   r->current_rec_id = -1;
@@ -155,17 +155,22 @@ static void RTM_ImageCondition(rtm_t* r)
 {
   const int nxx = r->p->model->nxx;
   const int nzz = r->p->model->nzz;
+  const size_t size = (size_t)nxx * nzz;
 
-  #pragma omp for schedule(static)
-  for (int i = 0; i < nzz; ++i)
+  float dem_max = 0.0f;
+
+  for (size_t idx = 0; idx < size; ++idx)
+    if (r->dem[idx] > dem_max)
+      dem_max = r->dem[idx];
+
+  const float epsilon = 0.01 * dem_max;
+
+  #pragma omp parallel for schedule(static)
+  for (size_t idx = 0; idx < size; ++idx)
   {
-    for (int j = 0; j < nxx; ++j)
-    {
-      const size_t idx = (size_t)i * nxx + j;
-
-      r->image[idx] += r->snap_dt * (r->num[idx] / r->dem[idx]);
-    }
-   }
+    r->image[idx] +=
+      r->snap_dt * r->num[idx] / (r->dem[idx] + epsilon);
+  }
 }
 
 static void RTM_ShowModelingStatus(rtm_t* r)
@@ -185,7 +190,7 @@ static void RTM_LaplacianFilter(rtm_t* r)
 
   const size_t size = (size_t)nxx * nzz;
 
-  float* gradient = allocf(size);
+  float* gradient = callocf(size);
 
   for (int i = 2; i < nzz - 2; ++i)
   {
@@ -261,10 +266,10 @@ void RTM_Run(rtm_t* r)
         RTM_Accumulate_CrossCorrelation(r, t);
       }
     }
-
     RTM_ImageCondition(r);
+
     RTM_ShowModelingStatus(r);
-  }
+  } // end time loop
 
   RTM_LaplacianFilter(r);
 }
