@@ -29,7 +29,7 @@ void Propagation_InitAcoustic(propagation_t* p)
   }
 }
 
-static void Propagation_ResetFields(propagation_t *p)
+void Propagation_ResetFields(propagation_t *p)
 {
   acoustic_state_t* a = p->physics_data;
   seismogram_t* s     = p->seismogram;
