@@ -1,5 +1,4 @@
 #include <string.h>
-#include <immintrin.h>
 
 #include "internal.h"
 
@@ -14,18 +13,20 @@ void Propagation_InitAcoustic(propagation_t* p)
 
   p->physics_data = a;
 
-  a->upas    = allocf(p->shape);
-  a->upre    = allocf(p->shape);
-  a->ufut    = allocf(p->shape);
-  a->vel_arg = allocf(p->shape);
+  a->upas         = allocf(p->shape);
+  a->upre         = allocf(p->shape);
+  a->ufut         = allocf(p->shape);
+  a->vel_arg      = allocf(p->shape);
+  a->vel_arg_homo = allocf(p->shape);
 
   float dt2 = p->dt * p->dt;
   float* vp = p->model->vp;
 
   for (size_t idx = 0; idx < p->shape; ++idx)
+  {
     a->vel_arg[idx] = dt2 * vp[idx] * vp[idx];
-
-  a->vel_arg_homo = dt2 * vp[0] * vp[0];
+    a->vel_arg_homo[idx] = dt2 * vp[0] * vp[0];
+  }
 }
 
 static void Propagation_ResetFields(propagation_t *p)
@@ -39,9 +40,7 @@ static void Propagation_ResetFields(propagation_t *p)
   memset(s->seismogram, 0, s->nt * s->nrec * sizeof(float));
 
   memset(a->upas, 0, nxx * nzz * sizeof(float));
-
   memset(a->upre, 0, nxx * nzz * sizeof(float));
-
   memset(a->ufut, 0, nxx * nzz * sizeof(float));
 
   p->snap_id_src = 0;
@@ -104,6 +103,9 @@ inline void Propagation_VelocityUpdate(propagation_t *p, const float* vel_arg)
 
   const float lap_arg = 1.0f / (5040.0f * p->dh * p->dh);
 
+  const float *restrict damp_x = p->damp->x;
+  const float *restrict damp_z = p->damp->z;
+
   #pragma omp for schedule(static)
   for (int i = 4; i < nzz - 4; ++i)
   {
@@ -119,7 +121,7 @@ inline void Propagation_VelocityUpdate(propagation_t *p, const float* vel_arg)
 
     float *restrict out = upas + (size_t)i * nxx;
 
-    const float *restrict vel = a->vel_arg + (size_t)i * nxx;
+    const float *restrict vel = vel_arg + (size_t)i * nxx;
 
     #pragma omp simd
     for (int j = 4; j < nxx - 4; ++j)
@@ -153,23 +155,8 @@ inline void Propagation_VelocityUpdate(propagation_t *p, const float* vel_arg)
           vel[j] * laplacian +
           2.0f * r4[j] -
           ufut[(size_t)i * nxx + j];
-  }
- }
-}
-
-inline void Propagation_GetDamping(propagation_t *p)
-{
-  acoustic_state_t *a = p->physics_data;
-
-  float *restrict upre = a->upre;
-  float *restrict upas = a->upas;
-  float *restrict ufut = a->ufut;
-
-  const float *restrict damp_x = p->damp->x;
-  const float *restrict damp_z = p->damp->z;
-
-  const int nxx = p->model->nxx;
-  const int nzz = p->model->nzz;
+    }
+   }
 
   #pragma omp for schedule(static)
   for (int i = 4; i < nzz - 4; ++i)
@@ -223,6 +210,7 @@ Propagation_GetSeismogram(propagation_t *p, float* seismogram, int t)
   const float *restrict upas = a->upas;
   float *restrict seis = seismogram;
 
+  #pragma omp single
   for (int irec = 0; irec < nrec; ++irec)
   {
     const int rx = g->rec.x[irec] + nb;
@@ -268,11 +256,7 @@ void Propagation_RunAcoustic(propagation_t *p, unsigned flags)
       for (int t = 1; t < p->nt - 1; ++t)
       {
         Propagation_InjectSource(p, sidx, t);
-
         Propagation_VelocityUpdate(p, a->vel_arg);
-
-        Propagation_GetDamping(p);
-
         Propagation_GetSeismogram(p, s->seismogram, t);
       }
     }

@@ -20,7 +20,7 @@ void Model_Extent(model_t *m)
     }
   }
 
-  /* pad bottom */
+  /* pad bottom and up*/
   for (int j = m->nb; j < m->nx+m->nb; j++) 
   {
     for (int i = 0; i < m->nb; i++) 

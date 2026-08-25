@@ -15,47 +15,49 @@ propagation_t* Propagation_Init(
     unsigned flags
 )
 {
-    p = alloc_struct(1.0, p);
+  p = alloc_struct(1.0, p);
 
-    p->model      = m;
-    p->geometry   = g;
-    p->wavelet    = w;
-    p->seismogram = s;
+  p->model      = m;
+  p->geometry   = g;
+  p->wavelet    = w;
+  p->seismogram = s;
 
-    p->shape  = (size_t)m->nxx * (size_t)m->nzz;
-    p->dh     = specs->dh;
-    p->dt     = specs->dt;
-    p->nt     = specs->nt;
-    p->factor = specs->factor;
+  p->shape  = (size_t)m->nxx * (size_t)m->nzz;
+  p->dh     = specs->dh;
+  p->dt     = specs->dt;
+  p->nt     = specs->nt;
+  p->factor = specs->factor;
 
-    p->damp = alloc_struct(1.0, p->damp);
-    p->damp->x = callocf(m->nxx);
-    p->damp->z = callocf(m->nzz);
+  p->damp = alloc_struct(1.0, p->damp);
+  p->damp->x = callocf(m->nxx);
+  p->damp->z = callocf(m->nzz);
 
-    const size_t nsnaps = 101;
+  const size_t nsnaps = 101;
 
-    p->snap_ratio = (specs->nt - 1) / nsnaps + 1;
-    p->snapshots = allocf(nsnaps * p->shape);
+  p->snap_ratio = (specs->nt - 1) / nsnaps + 1;
+  p->snapshots = allocf(nsnaps * p->shape);
 
-    if (flags & PROPAGATION_ACOUSTIC)
-    {
-      p->physics.Propagation_Init = Propagation_InitAcoustic;
-      p->physics.Propagation_Run  = Propagation_RunAcoustic;
-    }
-    else if (flags & PROPAGATION_ELASTIC)
-    {
-      p->physics.Propagation_Init = Propagation_InitElastic;
-      p->physics.Propagation_Run  = Propagation_RunElastic;
-    }
-    else
-    {
-      free(p);
-      return NULL;
-    }
+  if (flags & PROPAGATION_ACOUSTIC)
+  {
+    p->physics.Propagation_Init = Propagation_InitAcoustic;
+    p->physics.Propagation_Run  = Propagation_RunAcoustic;
+  }
+  else if (flags & PROPAGATION_ELASTIC)
+  {
+    p->physics.Propagation_Init = Propagation_InitElastic;
+    p->physics.Propagation_Run  = Propagation_RunElastic;
+  }
+  else
+  {
+    free(p);
+    return NULL;
+  }
 
-    p->physics.Propagation_Init(p);
+  p->physics.Propagation_Init(p);
 
-    return p;
+  Propagation_GetDamp(p);
+
+  return p;
 }
 
 void Propagation_Run(propagation_t *p, unsigned flags)

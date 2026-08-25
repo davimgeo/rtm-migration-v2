@@ -5,6 +5,7 @@ typedef struct
   float dt;
   float nt;
   float fmax;
+  float tlag;
 } wavelet_spec_t;
 
 typedef struct wavelet_t
@@ -12,6 +13,7 @@ typedef struct wavelet_t
   float dt;
   float nt;
   float fmax; 
+  float tlag;
 
   float* wavelet;
 } wavelet_t;

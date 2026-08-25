@@ -262,6 +262,58 @@ cleanup:
   return status;
 }
 
+int plot_image(rtm_t* r, model_t* m, int dh)
+{
+  int status = -1;
+
+  PyObject *py_image   = NULL;
+  PyObject *py_nb      = NULL;
+  PyObject *py_dh      = NULL;
+  PyObject *args       = NULL;
+
+  if (plot_python_init() != 0) goto cleanup;
+
+  npy_intp image_dims[2] = {m->nzz, m->nxx};
+
+  py_image = PyArray_SimpleNewFromData(
+    2,
+    image_dims,
+    NPY_FLOAT32,
+    (void *)r->image
+  );
+
+  if (err_py(py_image) != 0) goto cleanup;
+
+  py_nb = PyLong_FromLong(m->nb);
+
+  if (err_py(py_nb) != 0) goto cleanup;
+
+  py_dh = PyLong_FromLong(dh);
+
+  if (err_py(py_dh) != 0) goto cleanup;
+
+  args = PyTuple_Pack(
+      3,
+      py_image,
+      py_nb,
+      py_dh
+  );
+
+  if (err_py(args) != 0) goto cleanup;
+
+  status = plot_python_call("plot_image", args);
+
+cleanup:
+  Py_XDECREF(args);
+
+  Py_XDECREF(py_image);
+
+  Py_XDECREF(py_nb);
+  Py_XDECREF(py_dh);
+
+  return status;
+}
+
 int plot_model_geometry(model_t* model, int dh, geometry_t* geometry)
 {
   model_t* m    = model;

@@ -24,7 +24,6 @@ int main()
 
   model_t* model = Model_Init(model, &specs->model);
   Model_Create(model);
-  //Model_Create(model);
   Model_Extent(model);
 
   seismogram_t* seis = Seismogram_Init(seis, &specs->seismogram, geom->nrec, 0);
@@ -37,21 +36,21 @@ int main()
     wave,
     seis,
     PROPAGATION_ACOUSTIC);
-  Propagation_GetDamp(prop);
-  //Propagation_Run(prop, 0);
+
+  plot_model_geometry(model, prop->dh, geom);
 
   rtm_t* rtm = RTM_Init(rtm, prop);
   RTM_Run(rtm);
 
   PROFILE_END();
 
-  //plot_seismogram(seis, geom->offset_rec);
-  plot2d(rtm->image, model->nzz, model->nxx);
+  plot_image(rtm, model, prop->dh);
 
   Geometry_Destroy(geom);
   Wavelet_Destroy(wave);
   Model_Destroy(model);
   Seismogram_Destroy(seis);
   Propagation_Destroy(prop);
+
   return 0;
 }
