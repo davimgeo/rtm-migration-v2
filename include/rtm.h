@@ -20,7 +20,7 @@ typedef struct
 
   float* snaps;
   int snap_ratio;
-  int snap_dt;
+  float snap_dt;
   int tstop;
 
   float* image;

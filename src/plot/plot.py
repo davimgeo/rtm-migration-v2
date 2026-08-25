@@ -144,6 +144,45 @@ def plot_model_geometry(
   plt.tight_layout()
   plt.show()
 
+def plot_image(image: np.ndarray, nb: int, dh: int, perc=99) -> None:
+  nzz, nxx = image.shape
+
+  nz = nzz - 2*nb
+  nx = nxx - 2*nb
+
+  xloc = np.linspace(0, nx - 1, 11, dtype=int)
+  xlab = np.array(xloc * dh, dtype=int)
+
+  zloc = np.linspace(0, nz - 1, 7, dtype=int)
+  zlab = np.array(zloc * dh, dtype=int)
+
+  fig, ax = plt.subplots(figsize=(12, 5)) 
+
+  img_data = image[nb:nb + nz, nb:nb + nx]
+
+  vmin = np.percentile(img_data, 100 - perc)
+  vmax = np.percentile(img_data, perc)
+ 
+  img = ax.imshow(
+      img_data,
+      aspect="auto",
+      cmap="Greys",
+      vmin=vmin,
+      vmax=vmax
+  )
+
+  ax.set_xticks(xloc)
+  ax.set_xticklabels(xlab)
+  ax.set_yticks(zloc)
+  ax.set_yticklabels(zlab)
+
+  ax.set_xlabel("Distance [m]", fontsize=13)
+  ax.set_ylabel("Depth [m]", fontsize=13)
+  ax.set_title("Image", fontsize=16)
+
+  plt.colorbar(img, ax=ax)
+  plt.show()
+
 def plot1d(arr: np.ndarray) -> None:
   _, ax = plt.subplots(nrows=1, ncols=1, figsize=(12, 5))
 

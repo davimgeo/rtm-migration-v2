@@ -10,6 +10,7 @@ wavelet_t* Wavelet_Init(wavelet_t* w, wavelet_spec_t* spec)
   w->dt = spec->dt;
   w->nt = spec->nt;
   w->fmax = spec->fmax;
+  w->tlag = spec->tlag;
 
   return w;
 }
@@ -23,7 +24,7 @@ void Wavelet_Create(wavelet_t* w)
 
   for (int i = 0; i < w->nt; i++) 
   {
-    float t = (i * w->dt) - t0;
+    float t = (i * w->dt) - w->tlag;
     float arg = M_PI * (M_PI * M_PI * fc * fc * t * t);
     w->wavelet[i] = (1.0f - 2.0f * arg) * expf(-arg);
   }

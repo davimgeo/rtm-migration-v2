@@ -45,5 +45,4 @@ void Propagation_InjectSource(propagation_t *p, int sidx, int t);
 
 void Propagation_InjectSeismogram(propagation_t *p, int t);
 
-void Propagation_GetDamping(propagation_t *p);
 

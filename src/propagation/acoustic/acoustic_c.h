@@ -8,7 +8,8 @@ typedef struct acoustic_state
   float* upre;
   float* ufut;
 
-  float* vel_arg, vel_arg_homo;
+  float* vel_arg;
+  float* vel_arg_homo;
 } acoustic_state_t;
 
 void Propagation_InitAcoustic(propagation_t* p);
