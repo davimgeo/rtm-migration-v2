@@ -20,13 +20,15 @@ void Model_Extent(model_t *m)
     }
   }
 
-  /* pad bottom and up*/
+  /* pad bottom and upper*/
   for (int j = m->nb; j < m->nx+m->nb; j++) 
   {
     for (int i = 0; i < m->nb; i++) 
     {
+      // bottom
       model_ext[i * nxx + j] = model_ext[m->nb * nxx + j];
 
+      // up
       model_ext[(m->nz + m->nb + i) * nxx + j] 
         = model_ext[(m->nz + m->nb - 1) * nxx + j];
     }

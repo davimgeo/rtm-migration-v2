@@ -1,5 +1,6 @@
 #include <math.h>
 
+#include "plot.h"
 #include "propagation_c.h"
 
 void Propagation_GetDamp(propagation_t* p)
@@ -21,7 +22,7 @@ void Propagation_GetDamp(propagation_t* p)
       int d = i - (p->model->nb + p->model->nz - 1);
       p->damp->z[i] = exp(-(p->factor * d) * (p->factor * d));
     }
-   }
+  }
 
   for (int j = 0; j < p->model->nxx; j++) 
   {
@@ -40,5 +41,6 @@ void Propagation_GetDamp(propagation_t* p)
       int d = j - (p->model->nb + p->model->nx - 1);
       p->damp->x[j] = exp(-(p->factor * d) * (p->factor * d));
     }
-  }
-}
+  }   
+} 
+

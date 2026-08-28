@@ -224,6 +224,14 @@ static void RTM_LaplacianFilter(rtm_t* r)
   r->image = gradient;
 }
 
+inline int RTM_GetSourceIndex(geometry_t* g, model_t* m, int isrc)
+{
+  const int sx = g->src.x[isrc];
+  const int sz = g->src.z[isrc];
+
+  return (sz + m->nb) * m->nxx + (sx + m->nb);
+}
+
 void RTM_Run(rtm_t* r)
 {
   propagation_t* p = r->p;
@@ -236,21 +244,16 @@ void RTM_Run(rtm_t* r)
   {
     RTM_ResetFields(r);
 
-    const int sx = g->src.x[isrc];
-    const int sz = g->src.z[isrc];
-
-    const int sidx = (sz + m->nb) * m->nxx + (sx + m->nb);
+    const int sidx = RTM_GetSourceIndex(g, m, isrc);
 
     #pragma omp parallel
+    for (int t = 1; t < p->nt - 1; ++t)
     {
-      for (int t = 1; t < p->nt - 1; ++t)
-      {
-        Propagation_InjectSource(p, sidx, t);
-        Propagation_VelocityUpdate(p, a->vel_arg);
-        Propagation_GetSeismogram(p, s->seismogram, t);
+      Propagation_InjectSource(p, sidx, t);
+      Propagation_VelocityUpdate(p, a->vel_arg);
+      Propagation_GetSeismogram(p, s->seismogram, t);
 
-        RTM_GetSourceSnapshots(r, t);
-      }
+      RTM_GetSourceSnapshots(r, t);
     }
 
     r->current_rec_id = r->current_src_id - 1;
@@ -258,18 +261,16 @@ void RTM_Run(rtm_t* r)
     RTM_RemoveDirectWave(r, sidx);
 
     #pragma omp parallel
+    for (int t = p->nt - 1; t >= r->tstop; --t)
     {
-      for (int t = p->nt - 1; t >= r->tstop; --t)
-      {
-        Propagation_InjectSeismogram(p, t);
-        Propagation_VelocityUpdate(p, a->vel_arg);
-        RTM_Accumulate_CrossCorrelation(r, t);
-      }
+      Propagation_InjectSeismogram(p, t);
+      Propagation_VelocityUpdate(p, a->vel_arg);
+      RTM_Accumulate_CrossCorrelation(r, t);
     }
-    RTM_ImageCondition(r);
 
+    RTM_ImageCondition(r);
     RTM_ShowModelingStatus(r);
-  } // end time loop
+  }
 
   RTM_LaplacianFilter(r);
 }

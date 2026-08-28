@@ -19,3 +19,11 @@ int plot_model_geometry(model_t* model, int dh, geometry_t* geometry);
 int plot_image(rtm_t* r, model_t* m, int dh);
 int plot1d(float* arr, int size);
 int plot2d(float* arr, int row, int col);
+int compare_diff(
+  float* model1,
+  float* model2,
+  int row,
+  int col,
+  const char* title1,
+  const char* title2
+);
