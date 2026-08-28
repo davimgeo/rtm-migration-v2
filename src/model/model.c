@@ -58,6 +58,11 @@ void Model_Create(model_t *m)
   }
 }
 
+void Model_Smooth(model_t* m)
+{
+
+}
+
 void Model_CreateElastic(model_t *m)
 {
   parallel_t *pm = m->parallel_model;

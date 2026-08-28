@@ -21,8 +21,10 @@ int main()
 
   wavelet_t* wave = Wavelet_Init(wave, &specs->wavelet);
   Wavelet_Create(wave);
+  Wavelet_SecondDerivative(wave);
 
   model_t* model = Model_Init(model, &specs->model);
+  //Model_Load(model, "data/marmousi/vp_351x1701_10m.bin", 1701, 351);
   Model_Create(model);
   Model_Extent(model);
 
@@ -36,15 +38,16 @@ int main()
     wave,
     seis,
     PROPAGATION_ACOUSTIC);
+  //plot_model_geometry(model, prop->dh, geom);
+  Propagation_Run(prop, 0);
 
-  plot_model_geometry(model, prop->dh, geom);
-
-  rtm_t* rtm = RTM_Init(rtm, prop);
-  RTM_Run(rtm);
+  //rtm_t* rtm = RTM_Init(rtm, prop);
+  //RTM_Run(rtm);
 
   PROFILE_END();
 
-  plot_image(rtm, model, prop->dh);
+  //plot_image(rtm, model, prop->dh);
+  plot_seismogram(seis, geom->offset_rec);
 
   Geometry_Destroy(geom);
   Wavelet_Destroy(wave);

@@ -44,4 +44,5 @@ void Propagation_GetSeismogram(propagation_t *p, float * seismogram, int t);
 void Propagation_InjectSource(propagation_t *p, int sidx, int t);
 
 void Propagation_InjectSeismogram(propagation_t *p, int t);
+
 void Propagation_ResetFields(propagation_t *p);

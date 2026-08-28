@@ -4,7 +4,7 @@
 
 #include "plot.h"
 
-#include "../propagation_c.h"
+#include "kernel.cuh"
 #include "acoustic_c.h"
 
 void Propagation_InitAcoustic(propagation_t* p)
@@ -88,98 +88,6 @@ inline void Propagation_InjectSeismogram(propagation_t *p, int t)
   }
 }
 
-inline void Propagation_VelocityUpdate(propagation_t *p, const float* vel_arg)
-{
-  acoustic_state_t *a = p->physics_data;
-
-  float *restrict upre = a->upre;
-  float *restrict upas = a->upas;
-  float *restrict ufut = a->ufut;
-
-  const float *restrict velocity_arg = vel_arg;
-
-  const int nxx = p->model->nxx;
-  const int nzz = p->model->nzz;
-
-  const float lap_arg = 1.0f / (5040.0f * p->dh * p->dh);
-
-  const float *restrict damp_x = p->damp->x;
-  const float *restrict damp_z = p->damp->z;
-
-  #pragma omp for schedule(static)
-  for (int i = 4; i < nzz - 4; ++i)
-  {
-    const float *restrict r0 = upre + (size_t)(i - 4) * nxx;
-    const float *restrict r1 = upre + (size_t)(i - 3) * nxx;
-    const float *restrict r2 = upre + (size_t)(i - 2) * nxx;
-    const float *restrict r3 = upre + (size_t)(i - 1) * nxx;
-    const float *restrict r4 = upre + (size_t)i       * nxx;
-    const float *restrict r5 = upre + (size_t)(i + 1) * nxx;
-    const float *restrict r6 = upre + (size_t)(i + 2) * nxx;
-    const float *restrict r7 = upre + (size_t)(i + 3) * nxx;
-    const float *restrict r8 = upre + (size_t)(i + 4) * nxx;
-
-    float *restrict out = upas + (size_t)i * nxx;
-
-    const float *restrict vel = vel_arg + (size_t)i * nxx;
-
-    #pragma omp simd
-    for (int j = 4; j < nxx - 4; ++j)
-    {
-      const float d2u_dx2 =
-          -9.0f    * r0[j] +
-          128.0f   * r1[j] -
-          1008.0f  * r2[j] +
-          8064.0f  * r3[j] -
-          14350.0f * r4[j] +
-          8064.0f  * r5[j] -
-          1008.0f  * r6[j] +
-          128.0f   * r7[j] -
-          9.0f     * r8[j];
-
-      const float d2u_dz2 =
-          -9.0f    * r4[j - 4] +
-          128.0f   * r4[j - 3] -
-          1008.0f  * r4[j - 2] +
-          8064.0f  * r4[j - 1] -
-          14350.0f * r4[j] +
-          8064.0f  * r4[j + 1] -
-          1008.0f  * r4[j + 2] +
-          128.0f   * r4[j + 3] -
-          9.0f     * r4[j + 4];
-
-      const float laplacian =
-          (d2u_dx2 + d2u_dz2) * lap_arg;
-
-      out[j] =
-          vel[j] * laplacian +
-          2.0f * r4[j] -
-          ufut[(size_t)i * nxx + j];
-    }
-   }
-
-  #pragma omp for schedule(static)
-  for (int i = 4; i < nzz - 4; ++i)
-  {
-    const float damp_z_i = damp_z[i];
-
-    float *restrict previous = upre + (size_t)i * nxx;
-    float *restrict current  = upas + (size_t)i * nxx;
-    float *restrict future   = ufut + (size_t)i * nxx;
-
-    const float *restrict damp_x_row = damp_x;
-
-    #pragma omp simd
-    for (int j = 4; j < nxx - 4; ++j)
-    {
-      const float damp = damp_x_row[j] * damp_z_i;
-
-      future[j] = previous[j] * damp;
-      previous[j] = current[j] * damp;
-    }
-  }
-}
-
 static void Propagation_GetSnapshots(propagation_t *p, int t)
 {
   acoustic_state_t* a = p->physics_data;
@@ -197,8 +105,7 @@ static void Propagation_GetSnapshots(propagation_t *p, int t)
   }
 }
 
-inline void
-Propagation_GetSeismogram(propagation_t *p, float* seismogram, int t)
+inline void Propagation_GetSeismogram(propagation_t *p, float* seismogram, int t)
 {
   geometry_t *g = p->geometry;
   acoustic_state_t *a = p->physics_data;
@@ -263,6 +170,66 @@ void Propagation_RunAcoustic(propagation_t *p, unsigned flags)
 
     if (flags & PROPAGATION_SAVE_SEISMOGRAM)
       Propagation_SaveSeismogram(s->seismogram, s->nt, s->nrec, shot);
+  }
+}
+
+void Propagation_RunAcoustic_GPU(propagation_t *p, unsigned flags)
+{
+  acoustic_state_t *a = p->physics_data;
+  geometry_t *g = p->geometry;
+  seismogram_t *s = p->seismogram;
+  model_t *m = p->model;
+
+  const float dh2     = p->dh * p->dh;
+  const float inv_dh2 = 1.0f / dh2;
+
+  dim3 block(32, 8);
+
+  dim3 grid(
+    (m->nxx + block.x - 1) / block.x,
+    (m->nzz + block.y - 1) / block.y
+  );
+
+  for (int shot = 0; shot < g->nsrc; ++shot)
+  {
+    const int sx = g->src.x[shot] + m->nb;
+    const int sz = g->src.z[shot] + m->nb;
+
+    Propagation_ResetFields(p);
+
+    for (int t = 1; t < p->nt - 1; ++t)
+    {
+      forward_kernel<<<grid, 256>>>(
+        a->upas,
+        a->upre,
+        a->vel_arg,
+        p->wavelet->wavelet,
+        inv_dh2,
+        dh2,
+        m->nzz,
+        m->nxx,
+        sx,
+        sz,
+        t
+      );
+
+      get_damp<<<grid, 256>>>(
+        a->upas,
+        a->upre,
+        p->damp->x,
+        p->damp->z,
+        m->nzz,
+        m->nxx
+      );
+
+      cudaDeviceSynchronize();
+
+      Propagation_GetSeismogram(
+        p,
+        s->seismogram,
+        t
+      );
+    }
   }
 }
 

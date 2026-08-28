@@ -486,3 +486,81 @@ cleanup:
 
   return status;
 }
+
+int compare_diff(
+  float* model1,
+  float* model2,
+  int row,
+  int col,
+  const char* title1,
+  const char* title2
+)
+{
+  int status = -1;
+
+  PyObject *py_model1 = NULL;
+  PyObject *py_model2 = NULL;
+  PyObject *py_title1 = NULL;
+  PyObject *py_title2 = NULL;
+  PyObject *args      = NULL;
+
+  if (plot_python_init() != 0) goto cleanup;
+
+  npy_intp dims[2] = {row, col};
+
+  py_model1 = PyArray_SimpleNewFromData(
+    2,
+    dims,
+    NPY_FLOAT32,
+    model1
+  );
+  if (err_py(py_model1) != 0) goto cleanup;
+
+  py_model2 = PyArray_SimpleNewFromData(
+    2,
+    dims,
+    NPY_FLOAT32,
+    model2
+  );
+  if (err_py(py_model2) != 0) goto cleanup;
+
+  if (title1 != NULL)
+    py_title1 = PyUnicode_FromString(title1);
+  else
+  {
+    py_title1 = Py_None;
+    Py_INCREF(Py_None);
+  }
+  if (err_py(py_title1) != 0) goto cleanup;
+
+  if (title2 != NULL)
+    py_title2 = PyUnicode_FromString(title2);
+  else
+  {
+    py_title2 = Py_None;
+    Py_INCREF(Py_None);
+  }
+  if (err_py(py_title2) != 0) goto cleanup;
+
+  args = PyTuple_Pack(
+    4,
+    py_model1,
+    py_model2,
+    py_title1,
+    py_title2
+  );
+  if (err_py(args) != 0) goto cleanup;
+
+  status = plot_python_call("compare_diff", args);
+
+cleanup:
+  Py_XDECREF(args);
+
+  Py_XDECREF(py_model1);
+  Py_XDECREF(py_model2);
+
+  Py_XDECREF(py_title1);
+  Py_XDECREF(py_title2);
+
+  return status;
+}

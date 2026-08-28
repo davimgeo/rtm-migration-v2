@@ -1,0 +1,54 @@
+  void Propagation_GetDamp2(propagation_t* p)
+{
+  for (int i = 0; i < p->model->nb; i++) 
+  {
+    int d = p->model->nb - i;
+    p->damp->z[i] = exp(-(p->factor * d) * (p->factor * d));
+   }
+}
+
+  /*
+  // damp up and bottom 
+  #pragma omp for schedule(static) nowait
+  for (int i = 0; i < nb; i++)
+  {
+    #pragma omp simd
+    for (int j = 0; j < nxx; j++)
+    {
+      // bottom
+      upas[i * nxx + j] *= damp_z[i];
+      upre[i * nxx + j] *= damp_z[i];
+
+      // up
+      upas[(nz + nb + i) * nxx + j] *= damp_z[nb - 1 - i];
+      upre[(nz + nb + i) * nxx + j] *= damp_z[nb - 1 - i];
+    }
+  }
+
+  // damp left and right  
+  #pragma omp for schedule(static)
+  for (int i = 0; i < nzz; i++)
+  {
+    #pragma omp simd
+    for (int j = 0; j < nb; j++)
+    {
+      // left
+      upas[i * nxx + j] *= damp_z[j];
+      upre[i * nxx + j] *= damp_z[j];
+
+      // right
+      upas[i * nxx + (nx + nb + j)] *= damp_z[nb - 1 - j];
+      upre[i * nxx + (nx + nb + j)] *= damp_z[nb - 1 - j];
+    }
+  } */
+
+void Propagation_GetDamp2(propagation_t* p)
+{
+  for (int i = 0; i < p->model->nb; i++) 
+  {
+    int d = p->model->nb - i;
+    p->damp->z[i] = exp(-(p->factor * d) * (p->factor * d));
+   }
+}
+
+
