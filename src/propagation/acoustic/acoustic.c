@@ -56,7 +56,7 @@ inline void Propagation_InjectSource(propagation_t *p, int sidx, int t)
 
   #pragma omp single
   {
-    a->upre[sidx] += wavelet[t] * source_scale;
+    a->upre[sidx] += wavelet[t] * source_scale * p->dt * p->dt;
   }
 }
 
@@ -162,9 +162,9 @@ void Propagation_RunAcoustic(propagation_t *p, unsigned flags)
     {
       for (int t = 1; t < p->nt - 1; ++t)
       {
-        Propagation_InjectSource(p, sidx, t);
         Propagation_VelocityUpdate(p, a->vel_arg);
         Propagation_GetSeismogram(p, s->seismogram, t);
+        Propagation_InjectSource(p, sidx, t);
       }
     }
 
