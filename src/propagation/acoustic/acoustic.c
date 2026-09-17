@@ -6,6 +6,7 @@
 
 #include "kernel.cuh"
 #include "acoustic_c.h"
+#include "propagation.h"
 
 void Propagation_InitAcoustic(propagation_t* p)
 {
@@ -140,6 +141,14 @@ static void Propagation_SaveSeismogram(float* seismogram, int nt, int nrec, int 
   write2d(path, seismogram, sizeof(float), nt, nrec);
 }
 
+static void Propagation_ShowModelingStatus(propagation_t* p, int ishot)
+{
+  printf("\e[1;1H\e[2J"); // SYSTEM CLEAR
+  float progress = (float)p->current_step / p->geometry->nsrc;
+  printf("Propagation Progress: %.1f%%\n", 100.0f * progress);
+  p->current_step++;
+}
+
 void Propagation_RunAcoustic(propagation_t *p, unsigned flags)
 {
   acoustic_state_t *a = p->physics_data;
@@ -170,66 +179,9 @@ void Propagation_RunAcoustic(propagation_t *p, unsigned flags)
 
     if (flags & PROPAGATION_SAVE_SEISMOGRAM)
       Propagation_SaveSeismogram(s->seismogram, s->nt, s->nrec, shot);
-  }
-}
 
-void Propagation_RunAcoustic_GPU(propagation_t *p, unsigned flags)
-{
-  acoustic_state_t *a = p->physics_data;
-  geometry_t *g = p->geometry;
-  seismogram_t *s = p->seismogram;
-  model_t *m = p->model;
-
-  const float dh2     = p->dh * p->dh;
-  const float inv_dh2 = 1.0f / dh2;
-
-  dim3 block(32, 8);
-
-  dim3 grid(
-    (m->nxx + block.x - 1) / block.x,
-    (m->nzz + block.y - 1) / block.y
-  );
-
-  for (int shot = 0; shot < g->nsrc; ++shot)
-  {
-    const int sx = g->src.x[shot] + m->nb;
-    const int sz = g->src.z[shot] + m->nb;
-
-    Propagation_ResetFields(p);
-
-    for (int t = 1; t < p->nt - 1; ++t)
-    {
-      forward_kernel<<<grid, 256>>>(
-        a->upas,
-        a->upre,
-        a->vel_arg,
-        p->wavelet->wavelet,
-        inv_dh2,
-        dh2,
-        m->nzz,
-        m->nxx,
-        sx,
-        sz,
-        t
-      );
-
-      get_damp<<<grid, 256>>>(
-        a->upas,
-        a->upre,
-        p->damp->x,
-        p->damp->z,
-        m->nzz,
-        m->nxx
-      );
-
-      cudaDeviceSynchronize();
-
-      Propagation_GetSeismogram(
-        p,
-        s->seismogram,
-        t
-      );
-    }
+    if (flags & PROPAGATION_MODELINGSTATUS)
+      Propagation_ShowModelingStatus(p, shot);
   }
 }
 

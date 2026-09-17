@@ -114,3 +114,48 @@ void Model_ExtentElastic(model_t *m)
   free(m->rho); m->rho = rho_ext;
 }
 
+float* extent_model(float* model, int nx, int nz, int nb)
+{
+  int nxx = nx + 2*nb;
+  int nzz = nz + 2*nb;
+
+  float *model_ext = calloc(sizeof(float), nxx * nzz);
+
+  /* copy original arr into ext */
+  for (int j = 0; j < nx; j++) 
+  {
+    for (int i = 0; i < nz; i++) 
+    {
+      model_ext[(i + nb) * nxx + (j + nb)]  =
+ model[i * nx + j];
+    }
+  }
+
+  /* pad bottom and upper*/
+  for (int j = nb; j < nx+nb; j++) 
+  {
+    for (int i = 0; i < nb; i++) 
+    {
+      // bottom
+      model_ext[i * nxx + j] = model_ext[nb *
+ nxx + j];
+
+      // up
+      model_ext[(nz + nb + i) * nxx + j] = model_ext[(nz + nb - 1) * nxx + j];
+    }
+  }
+
+  /* pad left and right respectively */
+  for (int i = 0; i < nzz; i++) 
+  {
+    for (int j = 0; j < nb; j++) 
+    {
+      // counld vectorize because of strided loop
+      model_ext[i * nxx + j]  = model_ext[i * nxx + nb];
+
+      model_ext[i * nxx + (nx + nb + j)] = model_ext[i * nxx + (nx + nb - 1)];
+    }
+  }
+
+  return model_ext;
+}

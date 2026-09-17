@@ -40,6 +40,7 @@ struct propagation_t
   int shape;
 
   float* snapshots;
+  int current_step;
 
   int snap_ratio;
   int sidx;

@@ -36,6 +36,7 @@ propagation_t* Propagation_Init(
 
   p->snap_ratio = (specs->nt - 1) / nsnaps + 1;
   p->snapshots = allocf(nsnaps * p->shape);
+  p->current_step = 1;
 
   if (flags & PROPAGATION_ACOUSTIC)
   {

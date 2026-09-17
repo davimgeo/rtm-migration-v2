@@ -5,6 +5,7 @@
 #define PROPAGATION_ACOUSTIC           (1U << 2)
 #define PROPAGATION_ELASTIC            (1U << 3)
 #define PROPAGATION_HOMOGENOUS         (1U << 4)
+#define PROPAGATION_MODELINGSTATUS     (1U << 5)
 
 typedef struct propagation_t propagation_t;
 

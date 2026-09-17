@@ -24,9 +24,11 @@ int main()
   Wavelet_SecondDerivative(wave);
 
   model_t* model = Model_Init(model, &specs->model);
-  //Model_Load(model, "data/marmousi/vp_351x1701_10m.bin", 1701, 351);
-  Model_Create(model);
+  Model_Load(model, "data/marmousi_881x351_10m.bin", 881, 351, 0);
+  Model_GaussianSmooth2(model, 9, 4.5f);
   Model_Extent(model);
+
+  plot_model_geometry(model, 10, geom);
 
   seismogram_t* seis = Seismogram_Init(seis, &specs->seismogram, geom->nrec, 0);
 
@@ -38,16 +40,15 @@ int main()
     wave,
     seis,
     PROPAGATION_ACOUSTIC);
-  //plot_model_geometry(model, prop->dh, geom);
-  Propagation_Run(prop, 0);
+  //Propagation_Run(prop, PROPAGATION_MODELINGSTATUS);
 
-  //rtm_t* rtm = RTM_Init(rtm, prop);
-  //RTM_Run(rtm);
+  rtm_t* rtm = RTM_Init(rtm, prop);
+  RTM_Run(rtm);
 
   PROFILE_END();
 
-  //plot_image(rtm, model, prop->dh);
-  plot_seismogram(seis, geom->offset_rec);
+  plot_image(rtm, model, 10.0);
+  //plot_seismogram(seis, geom->offset_rec);
 
   Geometry_Destroy(geom);
   Wavelet_Destroy(wave);

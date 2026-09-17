@@ -1,5 +1,8 @@
 #include "internal.h"
 #include "plot.h"
+#include "propagation.h"
+#include "propagation/propagation_c.h"
+#include "propagation/acoustic/acoustic_c.h"
 #include <string.h>
 
 #include "rtm.h"
@@ -22,6 +25,7 @@ rtm_t* RTM_Init(rtm_t* r, propagation_t* p)
   r->dem   = allocf(size);
   r->snaps = allocf(size * r->nsnaps);
   r->image = callocf(size);
+  r->adjoint_source = callocf(size);
 
   r->current_src_id = 0;
   r->current_rec_id = -1;
@@ -114,6 +118,52 @@ void RTM_GetSourceSnapshots(rtm_t* r, int t)
     memcpy(r->snaps + offset, a->upre, size * sizeof(*a->upre));
 
     r->current_src_id++;
+  }
+}
+
+inline void RTM_InjectAdjountSource(rtm_t* r, int t)
+{
+  propagation_t *p     = r->p;
+  acoustic_state_t* a = p->physics_data;
+  seismogram_t *s     = p->seismogram;
+  geometry_t *geom    = p->geometry;
+
+  const float *restrict adj = r->adjoint_source;
+
+  const int nxx = p->model->nxx;
+  const int nb  = p->model->nb;
+
+  const float source_scale = 1.0f / (p->dh * p->dh);
+
+  #pragma omp single
+  {
+    for (int irec = 0; irec < s->nrec; ++irec)
+    {
+      const int rx = geom->rec.x[irec] + nb;
+      const int rz = geom->rec.z[irec] + nb;
+
+      const size_t ridx = (size_t)rz * nxx + rx;
+      const size_t sidx = (size_t)t * s->nrec + irec;
+
+      a->upre[ridx] += adj[sidx] * source_scale;
+    }
+  }
+}
+
+void RTM_GetResidual(rtm_t* r, const float* dobs)
+{
+  propagation_t* p  = r->p;
+  seismogram_t* s = p->seismogram;
+
+  float* dcalc = s->seismogram;
+
+  for (int t = 0; t < p->nt; ++t)
+  {
+    for (int irec = 0; irec < s->nrec; ++irec)
+    {
+      const size_t idx = (size_t)t * s->nrec + irec;
+      r->adjoint_source[idx] = dobs[idx] - dcalc[idx];
+    }
   }
 }
 
@@ -249,9 +299,9 @@ void RTM_Run(rtm_t* r)
     #pragma omp parallel
     for (int t = 1; t < p->nt - 1; ++t)
     {
-      Propagation_InjectSource(p, sidx, t);
       Propagation_VelocityUpdate(p, a->vel_arg);
       Propagation_GetSeismogram(p, s->seismogram, t);
+      Propagation_InjectSource(p, sidx, t);
 
       RTM_GetSourceSnapshots(r, t);
     }
@@ -263,9 +313,9 @@ void RTM_Run(rtm_t* r)
     #pragma omp parallel
     for (int t = p->nt - 1; t >= r->tstop; --t)
     {
-      Propagation_InjectSeismogram(p, t);
       Propagation_VelocityUpdate(p, a->vel_arg);
       RTM_Accumulate_CrossCorrelation(r, t);
+      Propagation_InjectSeismogram(p, t);
     }
 
     RTM_ImageCondition(r);
@@ -275,3 +325,61 @@ void RTM_Run(rtm_t* r)
   RTM_LaplacianFilter(r);
 }
 
+void RTMv2_Run(rtm_t* r, const float* dobs)
+{
+  propagation_t* p = r->p;
+  acoustic_state_t* a = p->physics_data;
+  geometry_t* g = p->geometry;
+  model_t* m = p->model;
+  seismogram_t* s = p->seismogram;
+
+  for (int isrc = 0; isrc < g->nsrc; ++isrc)
+  {
+    RTM_ResetFields(r);
+
+    const int sidx = RTM_GetSourceIndex(g, m, isrc);
+
+    #pragma omp parallel
+    for (int t = 1; t < p->nt - 1; ++t)
+    {
+      Propagation_VelocityUpdate(p, a->vel_arg);
+      Propagation_GetSeismogram(p, s->seismogram, t);
+      Propagation_InjectSource(p, sidx, t);
+
+      RTM_GetSourceSnapshots(r, t);
+    }
+
+    r->current_rec_id = r->current_src_id - 1;
+
+    // dobs is a 3d array with all the dobs seismogram 
+    // with this, i can select each shot at the time
+    const float* dobs_shot = dobs + isrc * s->nt * s->nrec;
+    RTM_GetResidual(r, dobs_shot);
+
+    #pragma omp parallel
+    for (int t = p->nt - 1; t >= r->tstop; --t)
+    {
+      Propagation_VelocityUpdate(p, a->vel_arg);
+      RTM_Accumulate_CrossCorrelation(r, t);
+      RTM_InjectAdjountSource(r, t);
+    }
+
+    RTM_ImageCondition(r);
+    RTM_ShowModelingStatus(r);
+  }
+
+  //RTM_LaplacianFilter(r);
+}
+
+void RTM_Destroy(rtm_t* r)
+{
+  if (!r) return;
+
+  free(r->num);
+  free(r->dem);
+  free(r->snaps);
+  free(r->adjoint_source);
+  free(r->image);
+
+  free(r);
+}
