@@ -30,14 +30,17 @@ model_t* Model_Init(model_t *m, model_specs_t* specs)
   return m;
 }
 
-void Model_Set(model_t*m, float* vp)
+void Model_Set(model_t* m, float* vp)
 {
-  m->vp = vp; 
+  memcpy(m->vp, vp, m->nx * m->nz * sizeof(float));
 }
 
-void Model_Load(model_t *m, const char* PATH, int nx, int nz)
+void Model_Load(model_t *m, const char* PATH, int nx, int nz, bool fortran_order)
 {
-  m->vp = read2d_fortran(PATH, nz, nx);
+  if(fortran_order)
+    m->vp = read2d_fortran(PATH, nz, nx);
+  else 
+    m->vp = read2d(PATH, nz, nx);
 }
 
 void Model_Create(model_t *m)
@@ -56,11 +59,6 @@ void Model_Create(model_t *m)
     for (int x = 0; x < m->nx; ++x)
       m->vp[z * m->nx + x] = pm->values[layer];
   }
-}
-
-void Model_Smooth(model_t* m)
-{
-
 }
 
 void Model_CreateElastic(model_t *m)

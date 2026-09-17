@@ -23,6 +23,12 @@
     printf("Elapsed: %.4f seconds\n", elapsed);           \
 } while (0)
 
+#define SWAP(a, b, type) do { \
+    type _tmp = (a);          \
+    (a) = (b);                \
+    (b) = _tmp;               \
+} while (0)
+
 #define PRINT(x) printf("%d\n", x)
 
 #define debug(...) \

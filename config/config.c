@@ -12,7 +12,7 @@ SpecsContext* Specs_Init(SpecsContext* specs)
     {
       .dt = 1e-3f,
       .fmax = 30.0f,
-      .nt = 2001,
+      .nt = 4001,
       .tlag = 0.15
     },
 
@@ -20,19 +20,19 @@ SpecsContext* Specs_Init(SpecsContext* specs)
     {
       .dh = 10,
 
-      .line_length = 201,
+      .line_length = 881,
 
       .src_depth = 10,
       .rec_depth = 0,
 
       .offset_rec = 5,
-      .offset_src = 50
+      .offset_src = 30
     },
 
     .model =
     {
-      .nx = 201,
-      .nz = 201,
+      .nx = 881,
+      .nz = 351,
       .nb = 100,
 
       .interfaces_size = 1,
@@ -43,13 +43,13 @@ SpecsContext* Specs_Init(SpecsContext* specs)
 
     .seismogram =
     {
-      .nt = 2001,
+      .nt = 4001,
       .dt = 1e-3f
     },
 
     .propagation =
     {
-      .nt = 2001,
+      .nt = 4001,
       .dt = 1e-3f,
       .dh = 10,
 
