@@ -64,7 +64,6 @@ void Geometry_SetSource(geometry_t* geom, int sx, int sz)
 
 void Geometry_Create(geometry_t *geom, unsigned flags)
 {
-
   geom->nrec = (geom->line_length / geom->offset_rec) + 1;
   geom->nsrc = (geom->line_length / geom->offset_src) + 1;
 

@@ -1,7 +1,8 @@
+#include <math.h>
+
 #include "internal.h"
 #include "plot.h"
 #include "propagation.h"
-#include "propagation/propagation_c.h"
 #include "propagation/acoustic/acoustic_c.h"
 #include <string.h>
 
@@ -99,6 +100,29 @@ void RTM_RemoveDirectWave(rtm_t* r, int isrc)
   }
 
   RTM_ResetWavefields(r);
+}
+
+// TODO
+void RTM_RemoveDirectWave_Offset(rtm_t* r, int ix, int iz, float tlag)
+{
+  propagation_t* p  = r->p;
+  acoustic_state_t* a = p->physics_data;
+  seismogram_t* s = p->seismogram;
+  geometry_t* g = p->geometry;
+
+  float epsilon = 0.05f;
+
+  float* direct_wave_time = malloc(g->nrec * sizeof(float));
+  for(int irec = 0; irec < g->nrec; irec++)
+  {
+    int rx = g->rec.x[g->nrec];
+    int rz = g->rec.z[g->nrec];
+
+    float offset = sqrtf((ix - rx)*(ix - rx) + (iz - rz)*(iz - rz));
+
+    direct_wave_time[irec] = (offset / 1500.0f) + tlag;
+  }
+
 }
 
 void RTM_GetSourceSnapshots(rtm_t* r, int t)
@@ -213,7 +237,7 @@ static void RTM_ImageCondition(rtm_t* r)
     if (r->dem[idx] > dem_max)
       dem_max = r->dem[idx];
 
-  const float epsilon = 0.01 * dem_max;
+  const float epsilon = 0.01f * dem_max;
 
   #pragma omp parallel for schedule(static)
   for (size_t idx = 0; idx < size; ++idx)
@@ -367,8 +391,6 @@ void RTMv2_Run(rtm_t* r, const float* dobs)
     RTM_ImageCondition(r);
     RTM_ShowModelingStatus(r);
   }
-
-  //RTM_LaplacianFilter(r);
 }
 
 void RTM_Destroy(rtm_t* r)
