@@ -16,6 +16,7 @@ rtm_t* RTM_Init(rtm_t* r, propagation_t* p)
   wavelet_t* w = p->wavelet;
 
   const size_t size = (size_t)p->model->nxx * p->model->nzz;
+  const size_t adj_size = p->seismogram->nt * p->seismogram->nrec;
 
   r->tstop = 1.7f *  (w->tlag / w->dt);
   r->snap_ratio = 1.0f / (4.0f * w->fmax * w->dt);
@@ -26,7 +27,7 @@ rtm_t* RTM_Init(rtm_t* r, propagation_t* p)
   r->dem   = allocf(size);
   r->snaps = allocf(size * r->nsnaps);
   r->image = callocf(size);
-  r->adjoint_source = callocf(size);
+  r->adjoint_source = callocf(adj_size);
 
   r->current_src_id = 0;
   r->current_rec_id = -1;
@@ -186,7 +187,7 @@ void RTM_GetResidual(rtm_t* r, const float* dobs)
     for (int irec = 0; irec < s->nrec; ++irec)
     {
       const size_t idx = (size_t)t * s->nrec + irec;
-      r->adjoint_source[idx] = dobs[idx] - dcalc[idx];
+      r->adjoint_source[idx] = dcalc[idx] - dobs[idx];
     }
   }
 }
@@ -245,6 +246,18 @@ static void RTM_ImageCondition(rtm_t* r)
     r->image[idx] +=
       r->snap_dt * r->num[idx] / (r->dem[idx] + epsilon);
   }
+}
+
+static void FWI_ImageCondition(rtm_t* r)
+{
+  const int nxx = r->p->model->nxx;
+  const int nzz = r->p->model->nzz;
+
+  const size_t size = (size_t)nxx * nzz;
+
+  #pragma omp parallel for schedule(static)
+  for (size_t idx = 0; idx < size; ++idx)
+    r->image[idx] += r->snap_dt * r->num[idx];
 }
 
 static void RTM_ShowModelingStatus(rtm_t* r)
@@ -388,7 +401,7 @@ void RTMv2_Run(rtm_t* r, const float* dobs)
       RTM_InjectAdjountSource(r, t);
     }
 
-    RTM_ImageCondition(r);
+    FWI_ImageCondition(r);
     RTM_ShowModelingStatus(r);
   }
 }
