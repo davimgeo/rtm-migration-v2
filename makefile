@@ -1,7 +1,7 @@
 CC       = gcc
 AR       = ar
 
-CFLAGS   = -std=gnu99 -O3 -g -march=native -fopenmp -mavx2 -mfma
+CFLAGS   = -std=gnu11 -O3 -g -march=native -fopenmp -mavx2 -mfma -fopenacc
 
 INCLUDE  = -Iinclude -Isrc
 

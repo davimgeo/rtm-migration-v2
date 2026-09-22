@@ -37,12 +37,14 @@ void Propagation_Destroy(propagation_t *p);
 void Propagation_Run(propagation_t *p, unsigned flags);
 
 void Propagation_VelocityUpdate(propagation_t *p, const float* vel_args);
+void Propagation_VelocityUpdateGPU(propagation_t *p, const float* vel_arg);
 
 void Propagation_GetDamp(propagation_t *p);
 
 void Propagation_GetSeismogram(propagation_t *p, float * seismogram, int t);
 
 void Propagation_InjectSource(propagation_t *p, int sidx, int t);
+void Propagation_InjectSourceAny(propagation_t *p, const float* wav, int sidx, int t);
 
 void Propagation_InjectSeismogram(propagation_t *p, int t);
 
