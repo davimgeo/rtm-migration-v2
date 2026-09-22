@@ -28,7 +28,7 @@ int main()
   Model_GaussianSmooth2(model, 9, 4.5f);
   Model_Extent(model);
 
-  plot_model_geometry(model, 10, geom);
+  //plot_model_geometry(model, 10, geom);
 
   seismogram_t* seis = Seismogram_Init(seis, &specs->seismogram, geom->nrec, 0);
 
