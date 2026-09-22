@@ -4,6 +4,7 @@
 #include "plot.h"
 #include "propagation.h"
 #include "propagation/acoustic/acoustic_c.h"
+#include "wavelet.h"
 #include <string.h>
 
 #include "rtm.h"
@@ -71,9 +72,28 @@ static void RTM_ResetWavefields(rtm_t* r)
 
 void RTM_RemoveDirectWave(rtm_t* r, int isrc)
 {
-  propagation_t* p  = r->p;
+  propagation_t* p = r->p;
   acoustic_state_t* a = p->physics_data;
   seismogram_t* s = p->seismogram;
+
+  propagation_specs_t specs_homo = {
+    .nt     = p->nt,
+    .dt     = p->dt,
+    .dh     = p->dh,
+    .factor = p->factor
+  };
+
+  propagation_t* p_homo = Propagation_Init(
+    NULL,
+    &specs_homo,
+    p->model,
+    p->geometry,
+    p->wavelet,
+    p->seismogram,
+    PROPAGATION_ACOUSTIC
+  );
+
+  acoustic_state_t* a_homo = p_homo->physics_data;
 
   const size_t seis_size = (size_t)s->nt * (size_t)s->nrec;
 
@@ -82,13 +102,15 @@ void RTM_RemoveDirectWave(rtm_t* r, int isrc)
   memset(s->seismogram_homo, 0, seis_size * sizeof(float));
 
   #pragma omp parallel
+  for (int t = 1; t < p->nt - 1; ++t)
   {
-    for (int t = 1; t < p->nt - 1; ++t)
-    {
-      Propagation_InjectSource(p, isrc, t);
-      Propagation_VelocityUpdate(p, a->vel_arg_homo);
-      Propagation_GetSeismogram(p, s->seismogram_homo, t);
-    }
+    Propagation_VelocityUpdate(p, a->vel_arg);
+    Propagation_GetSeismogram(p, s->seismogram, t);
+    Propagation_InjectSource(p, isrc, t);
+
+    Propagation_VelocityUpdate(p_homo, a_homo->vel_arg_homo);
+    Propagation_GetSeismogram(p_homo, s->seismogram_homo, t);
+    Propagation_InjectSource(p_homo, isrc, t);
   }
 
   for (int t = 0; t < s->nt; ++t)
@@ -96,34 +118,55 @@ void RTM_RemoveDirectWave(rtm_t* r, int isrc)
     for (int irec = 0; irec < s->nrec; ++irec)
     {
       const size_t idx = (size_t)t * s->nrec + irec;
+
       s->seismogram[idx] -= s->seismogram_homo[idx];
     }
   }
 
+  Propagation_Destroy(p_homo);
+
   RTM_ResetWavefields(r);
 }
 
-// TODO
-void RTM_RemoveDirectWave_Offset(rtm_t* r, int ix, int iz, float tlag)
+void RTM_RemoveDirectWave_Offset(rtm_t* r, int isrc)
 {
-  propagation_t* p  = r->p;
-  acoustic_state_t* a = p->physics_data;
-  seismogram_t* s = p->seismogram;
+  propagation_t* p = r->p;
   geometry_t* g = p->geometry;
+  seismogram_t* s = p->seismogram;
+  acoustic_state_t* a = p->physics_data;
+
+  #pragma omp parallel
+  for (int t = 1; t < p->nt - 1; ++t)
+  {
+    Propagation_VelocityUpdate(p, a->vel_arg);
+    Propagation_GetSeismogram(p, s->seismogram, t);
+    Propagation_InjectSource(p, isrc, t);
+  }
+
+  const int ix = g->src.x[isrc] + p->model->nb;
+  const int iz = g->src.z[isrc] + p->model->nb;
 
   float epsilon = 0.05f;
 
-  float* direct_wave_time = malloc(g->nrec * sizeof(float));
-  for(int irec = 0; irec < g->nrec; irec++)
+  for (int irec = 0; irec < g->nrec; irec++)
   {
-    int rx = g->rec.x[g->nrec];
-    int rz = g->rec.z[g->nrec];
+    int rx = g->rec.x[irec] + p->model->nb;
+    int rz = g->rec.z[irec] + p->model->nb;
 
-    float offset = sqrtf((ix - rx)*(ix - rx) + (iz - rz)*(iz - rz));
+    float dx = (float)(ix - rx);
+    float dz = (float)(iz - rz);
 
-    direct_wave_time[irec] = (offset / 1500.0f) + tlag;
+    float offset = sqrtf(dx*dx + dz*dz) * p->dh;
+
+    float t0 = (offset / 1500.0f) + p->wavelet->tlag + epsilon;
+    int t0_idx = (int)(t0 / p->dt);
+
+    if (t0_idx >= s->nt)
+      t0_idx = s->nt - 1;
+
+    for (int t = 0; t <= t0_idx; t++)
+      s->seismogram[t * g->nrec + irec] = 0.0f;
   }
-
 }
 
 void RTM_GetSourceSnapshots(rtm_t* r, int t)
@@ -175,10 +218,19 @@ inline void RTM_InjectAdjountSource(rtm_t* r, int t)
   }
 }
 
-void RTM_GetResidual(rtm_t* r, const float* dobs)
+void RTM_GetResidual(rtm_t* r, const float* dobs, int isrc)
 {
   propagation_t* p  = r->p;
   seismogram_t* s = p->seismogram;
+  acoustic_state_t* a = p->physics_data;
+
+  #pragma omp parallel
+  for (int t = 1; t < p->nt - 1; ++t)
+  {
+    Propagation_VelocityUpdate(p, a->vel_arg);
+    Propagation_GetSeismogram(p, s->seismogram, t);
+    Propagation_InjectSource(p, isrc, t);
+  }
 
   float* dcalc = s->seismogram;
 
@@ -243,8 +295,7 @@ static void RTM_ImageCondition(rtm_t* r)
   #pragma omp parallel for schedule(static)
   for (size_t idx = 0; idx < size; ++idx)
   {
-    r->image[idx] +=
-      r->snap_dt * r->num[idx] / (r->dem[idx] + epsilon);
+    r->image[idx] += r->snap_dt * r->num[idx] / (r->dem[idx] + epsilon);
   }
 }
 
@@ -319,13 +370,15 @@ inline int RTM_GetSourceIndex(geometry_t* g, model_t* m, int isrc)
   return (sz + m->nb) * m->nxx + (sx + m->nb);
 }
 
-void RTM_Run(rtm_t* r)
+void RTM_Run(rtm_t* r, unsigned int flags)
 {
   propagation_t* p = r->p;
   acoustic_state_t* a = p->physics_data;
   geometry_t* g = p->geometry;
   model_t* m = p->model;
   seismogram_t* s = p->seismogram;
+
+  const float* wavelet_2nd_derivative = Wavelet_SecondDerivative(p->wavelet);
 
   for (int isrc = 0; isrc < g->nsrc; ++isrc)
   {
@@ -337,15 +390,19 @@ void RTM_Run(rtm_t* r)
     for (int t = 1; t < p->nt - 1; ++t)
     {
       Propagation_VelocityUpdate(p, a->vel_arg);
-      Propagation_GetSeismogram(p, s->seismogram, t);
-      Propagation_InjectSource(p, sidx, t);
+      Propagation_InjectSourceAny(p, wavelet_2nd_derivative, sidx, t);
 
       RTM_GetSourceSnapshots(r, t);
     }
 
     r->current_rec_id = r->current_src_id - 1;
 
-    RTM_RemoveDirectWave(r, sidx);
+    if(flags & RTM_REMOVEDIRECTWAVE_OFFSET)
+      RTM_RemoveDirectWave_Offset(r, isrc);
+    else
+      RTM_RemoveDirectWave(r, sidx);
+
+    plot_seismogram(s, g->offset_rec);
 
     #pragma omp parallel
     for (int t = p->nt - 1; t >= r->tstop; --t)
@@ -370,6 +427,8 @@ void RTMv2_Run(rtm_t* r, const float* dobs)
   model_t* m = p->model;
   seismogram_t* s = p->seismogram;
 
+  const float* wavelet_2nd_derivative = Wavelet_SecondDerivative(p->wavelet);
+
   for (int isrc = 0; isrc < g->nsrc; ++isrc)
   {
     RTM_ResetFields(r);
@@ -380,8 +439,7 @@ void RTMv2_Run(rtm_t* r, const float* dobs)
     for (int t = 1; t < p->nt - 1; ++t)
     {
       Propagation_VelocityUpdate(p, a->vel_arg);
-      Propagation_GetSeismogram(p, s->seismogram, t);
-      Propagation_InjectSource(p, sidx, t);
+      Propagation_InjectSourceAny(p, wavelet_2nd_derivative, sidx, t);
 
       RTM_GetSourceSnapshots(r, t);
     }
@@ -391,7 +449,7 @@ void RTMv2_Run(rtm_t* r, const float* dobs)
     // dobs is a 3d array with all the dobs seismogram 
     // with this, i can select each shot at the time
     const float* dobs_shot = dobs + isrc * s->nt * s->nrec;
-    RTM_GetResidual(r, dobs_shot);
+    RTM_GetResidual(r, dobs_shot, isrc);
 
     #pragma omp parallel
     for (int t = p->nt - 1; t >= r->tstop; --t)

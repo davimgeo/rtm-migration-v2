@@ -1,5 +1,8 @@
 #pragma once 
 
+#define RTM_REMOVEDIRECTWAVE_MODELING (1U << 0)
+#define RTM_REMOVEDIRECTWAVE_OFFSET (1U << 1)
+
 typedef struct propagation_t propagation_t;
 
 typedef struct
@@ -26,7 +29,7 @@ typedef struct
 } rtm_t;
 
 rtm_t* RTM_Init(rtm_t* r, propagation_t* p);
-void RTM_Run(rtm_t* r);
+void RTM_Run(rtm_t* r, unsigned flags);
 void RTMv2_Run(rtm_t* r, const float* dobs);
 void RTM_Destroy(rtm_t* r);
 

@@ -17,11 +17,11 @@ int main()
   SpecsContext* specs = Specs_Init(specs);
 
   geometry_t* geom = Geometry_InitCreate(geom, &specs->geometry);
-  Geometry_Create(geom, 0);
+  Geometry_Create(geom, GEOMETRY_ONLY_RECEIVERS);
+  Geometry_SetSource(geom, 450, 20);
 
   wavelet_t* wave = Wavelet_Init(wave, &specs->wavelet);
   Wavelet_Create(wave);
-  Wavelet_SecondDerivative(wave);
 
   model_t* model = Model_Init(model, &specs->model);
   Model_Load(model, "data/marmousi_881x351_10m.bin", 881, 351, 0);
@@ -40,15 +40,15 @@ int main()
     wave,
     seis,
     PROPAGATION_ACOUSTIC);
-  //Propagation_Run(prop, PROPAGATION_MODELINGSTATUS);
+  Propagation_Run(prop, PROPAGATION_MODELINGSTATUS);
 
   rtm_t* rtm = RTM_Init(rtm, prop);
-  RTM_Run(rtm);
+  //RTM_Run(rtm, RTM_REMOVEDIRECTWAVE_OFFSET);
 
   PROFILE_END();
 
-  plot_image(rtm, model, 10.0);
-  //plot_seismogram(seis, geom->offset_rec);
+  //plot_image(rtm, model, 10.0);
+  plot_seismogram(seis, geom->offset_rec);
 
   Geometry_Destroy(geom);
   Wavelet_Destroy(wave);
