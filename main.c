@@ -17,8 +17,7 @@ int main()
   SpecsContext* specs = Specs_Init(specs);
 
   geometry_t* geom = Geometry_InitCreate(geom, &specs->geometry);
-  Geometry_Create(geom, GEOMETRY_ONLY_RECEIVERS);
-  Geometry_SetSource(geom, 450, 20);
+  Geometry_Create(geom, 0);
 
   wavelet_t* wave = Wavelet_Init(wave, &specs->wavelet);
   Wavelet_Create(wave);

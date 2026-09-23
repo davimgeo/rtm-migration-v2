@@ -1,4 +1,4 @@
-#include "kernel.cuh"
+#include <__clang_cuda_runtime_wrapper.h>
 
 #define FDM1 0.001785714285f 
 #define FDM2 0.025396825396f
@@ -48,7 +48,7 @@ __global__ void forward_kernel(
   int i = blockIdx.y * blockDim.y + threadIdx.y; 
   int j = blockIdx.x * blockDim.x + threadIdx.x;
 
-  if (i == iz && j == ix)
+  if (i == iz && j == ix) 
     atomicAdd(&upre[iz * nxx + ix], ricker[t] / dh2);
 
   if (i >= 4 && i < nzz - 4 && j >= 4 && j < nxx - 4)
