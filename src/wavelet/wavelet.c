@@ -32,7 +32,7 @@ void Wavelet_Create(wavelet_t* w)
 
 float* Wavelet_SecondDerivative(wavelet_t* w)
 {
-  float* wavelet_dt = allocf(w->nt);
+  float* wavelet_dt = callocf(w->nt);
 
   float inv_dh = 1.0f / (12.0f * w->dt * w->dt);
 
@@ -49,26 +49,6 @@ float* Wavelet_SecondDerivative(wavelet_t* w)
 
     wavelet_dt[i] = d2u_dx2;
   }   
-
-  /* find min and max of wavelet */
-  float max = wavelet_dt[0];
-  float min = wavelet_dt[0];
-
-  for (int i = 0; i < w->nt; i++) 
-  {
-    for (int j = 1; j < w->nt-1; j++) 
-    {
-      if(max < wavelet_dt[i]) max = wavelet_dt[j];
-
-      if (min > wavelet_dt[i]) min = wavelet_dt[j];
-    }
-  }
-
-  /* normalize wavelet */
-  for (int i = 0; i < w->nt; i++) 
-  {
-    wavelet_dt[i] = (wavelet_dt[i] - min) / (max - min); 
-  }
 
   return wavelet_dt;
 }

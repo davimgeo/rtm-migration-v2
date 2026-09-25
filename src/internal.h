@@ -48,6 +48,7 @@ void write2d(
 );
 
 float* read2d(const char* PATH, int row, int column);
+float* read_any(const char* PATH, int size);
 
 float* read2d_fortran(const char* PATH, int row, int column);
 
