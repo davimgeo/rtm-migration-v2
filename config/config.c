@@ -11,33 +11,31 @@ SpecsContext* Specs_Init(SpecsContext* specs)
     .wavelet =
     {
       .dt = 1e-3f,
-      .fmax = 30.0f,
+      .fmax = 10.0f,
       .nt = 4001,
-      .tlag = 0.15
+      .tlag = 0.30f,
     },
 
     .geometry =
     {
-      .dh = 10,
+      .line_length = 1701,
 
-      .line_length = 881,
+      .src_depth = 0,
+      .rec_depth = 50,
 
-      .src_depth = 10,
-      .rec_depth = 0,
-
-      .offset_rec = 5,
+      .offset_rec = 15,
       .offset_src = 30
     },
 
     .model =
     {
-      .nx = 881,
+      .nx = 1701,
       .nz = 351,
       .nb = 100,
 
       .interfaces_size = 1,
 
-      .interfaces = {120},
+      .interfaces = {50},
       .values = {1500.0f, 2000.0f}
     },
 
@@ -59,3 +57,4 @@ SpecsContext* Specs_Init(SpecsContext* specs)
 
   return specs;
 }
+

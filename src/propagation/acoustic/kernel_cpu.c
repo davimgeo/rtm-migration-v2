@@ -32,7 +32,7 @@ inline void get_damp(propagation_t* p)
   const float *restrict damp_x = p->damp->x;
   const float *restrict damp_z = p->damp->z;
 
-  #pragma omp for schedule(static) nowait
+  #pragma omp for schedule(static)
   for (int i = 4; i < nzz - 4; ++i)
   {
     const float damp_z_i = damp_z[i];
@@ -51,40 +51,6 @@ inline void get_damp(propagation_t* p)
       current[j] *= damp;
     }
   } 
-}
-
-inline void get_damp_gpu(propagation_t* p)
-{
-  acoustic_state_t *a = p->physics_data;
-
-  float *restrict upre = a->upre;
-  float *restrict upas = a->upas;
-
-  const int nxx = p->model->nxx;
-  const int nzz = p->model->nzz;
-
-  const size_t shape = (size_t)nxx * nzz;
-
-  const float *restrict damp_x = p->damp->x;
-  const float *restrict damp_z = p->damp->z;
-
-  #pragma acc parallel loop present(upre[0:shape], upas[0:shape], damp_x[0:nxx], damp_z[0:nzz])
-  for (int i = 4; i < nzz - 4; ++i)
-  {
-    const float damp_z_i = damp_z[i];
-
-    float *restrict previous = upre + (size_t)i * nxx;
-    float *restrict current  = upas + (size_t)i * nxx;
-
-    #pragma acc loop
-    for (int j = 4; j < nxx - 4; ++j)
-    {
-      const float damp = damp_x[j] * damp_z_i;
-
-      previous[j] *= damp;
-      current[j] *= damp;
-    }
-  }
 }
 
 inline void Propagation_VelocityUpdate(propagation_t *p, const float *restrict vel_arg)

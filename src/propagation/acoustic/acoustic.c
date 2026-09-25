@@ -53,9 +53,10 @@ inline void Propagation_InjectSource(propagation_t *p, int sidx, int t)
   const float *restrict wavelet = p->wavelet->wavelet;
 
   const float source_scale = 1.0f / (p->dh * p->dh);
+  //const float source_scale_seiswave = (p->dt*p->dt) / (p->dh * p->dh);
 
   #pragma omp single
-   a->upre[sidx] += wavelet[t] * source_scale * p->dt * p->dt;
+   a->upre[sidx] += wavelet[t] * source_scale;
 }
 
 inline void Propagation_InjectSourceAny(propagation_t *p, const float* wav, int sidx, int t)
@@ -65,13 +66,11 @@ inline void Propagation_InjectSourceAny(propagation_t *p, const float* wav, int 
   const float *restrict wavelet = wav;
 
   const float source_scale = 1.0f / (p->dh * p->dh);
+  //const float source_scale_seiswave = (p->dt*p->dt) / (p->dh * p->dh);
 
   #pragma omp single
-  {
-    a->upre[sidx] += wavelet[t] * source_scale * p->dt*p->dt;
-  }
+  a->upre[sidx] += wavelet[t] * source_scale;
 }
-
 
 inline void Propagation_InjectSeismogram(propagation_t *p, int t)
 {
@@ -118,18 +117,19 @@ static void Propagation_GetSnapshots(propagation_t *p, int t)
   }
 }
 
-inline void Propagation_GetSeismogram(propagation_t *p, float* seismogram, int t)
+inline void Propagation_GetSeismogram(propagation_t* p, float* seismogram, int t)
 {
-  geometry_t *g = p->geometry;
-  acoustic_state_t *a = p->physics_data;
+  geometry_t* g = p->geometry;
+  acoustic_state_t* a = p->physics_data;
 
-  const int nxx  = p->model->nxx;
-  const int nb   = p->model->nb;
+  const int nxx = p->model->nxx;
+  const int nb = p->model->nb;
   const int nrec = g->nrec;
 
-  const float *restrict upas = a->upas;
-  float *restrict seis = seismogram;
+  const float* restrict upre = a->upre;
+  float* restrict seis = seismogram;
 
+  #pragma omp single
   for (int irec = 0; irec < nrec; ++irec)
   {
     const int rx = g->rec.x[irec] + nb;
@@ -137,7 +137,7 @@ inline void Propagation_GetSeismogram(propagation_t *p, float* seismogram, int t
 
     const size_t r_idx = (size_t)t * nrec + irec;
 
-    seis[r_idx] = upas[(size_t)rz * nxx + rx];
+    seis[r_idx] = upre[(size_t)rz * nxx + rx];
   }
 }
 

@@ -1,8 +1,7 @@
 CC       = gcc
 AR       = ar
 
-CFLAGS   = -std=gnu11 -O3 -g -march=native -mavx2 -mfma
-LDFLAGS  = -fopenmp -fopenacc
+CFLAGS   = -std=gnu11 -O3 -g -march=native -fopenmp -mavx2 -mfma
 
 INCLUDE  = -Iinclude -Isrc
 
@@ -10,7 +9,7 @@ PYTHON_INCLUDE = $(shell python3-config --includes)
 NUMPY_INCLUDE  = $(shell python3 -c 'import numpy; print(numpy.get_include())')
 PYTHON_LIBS    = $(shell python3-config --embed --ldflags)
 
-LIBS     = -lm -lfftw3f
+LIBS     = -lm -fopenmp -lfftw3f
 
 TARGET   = run.out
 STATIC_LIB = libprop.a
@@ -30,11 +29,10 @@ $(STATIC_LIB): $(C_OBJ)
 	@$(AR) rcs $@ $^
 
 
-# Executable linked against libprop.a
+# Executable linked against libfwi.a
 $(TARGET): $(STATIC_LIB) $(MAIN_OBJ)
 	@$(CC) $(MAIN_OBJ) \
 		-L. -lprop \
-		$(LDFLAGS) \
 		$(LIBS) \
 		$(PYTHON_LIBS) \
 		-o $@

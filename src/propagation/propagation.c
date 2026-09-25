@@ -68,9 +68,21 @@ void Propagation_Run(propagation_t *p, unsigned flags)
 
 void Propagation_Destroy(propagation_t *p)
 {
-  if(p == NULL) return;
+  if (p == NULL) return;
 
-  free(p->physics_data);
+  acoustic_state_t* a = p->physics_data;
+
+  if (a != NULL)
+  {
+    free(a->upas);
+    free(a->upre);
+    free(a->ufut);
+    free(a->vel_arg);
+    free(a->vel_arg_homo);
+    free(a);
+  }
+
   free(p->damp);
   free(p->snapshots);
+  free(p);
 }
