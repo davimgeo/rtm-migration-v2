@@ -32,7 +32,7 @@ inline void get_damp(propagation_t* p)
   const float *restrict damp_x = p->damp->x;
   const float *restrict damp_z = p->damp->z;
 
-  #pragma omp for schedule(static)
+  #pragma omp for schedule(static) 
   for (int i = 4; i < nzz - 4; ++i)
   {
     const float damp_z_i = damp_z[i];

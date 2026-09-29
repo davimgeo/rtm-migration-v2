@@ -27,3 +27,4 @@ int compare_diff(
   const char* title1,
   const char* title2
 );
+int plot_column(float* arr, int col, int height, int width);

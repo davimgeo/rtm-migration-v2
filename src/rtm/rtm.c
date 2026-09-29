@@ -102,8 +102,7 @@ void RTM_RemoveDirectWave(rtm_t* r, const int sidx)
 
   acoustic_state_t* a_homo = p_homo->physics_data;
 
-  const size_t size =
-    (size_t)p_homo->model->nxx * (size_t)p_homo->model->nzz;
+  const size_t size = (size_t)p_homo->model->nxx * (size_t)p_homo->model->nzz;
 
   memset(a_homo->upas, 0, size * sizeof(float));
   memset(a_homo->upre, 0, size * sizeof(float));
@@ -167,27 +166,36 @@ void RTM_RemoveDirectWave_Offset(rtm_t* r, int isrc)
     Propagation_InjectSource(p, sidx, t);
   }
 
+  //plot_column(s->seismogram, 0, s->nt, s->nrec);
+
   float epsilon = 0.1f;
+  float window = 0.02f;
 
   for (int irec = 0; irec < g->nrec; ++irec)
   {
-    int rx = g->rec.x[irec] + p->model->nb;
-    int rz = g->rec.z[irec] + p->model->nb;
+    int rx = g->rec.x[irec] + m->nb;
+    int rz = g->rec.z[irec] + m->nb;
 
     float dx = (float)(ix - rx);
     float dz = (float)(iz - rz);
 
     float offset = sqrtf(dx*dx + dz*dz) * p->dh;
 
-    float t0 = (offset / 1500.0f) + p->wavelet->tlag + epsilon;
+    float t0 = (offset / 1500.0f) + epsilon;
     int t0_idx = (int)(t0 / p->dt);
 
-    if (t0_idx >= s->nt)
-      t0_idx = s->nt - 1;
+    float t1 = t0 + window;
+    int t1_idx = (int)(t1 / p->dt);
 
-    for (int t = 0; t <= t0_idx; ++t)
-      s->seismogram[t * s->nrec + irec] = 0.0f;
+    for (int t = 0; t < s->nt - 1; ++t)
+      if(t <= t0_idx)
+        s->seismogram[t * s->nrec + irec] = 0.0f;
+      else if(t >= t1_idx)
+        s->seismogram[t * s->nrec + irec] *= (t - t0) / (t1 - t0);
   }
+
+  //plot_column(s->seismogram, 0, s->nt, s->nrec);
+  //plot_seismogram(s, g->offset_rec);
 
   RTM_ResetWavefields(r);
 }
@@ -224,8 +232,8 @@ inline void RTM_InjectAdjountSource(rtm_t* r, int t)
   const int nxx = p->model->nxx;
   const int nb  = p->model->nb;
 
-  //const float source_scale = 1.0f / (p->dh * p->dh);
-  const float source_scale_seiswave = (p->dt*p->dt) / (p->dh * p->dh);
+  const float source_scale = 1.0f / (p->dh * p->dh);
+  //const float source_scale_seiswave = (p->dt*p->dt) / (p->dh * p->dh);
 
   #pragma omp single
   {
@@ -237,7 +245,7 @@ inline void RTM_InjectAdjountSource(rtm_t* r, int t)
       const size_t ridx = (size_t)rz * nxx + rx;
       const size_t sidx = (size_t)t * s->nrec + irec;
 
-      a->upre[ridx] += adj[sidx] * source_scale_seiswave;
+      a->upre[ridx] += adj[sidx] * source_scale;
     }
   }
 }
@@ -345,9 +353,9 @@ static void FWI_ImageCondition(rtm_t* r)
 
   #pragma omp parallel for schedule(static)
   for (size_t idx = 0; idx < size; ++idx)
-    //  wihout snap_dt just for the test
-    //r->image[idx] += r->num[idx];
-    r->image[idx] += r->snap_dt * r->num[idx];
+    // just for the test
+    r->image[idx] += r->num[idx] / r->snap_ratio;
+    //r->image[idx] += r->snap_dt * r->num[idx];
 }
 
 static void RTM_ShowModelingStatus(rtm_t* r)
