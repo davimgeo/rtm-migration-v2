@@ -52,11 +52,11 @@ inline void Propagation_InjectSource(propagation_t *p, int sidx, int t)
 
   const float *restrict wavelet = p->wavelet->wavelet;
 
-  const float source_scale = 1.0f / (p->dh * p->dh);
-  //const float source_scale_seiswave = (p->dt*p->dt) / (p->dh * p->dh);
+  //const float source_scale = 1.0f / (p->dh * p->dh);
+  const float source_scale_seiswave = (p->dt*p->dt) / (p->dh * p->dh);
 
   #pragma omp single
-   a->upre[sidx] += wavelet[t] * source_scale;
+   a->upre[sidx] += wavelet[t] * source_scale_seiswave;
 }
 
 inline void Propagation_InjectSourceAny(propagation_t *p, const float* wav, int sidx, int t)
@@ -65,11 +65,11 @@ inline void Propagation_InjectSourceAny(propagation_t *p, const float* wav, int 
 
   const float *restrict wavelet = wav;
 
-  const float source_scale = 1.0f / (p->dh * p->dh);
-  //const float source_scale_seiswave = (p->dt*p->dt) / (p->dh * p->dh);
+  //const float source_scale = 1.0f / (p->dh * p->dh);
+  const float source_scale_seiswave = (p->dt*p->dt) / (p->dh * p->dh);
 
   #pragma omp single
-  a->upre[sidx] += wavelet[t] * source_scale;
+  a->upre[sidx] += wavelet[t] * source_scale_seiswave;
 }
 
 inline void Propagation_InjectSeismogram(propagation_t *p, int t)
@@ -145,7 +145,7 @@ static void Propagation_SaveSeismogram(float* seismogram, int nt, int nrec, int 
 {
   char path[256];
 
-  char* seismogram_path = "data/seismogram_%dx%d_shot%d.bin";
+  char* seismogram_path = "data/dobs/seismogram_%dx%d_shot%d.bin";
 
   snprintf(path, sizeof(path), seismogram_path, nt, nrec, nshot);
 

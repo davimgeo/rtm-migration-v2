@@ -30,7 +30,7 @@ model_t* Model_Init(model_t *m, model_specs_t* specs)
   return m;
 }
 
-void Model_Set(model_t* m, float* vp)
+void Model_Set(model_t* m, const float* vp)
 {
   memcpy(m->vp, vp, m->nx * m->nz * sizeof(float));
 }

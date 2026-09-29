@@ -18,19 +18,19 @@ SpecsContext* Specs_Init(SpecsContext* specs)
 
     .geometry =
     {
-      .line_length = 1701,
+      .line_length = 681,
 
       .src_depth = 0,
-      .rec_depth = 50,
+      .rec_depth = 20,
 
-      .offset_rec = 15,
-      .offset_src = 30
+      .offset_rec = 6,
+      .offset_src = 15
     },
 
     .model =
     {
-      .nx = 1701,
-      .nz = 351,
+      .nx = 681,
+      .nz = 141,
       .nb = 100,
 
       .interfaces_size = 1,
@@ -48,8 +48,8 @@ SpecsContext* Specs_Init(SpecsContext* specs)
     .propagation =
     {
       .nt = 4001,
-      .dt = 1e-3f,
-      .dh = 10,
+      .dt = 1e-4f,
+      .dh = 2.5f,
 
       .factor = 0.0015f
     }
