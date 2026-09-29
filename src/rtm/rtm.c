@@ -5,6 +5,7 @@
 #include "propagation.h"
 #include "propagation/acoustic/acoustic_c.h"
 #include "wavelet.h"
+#include <stdio.h>
 #include <string.h>
 
 #include "rtm.h"
@@ -223,7 +224,8 @@ inline void RTM_InjectAdjountSource(rtm_t* r, int t)
   const int nxx = p->model->nxx;
   const int nb  = p->model->nb;
 
-  const float source_scale = 1.0f / (p->dh * p->dh);
+  //const float source_scale = 1.0f / (p->dh * p->dh);
+  const float source_scale_seiswave = (p->dt*p->dt) / (p->dh * p->dh);
 
   #pragma omp single
   {
@@ -235,12 +237,12 @@ inline void RTM_InjectAdjountSource(rtm_t* r, int t)
       const size_t ridx = (size_t)rz * nxx + rx;
       const size_t sidx = (size_t)t * s->nrec + irec;
 
-      a->upre[ridx] += adj[sidx] * source_scale;
+      a->upre[ridx] += adj[sidx] * source_scale_seiswave;
     }
   }
 }
 
-void RTM_GetResidual(rtm_t* r, const float* dobs, int isrc)
+void RTM_GetResidual(rtm_t* r, const char* DOBS_PATH, int isrc, int ishot)
 {
   propagation_t* p = r->p;
   seismogram_t* s = p->seismogram;
@@ -254,6 +256,19 @@ void RTM_GetResidual(rtm_t* r, const float* dobs, int isrc)
     Propagation_InjectSource(p, isrc, t);
   }
 
+  char PATH[256];
+
+  snprintf(
+    PATH,
+    sizeof(PATH),
+    "%s/seismogram_%dx%d_shot%d.bin",
+    DOBS_PATH,
+    s->nt,
+    s->nrec,
+    ishot
+  );
+
+  float* dobs = read2d(PATH, s->nt, s->nrec);
   float* dcalc = s->seismogram;
 
   for (int t = 0; t < s->nt; ++t)
@@ -261,9 +276,13 @@ void RTM_GetResidual(rtm_t* r, const float* dobs, int isrc)
     for (int irec = 0; irec < s->nrec; ++irec)
     {
       const size_t idx = (size_t)t * s->nrec + irec;
-      r->adjoint_source[idx] = dcalc[idx] - dobs[idx];
+      r->adjoint_source[idx] = dobs[idx] - dcalc[idx];
     }
   }
+
+  //compare_diff(dcalc, dobs, s->nt, s->nrec, "dcalc", "dobs");
+  //write2d("data/dcalc.bin", dcalc, sizeof(float), s->nt, s->nrec);
+  //write2d("data/dobs.bin", dobs, sizeof(float), s->nt, s->nrec);
 }
 
 void RTM_Accumulate_CrossCorrelation(rtm_t* r, int t)
@@ -326,6 +345,8 @@ static void FWI_ImageCondition(rtm_t* r)
 
   #pragma omp parallel for schedule(static)
   for (size_t idx = 0; idx < size; ++idx)
+    //  wihout snap_dt just for the test
+    //r->image[idx] += r->num[idx];
     r->image[idx] += r->snap_dt * r->num[idx];
 }
 
@@ -434,7 +455,7 @@ void RTM_Run(rtm_t* r, unsigned int flags)
   RTM_LaplacianFilter(r);
 }
 
-void RTMv2_Run(rtm_t* r, const float* dobs)
+void RTMv2_Run(rtm_t* r, const char* DOBS_PATH)
 {
   propagation_t* p = r->p;
   acoustic_state_t* a = p->physics_data;
@@ -450,9 +471,7 @@ void RTMv2_Run(rtm_t* r, const float* dobs)
 
     const int sidx = RTM_GetSourceIndex(g, m, isrc);
 
-    // dobs is a 3d array with all the dobs seismogram 
-    const float* dobs_shot = dobs + isrc * s->nt * s->nrec;
-    RTM_GetResidual(r, dobs_shot, sidx);
+    RTM_GetResidual(r, DOBS_PATH, sidx, isrc);
 
     RTM_ResetFields(r);
 
@@ -460,7 +479,6 @@ void RTMv2_Run(rtm_t* r, const float* dobs)
     for (int t = 1; t < p->nt - 1; ++t)
     {
       Propagation_VelocityUpdate(p, a->vel_arg);
-      Propagation_GetSeismogram(p, s->seismogram, t);
       Propagation_InjectSourceAny(p, wavelet_2nd_derivative, sidx, t);
 
       RTM_GetSourceSnapshots(r, t);

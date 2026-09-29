@@ -42,7 +42,7 @@ typedef struct model_t
 
 model_t* Model_Init(model_t *m, model_specs_t* specs);
 void Model_Load(model_t *m, const char* PATH, int nx, int nz, bool fortran_order);
-void Model_Set(model_t*m, float* vp);
+void Model_Set(model_t*m, const float* vp);
 void Model_GaussianSmooth(model_t* m, float dz, float dx, float w1, float w2, float alpha);
 void Model_GaussianSmooth2(model_t* m, int kernel_size, float sigma);
 void Model_Create(model_t* m);

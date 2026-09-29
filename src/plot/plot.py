@@ -5,7 +5,7 @@ def plot_seismogram(
     seismogram: np.ndarray, 
     dt: float, 
     offset: int, 
-    perc=99
+    perc=97
 ) -> None:
 
   nt, nrec = seismogram.shape
