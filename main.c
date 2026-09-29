@@ -26,10 +26,10 @@ int main()
   //Model_Load(model, "data/marmousi/vp_351x1701_10m.bin", 1701, 351, 1);
   Model_Load(model, "data/marmousi_real_141x681x_dh25m.bin", 681, 141, 0);
   //Model_Load(model, "data/m0.bin", 681, 141, 0);
-  //Model_GaussianSmooth(model, 10.0f, 10.0f, 0.01, 3e-2f, 0.5f);
+  Model_GaussianSmooth(model, 10.0f, 10.0f, 0.01, 3e-2f, 1.5f);
   Model_Extent(model);
 
-  plot_model_geometry(model, 10, geom);
+  //plot_model_geometry(model, 10, geom);
 
   seismogram_t* seis = Seismogram_Init(seis, &specs->seismogram, geom->nrec, 0);
 
@@ -41,11 +41,11 @@ int main()
     wave,
     seis,
     PROPAGATION_ACOUSTIC);
-  Propagation_Run(prop, PROPAGATION_SAVE_SEISMOGRAM);
+  //Propagation_Run(prop, PROPAGATION_SAVE_SEISMOGRAM);
 
   rtm_t* rtm = RTM_Init(rtm, prop);
   //RTMv2_Run(rtm, "data/dobs/");
-  //RTM_Run(rtm, RTM_REMOVEDIRECTWAVE_OFFSET);
+  RTM_Run(rtm, RTM_REMOVEDIRECTWAVE_OFFSET);
 
   PROFILE_END();
 

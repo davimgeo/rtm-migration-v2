@@ -564,3 +564,34 @@ cleanup:
 
   return status;
 }
+
+int plot_column(float* arr, int col, int height, int width)
+{
+  int status = -1;
+
+  PyObject* py_arr = NULL;
+  PyObject* args = NULL;
+
+  if (plot_python_init() != 0) goto cleanup;
+
+  npy_intp dims[1] = {height};
+
+  py_arr = PyArray_SimpleNew(1, dims, NPY_FLOAT32);
+  if (err_py(py_arr) != 0) goto cleanup;
+
+  float* data = PyArray_DATA((PyArrayObject*)py_arr);
+
+  for (int i = 0; i < height; ++i)
+    data[i] = arr[i * width + col];
+
+  args = PyTuple_Pack(1, py_arr);
+  if (err_py(args) != 0) goto cleanup;
+
+  status = plot_python_call("plot_column", args);
+
+cleanup:
+  Py_XDECREF(args);
+  Py_XDECREF(py_arr);
+
+  return status;
+}

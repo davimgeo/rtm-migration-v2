@@ -35,6 +35,10 @@ def plot_seismogram(
 
   plt.show()
 
+def plot_column(arr: np.ndarray) -> None:
+  plt.plot(arr)
+  plt.show()
+
 def plot_seismogram_elastic(
     calc_p: np.ndarray, 
     vx: np.ndarray,
