@@ -1,3 +1,4 @@
+#include "fwi.h"
 #include "internal.h"
 
 #include "config/config.h"
@@ -9,6 +10,7 @@
 #include "seismogram.h"
 #include "wavelet.h"
 #include "rtm.h"
+#include "fwi.h"
 
 int main()
 {
@@ -23,13 +25,11 @@ int main()
   Wavelet_Create(wave);
 
   model_t* model = Model_Init(model, &specs->model);
-  //Model_Load(model, "data/marmousi/vp_351x1701_10m.bin", 1701, 351, 1);
-  Model_Load(model, "data/marmousi_real_141x681x_dh25m.bin", 681, 141, 0);
-  //Model_Load(model, "data/m0.bin", 681, 141, 0);
-  Model_GaussianSmooth(model, 10.0f, 10.0f, 0.01, 3e-2f, 1.5f);
-  Model_Extent(model);
+  Model_Load(model, "data/FWI/m0_marmousi.bin", 681, 141, 0);
+  //Model_GaussianSmooth(model, 10.0f, 10.0f, 0.01, 3e-2f, 1.5f);
+  //Model_Extent(model);
 
-  //plot_model_geometry(model, 10, geom);
+  //plot_model_geometry(model, 25, geom);
 
   seismogram_t* seis = Seismogram_Init(seis, &specs->seismogram, geom->nrec, 0);
 
@@ -44,12 +44,13 @@ int main()
   //Propagation_Run(prop, PROPAGATION_SAVE_SEISMOGRAM);
 
   rtm_t* rtm = RTM_Init(rtm, prop);
-  //RTMv2_Run(rtm, "data/dobs/");
-  RTM_Run(rtm, RTM_REMOVEDIRECTWAVE_OFFSET);
+
+  fwi_t* fwi = FWI_Init(fwi, rtm, "data/FWI/dobs/");
+  FWI_Run(fwi);
 
   PROFILE_END();
 
-  plot_image(rtm, model, 10.0);
+  plot_image(rtm, model, 25);
 
   Geometry_Destroy(geom);
   Wavelet_Destroy(wave);

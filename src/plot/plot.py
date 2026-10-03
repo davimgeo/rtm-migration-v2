@@ -106,7 +106,7 @@ def plot_model(model, perc=99) -> None:
 def plot_model_geometry(
   model: np.ndarray, 
   nb: int,
-  dh: int, 
+  dh: float, 
   recx: np.ndarray, 
   recz: np.ndarray, 
   srcx: np.ndarray, 
@@ -144,6 +144,11 @@ def plot_model_geometry(
   ax.set_xlabel("Distance [m]", fontsize=13)
   ax.set_ylabel("Depth [m]", fontsize=13)
   ax.set_title("Velocity Model", fontsize=13)
+
+  ax.set_xticks(xloc)
+  ax.set_xticklabels(xlab)
+  ax.set_yticks(zloc)
+  ax.set_yticklabels(zlab)
 
   plt.tight_layout()
   plt.show()

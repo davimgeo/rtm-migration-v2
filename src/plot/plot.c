@@ -314,7 +314,7 @@ cleanup:
   return status;
 }
 
-int plot_model_geometry(model_t* model, int dh, geometry_t* geometry)
+int plot_model_geometry(model_t* model, float dh, geometry_t* geometry)
 {
   model_t* m    = model;
   geometry_t* g = geometry;

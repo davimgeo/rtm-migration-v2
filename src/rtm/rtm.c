@@ -507,6 +507,8 @@ void RTMv2_Run(rtm_t* r, const char* DOBS_PATH)
     FWI_ImageCondition(r);
     RTM_ShowModelingStatus(r);
   }
+
+
 }
 
 void RTM_Destroy(rtm_t* r)
