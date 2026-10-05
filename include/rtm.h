@@ -18,6 +18,8 @@ typedef struct
   int current_rec_id;
   int current_step;
 
+  double chi_0;
+
   float* snaps;
   int snap_ratio;
   float snap_dt;
