@@ -207,7 +207,8 @@ def plot1d(arr: np.ndarray) -> None:
 def plot2d(arr: np.ndarray) -> None:
   _, ax = plt.subplots(nrows=1, ncols=1, figsize=(12, 5))
 
-  ax.imshow(arr, aspect="auto", cmap="jet")
+  img = ax.imshow(arr, aspect="auto", cmap="jet")
+  plt.colorbar(img, ax=ax, label="VP [m/s]")
   
   plt.tight_layout()
   plt.show()

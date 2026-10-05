@@ -279,18 +279,29 @@ void RTM_GetResidual(rtm_t* r, const char* DOBS_PATH, int isrc, int ishot)
   float* dobs = read2d(PATH, s->nt, s->nrec);
   float* dcalc = s->seismogram;
 
+  double result = 0.0f;
+
+  #pragma omp parallel for reduction(+:result) schedule(static)
   for (int t = 0; t < s->nt; ++t)
   {
     for (int irec = 0; irec < s->nrec; ++irec)
     {
       const size_t idx = (size_t)t * s->nrec + irec;
+
       r->adjoint_source[idx] = dobs[idx] - dcalc[idx];
+
+      const double r = (double)dcalc[idx] - (double)dobs[idx];
+      result += r * r;
     }
   }
+
+  r->chi_0 += result;
 
   //compare_diff(dcalc, dobs, s->nt, s->nrec, "dcalc", "dobs");
   //write2d("data/dcalc.bin", dcalc, sizeof(float), s->nt, s->nrec);
   //write2d("data/dobs.bin", dobs, sizeof(float), s->nt, s->nrec);
+  
+  free(dobs);
 }
 
 void RTM_Accumulate_CrossCorrelation(rtm_t* r, int t)
@@ -473,6 +484,11 @@ void RTMv2_Run(rtm_t* r, const char* DOBS_PATH)
 
   const float* wavelet_2nd_derivative = Wavelet_SecondDerivative(p->wavelet);
 
+  const size_t size = (size_t)p->model->nxx * p->model->nzz;
+  memset(r->image, 0, size * sizeof(float));
+
+  r->chi_0 = 0.0;
+
   for (int isrc = 0; isrc < g->nsrc; ++isrc)
   {
     RTM_ResetFields(r);
@@ -494,7 +510,7 @@ void RTMv2_Run(rtm_t* r, const char* DOBS_PATH)
 
     r->current_rec_id = r->current_src_id - 1;
 
-    RTM_ResetWavefields(r); 
+    RTM_ResetWavefields(r);
 
     #pragma omp parallel
     for (int t = p->nt - 1; t >= r->tstop; --t)
@@ -508,7 +524,7 @@ void RTMv2_Run(rtm_t* r, const char* DOBS_PATH)
     RTM_ShowModelingStatus(r);
   }
 
-
+  r->chi_0 *= 0.5 * (double)p->dt;
 }
 
 void RTM_Destroy(rtm_t* r)

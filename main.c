@@ -26,6 +26,8 @@ int main()
 
   model_t* model = Model_Init(model, &specs->model);
   Model_Load(model, "data/FWI/m0_marmousi.bin", 681, 141, 0);
+  //Model_Load(model, "data/FWI/m0_gradient.bin", 681, 141, 0);
+  //Model_Load(model, "data/FWI/m_6_20%.bin", 681, 141, 0);
   //Model_GaussianSmooth(model, 10.0f, 10.0f, 0.01, 3e-2f, 1.5f);
   //Model_Extent(model);
 
@@ -57,6 +59,8 @@ int main()
   Model_Destroy(model);
   Seismogram_Destroy(seis);
   Propagation_Destroy(prop);
+  RTM_Destroy(rtm);
+  FWI_Destroy(fwi);
 
   return 0;
 }
