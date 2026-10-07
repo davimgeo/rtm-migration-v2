@@ -28,3 +28,12 @@ int compare_diff(
   const char* title2
 );
 int plot_column(float* arr, int col, int height, int width);
+int plot1d_3(
+  float* arr1,
+  float* arr2,
+  float* arr3,
+  int size,
+  const char* title1,
+  const char* title2,
+  const char* title3
+);

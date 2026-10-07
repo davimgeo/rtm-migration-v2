@@ -12,7 +12,7 @@ SpecsContext* Specs_Init(SpecsContext* specs)
     {
       .dt = 1e-3f,
       .fmax = 10.0f,
-      .nt = 8001,
+      .nt = 12001,
       .tlag = 0.30f,
     },
 
@@ -41,13 +41,13 @@ SpecsContext* Specs_Init(SpecsContext* specs)
 
     .seismogram =
     {
-      .nt = 8001,
+      .nt = 12001,
       .dt = 1e-3f
     },
 
     .propagation =
     {
-      .nt = 8001,
+      .nt = 12001,
       .dt = 1e-3f,
       .dh = 25,
 

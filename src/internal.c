@@ -259,3 +259,14 @@ float* read2d_fortran(const char* path, int row, int column)
   return out;
 }
 
+float complex* conjugate1d(const float complex* A, int size)
+{
+  float complex* result = malloc(sizeof(float
+ complex) * size);
+
+  for (int i = 0; i < size; i++) 
+    result[i] = conj(A[i]);
+
+  return result;
+}
+

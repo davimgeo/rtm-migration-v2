@@ -204,11 +204,34 @@ def plot1d(arr: np.ndarray) -> None:
   plt.tight_layout()
   plt.show()
 
-def plot2d(arr: np.ndarray) -> None:
-  _, ax = plt.subplots(nrows=1, ncols=1, figsize=(12, 5))
+def plot1d_3(arr1, arr2, arr3, title1, title2, title3) -> None:
 
-  img = ax.imshow(arr, aspect="auto", cmap="jet")
-  plt.colorbar(img, ax=ax, label="VP [m/s]")
+  _, ax = plt.subplots(nrows=3, ncols=1, figsize=(12, 5))
+
+  ax[0].plot(arr1)
+  ax[1].plot(arr2)
+  ax[2].plot(arr3)
+  
+  ax[0].set_title(title1)
+  ax[1].set_title(title2)
+  ax[2].set_title(title3)
+
+  plt.tight_layout()
+  plt.show()
+
+def plot2d(arr: np.ndarray) -> None:
+  #arr[:, 220:] = 0
+
+  scale_min = np.percentile(arr, 100 - 99)
+  scale_max = np.percentile(arr, 99)
+
+  fig, ax = plt.subplots(figsize=(10, 8))
+
+  img = ax.imshow(arr, aspect="auto", cmap="Greys", 
+                  vmin=scale_min, vmax=scale_max)
+
+  #img = ax.imshow(arr, aspect="auto", cmap="jet")
+  #plt.colorbar(img, ax=ax, label="VP [m/s]")
   
   plt.tight_layout()
   plt.show()

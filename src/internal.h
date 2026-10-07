@@ -7,6 +7,7 @@
 // put macros here
 
 #include <time.h>
+#include <complex.h>
 #include <stdlib.h>
 
 // do a check if user has GNUPLOT
@@ -68,4 +69,5 @@ char *upper(const char *str);
 void print1D(float *arr, int size);
 void print2D(float *arr, int ROW, int COLUMN);
 
+float complex* conjugate1d(const float complex* A, int size);
 #endif

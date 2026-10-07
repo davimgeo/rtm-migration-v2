@@ -14,6 +14,10 @@ dcalc = load("data/dcalc.bin", nt, nrec)
 dobs = load("data/dobs.bin", nt, nrec)
 diff = dobs - dcalc
 
+plt.plot(diff[:, 75])
+plt.plot(diff[:, 300])
+plt.show()
+
 fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(10, 8))
 
 ax[0].imshow(dcalc, aspect="auto", cmap="Greys")
