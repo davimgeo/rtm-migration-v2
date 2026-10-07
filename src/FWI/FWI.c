@@ -5,6 +5,7 @@
 
 #include "internal.h"
 #include "model.h"
+#include "decon_objf.h"
 #include "propagation.h"
 #include "propagation/acoustic/acoustic_c.h"
 #include "rtm.h"
@@ -136,7 +137,7 @@ static float* FWI_GetGradient(fwi_t* f, float* vp)
 
   FWI_SetModel(f, vp);
 
-  RTMv2_Run(f->rtm, f->DOBS_PATH);
+  RTMv2_Run(f->rtm, f->DOBS_PATH, RTM_DECON_ADJOINT_SOURCE);
 
   const size_t model_size = (size_t)m->nz * m->nx;
 
@@ -248,6 +249,66 @@ static float* FWI_GetDcalc(fwi_t* f, float* vp)
   return dcalc;
 }
 
+static double FWI_DeconObjf(fwi_t* f, const float* dcalc)
+{
+  propagation_t* p = f->rtm->p;
+  seismogram_t* s = p->seismogram;
+  geometry_t* g = p->geometry;
+
+  double f_awi = 0.0;
+
+  const size_t shot_size = (size_t)s->nt * s->nrec;
+
+  float* P = get_penalty(s->nt, s->dt, 0.1f);
+
+  for (int ishot = 0; ishot < g->nsrc; ++ishot)
+  {
+    char path[256];
+
+    snprintf(
+      path,
+      sizeof(path),
+      "%s/seismogram_%dx%d_shot%d.bin",
+      f->DOBS_PATH,
+      s->nt,
+      s->nrec,
+      ishot
+    );
+
+    const float* u_s = dcalc + (size_t)ishot * shot_size;
+
+    float* u_o = read2d(path, s->nt, s->nrec);
+
+    float* w = get_d_2d(u_s, u_o, s->dt, s->nt, s->nrec);
+
+    for (int irec = 0; irec < s->nrec; ++irec)
+    {
+      double pw = 0.0;
+      double wTw = 0.0;
+
+      for (int itau = 0; itau < s->nt; ++itau)
+      {
+        int idx = itau * s->nrec + irec;
+
+        double wi = w[idx];
+        double Pi = P[itau];
+
+        pw += Pi * Pi * wi * wi;
+        wTw += wi * wi;
+      }
+
+      if (wTw > 0.0) f_awi += 0.5 * pw / wTw;
+    }
+
+    free(w);
+    free(u_o);
+  }
+
+  free(P);
+
+  return 0.5f * f_awi * (double)s->dt;
+}
+
 static double FWI_L2Norm(fwi_t* f, const float* dcalc)
 {
   propagation_t* p = f->rtm->p;
@@ -344,7 +405,8 @@ static double FWI_GetPhi(fwi_t* f, double alpha)
   FWI_GetVelocityFromSlowness(f->mk1, f->vp_k1, m->nz, m->nx);
 
   float* dcalc_1 = FWI_GetDcalc(f, f->vp_k1);
-  const double phi_alpha = FWI_L2Norm(f, dcalc_1);
+  //const double phi_alpha = FWI_L2Norm(f, dcalc_1);
+  const double phi_alpha = FWI_DeconObjf(f, dcalc_1);
 
   free(dcalc_1);
 
@@ -580,7 +642,7 @@ static int FWI_LineSearchV2(fwi_t* f, double chi_0, double gTp_0)
 
     const int armijo = phi_alpha <= chi_0 + C1 * alpha * gTp_0;
 
-    printf("a_present: %.15e\n", (double)f->a_present);
+    printf("a_present: %.15e\n", alpha);
     printf("phi_present: %.15e\n", phi_alpha);
     printf("armijo: %.15e\n", chi_0 + C1 * alpha * gTp_0);
 
@@ -618,13 +680,27 @@ void FWI_Run(fwi_t* f)
   {
     printf("\nIteration %d\n", it);
 
-    float* nabla_chi = FWI_GetGradient(f, f->vp_current);
-    const double chi_0 = r->chi_0;
+    float* nabla_chi;
+    if(it == 0)
+      nabla_chi = read2d("nabla_chi_141x681.bin", m->nz, m->nx);
+    else
+      nabla_chi = FWI_GetGradient(f, f->vp_current);
+    //float* nabla_chi = FWI_GetGradient(f, f->vp_current);
+    //write2d("nabla_chi_141x681.bin", nabla_chi, sizeof(float), m->nz, m->nx);
+    //plot2d(nabla_chi, m->nz, m->nx);
+    
+    double chi_0;
+    if(it == 0)
+      chi_0 = 0.00649491f;
+    else
+      chi_0 = r->chi_0;
+    //const double chi_0 = r->chi_0;
 
     FWI_GetDirection(f, nabla_chi);
     const double gTp_0 = FWI_GetGTP(f, nabla_chi);
 
     const double alpha = FWI_LineSearchV2(f, chi_0, gTp_0);
+    compare_diff(f->vp_current, f->vp_k1, m->nz, m->nx, "vp_current", "vp_k1");
     FWI_UpdateModel(f, alpha);
 
     FWI_SaveCurrent(f, it);

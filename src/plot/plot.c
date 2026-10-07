@@ -454,6 +454,96 @@ cleanup:
   return status;
 }
 
+int plot1d_3(
+  float* arr1,
+  float* arr2,
+  float* arr3,
+  int size,
+  const char* title1,
+  const char* title2,
+  const char* title3
+)
+{
+  int status = -1;
+
+  PyObject *py_arr1 = NULL;
+  PyObject *py_arr2 = NULL;
+  PyObject *py_arr3 = NULL;
+
+  PyObject *py_title1 = NULL;
+  PyObject *py_title2 = NULL;
+  PyObject *py_title3 = NULL;
+
+  PyObject *args = NULL;
+
+  if (plot_python_init() != 0) goto cleanup;
+
+  npy_intp dims[1] = {size};
+
+  py_arr1 = PyArray_SimpleNewFromData(
+    1,
+    dims,
+    NPY_FLOAT32,
+    arr1
+  );
+
+  if (err_py(py_arr1) != 0) goto cleanup;
+
+  py_arr2 = PyArray_SimpleNewFromData(
+    1,
+    dims,
+    NPY_FLOAT32,
+    arr2
+  );
+
+  if (err_py(py_arr2) != 0) goto cleanup;
+
+  py_arr3 = PyArray_SimpleNewFromData(
+    1,
+    dims,
+    NPY_FLOAT32,
+    arr3
+  );
+
+  if (err_py(py_arr3) != 0) goto cleanup;
+
+  py_title1 = PyUnicode_FromString(title1);
+  if (err_py(py_title1) != 0) goto cleanup;
+
+  py_title2 = PyUnicode_FromString(title2);
+  if (err_py(py_title2) != 0) goto cleanup;
+
+  py_title3 = PyUnicode_FromString(title3);
+  if (err_py(py_title3) != 0) goto cleanup;
+
+  args = PyTuple_Pack(
+    6,
+    py_arr1,
+    py_arr2,
+    py_arr3,
+    py_title1,
+    py_title2,
+    py_title3
+  );
+
+  if (err_py(args) != 0) goto cleanup;
+
+  status = plot_python_call("plot1d_3", args);
+
+cleanup:
+  Py_XDECREF(args);
+
+  Py_XDECREF(py_arr1);
+  Py_XDECREF(py_arr2);
+  Py_XDECREF(py_arr3);
+
+  Py_XDECREF(py_title1);
+  Py_XDECREF(py_title2);
+  Py_XDECREF(py_title3);
+
+  return status;
+}
+
 int plot2d(float* arr, int row, int col)
 {
   int status = -1;
