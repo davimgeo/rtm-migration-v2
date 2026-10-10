@@ -139,7 +139,7 @@ static float* FWI_GetGradient(fwi_t* f, float* vp)
 
   FWI_SetModel(f, vp);
 
-  RTMv2_Run(f->rtm, f->DOBS_PATH, RTM_DECON_ADJOINT_SOURCE);
+  RTMv2_Run(f->rtm, f->DOBS_PATH, RTM_CROSS_ADJOINT_SOURCE);
 
   const size_t model_size = (size_t)m->nz * m->nx;
 
@@ -795,21 +795,21 @@ void FWI_Run(fwi_t* f)
   {
     printf("\nIteration %d\n", it);
 
-    float* nabla_chi;
-    if(it == 0)
-      nabla_chi = read2d("nabla_chi_141x681.bin", m->nz, m->nx);
-    else
-     nabla_chi = FWI_GetGradient(f, f->vp_current);
-    //float* nabla_chi = FWI_GetGradient(f, f->vp_current);
-    //write2d("nabla_chi_141x681.bin", nabla_chi, sizeof(float), m->nz, m->nx);
+    //float* nabla_chi;
+    //if(it == 0)
+    //  nabla_chi = read2d("nabla_chi_141x681.bin", m->nz, m->nx);
+    //else
+    // nabla_chi = FWI_GetGradient(f, f->vp_current);
+    float* nabla_chi = FWI_GetGradient(f, f->vp_current);
+    write2d("nabla_chi_141x681.bin", nabla_chi, sizeof(float), m->nz, m->nx);
     //plot2d(nabla_chi, m->nz, m->nx);
     
-    double chi_0;
-    if(it == 0)
-      chi_0 = 4.373069938221067e-03;
-    else
-      chi_0 = r->chi_0;
-    //const double chi_0 = r->chi_0;
+    //double chi_0;
+    //if(it == 0)
+    //  chi_0 = 4.373069938221067e-03;
+    //else
+    //  chi_0 = r->chi_0;
+    const double chi_0 = r->chi_0;
 
     FWI_GetDirection(f, nabla_chi);
     const double gTp_0 = FWI_GetGTP(f, nabla_chi);
