@@ -4,6 +4,7 @@
 #define RTM_REMOVEDIRECTWAVE_OFFSET   (1U << 1)
 #define RTM_L2_ADJOINT_SOURCE         (1U << 2)
 #define RTM_DECON_ADJOINT_SOURCE      (1U << 3)
+#define RTM_CROSS_ADJOINT_SOURCE      (1U << 4)
 
 typedef struct propagation_t propagation_t;
 
