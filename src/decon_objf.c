@@ -186,9 +186,9 @@ float get_decon_2d(
     {
       int idx = itau * nrec + irec;
 
-      float pc = P[itau] * d[idx];
+      float pd = P[itau] * d[idx];
 
-      result += pc * pc;
+      result += pd * pd;
       w      += d[idx] * d[idx];
     }
 

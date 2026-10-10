@@ -6,6 +6,7 @@
 #include "plot.h"
 #include "fft.h"
 #include "decon_objf.h"
+#include "cross_objf.h"
 #include "propagation.h"
 #include "propagation/acoustic/acoustic_c.h"
 #include "wavelet.h"
@@ -307,6 +308,212 @@ void RTM_GetResidual(rtm_t* r, const char* DOBS_PATH, int isrc, int ishot)
   free(dobs);
 }
 
+void shift_time(float* arr, int nt, int nrec)
+{
+  float* tmp = malloc((size_t)nt * nrec * sizeof(*tmp));
+
+  int shift = nt / 2;
+
+  for (int t = 0; t < nt; ++t)
+  {
+    int ts = (t + shift) % nt;
+
+    for (int irec = 0; irec < nrec; ++irec)
+      tmp[ts * nrec + irec] = arr[t * nrec + irec];
+  }
+
+  memcpy(arr, tmp, (size_t)nt * nrec * sizeof(*arr));
+
+  free(tmp);
+}
+
+void RTM_DeconLuo_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int ishot)
+{
+  propagation_t* p = r->p;
+  seismogram_t* s = p->seismogram;
+  acoustic_state_t* a = p->physics_data;
+
+  #pragma omp parallel
+  for (int t = 1; t < p->nt - 1; ++t)
+  {
+    Propagation_VelocityUpdate(p, a->vel_arg);
+    Propagation_GetSeismogram(p, s->seismogram, t);
+    Propagation_InjectSource(p, isrc, t);
+  }
+
+  char PATH[256];
+
+  snprintf(
+    PATH,
+    sizeof(PATH),
+    "%s/seismogram_%dx%d_shot%d.bin",
+    DOBS_PATH,
+    s->nt,
+    s->nrec,
+    ishot
+  );
+
+  float* dobs = read2d(PATH, s->nt, s->nrec);
+  float* dcalc = s->seismogram;
+
+  float* P = get_penalty(s->nt, s->dt, 1.5f);
+  float* d = get_d_2d(dcalc, dobs, s->dt, s->nt, s->nrec);
+  //shift_time(w, s->nt, s->nrec);
+  //plot_column(w, 140, s->nt, s->nrec);
+  //plot2d(w, s->nt, s->nrec);
+
+  float* trace_o = malloc(s->nt * sizeof(*trace_o));
+  float* trace_d = malloc(s->nt * s->nrec * sizeof(*trace_o));
+  float* weighted_d = malloc(s->nt * sizeof(*weighted_d));
+
+  float complex* adj_freq = malloc(s->nt * sizeof(*adj_freq));
+
+  for (int irec = 0; irec < s->nrec; ++irec)
+  {
+    double result = 0.0f;
+
+    for (int t = 0; t < s->nt; ++t)
+    {
+      int idx = t * s->nrec + irec;
+
+      trace_o[t] = dobs[idx];
+      trace_d[t] = P[t] * P[t] * d[idx];
+
+      float pd = P[t] * d[idx];
+
+      result += pd * pd;
+    }
+
+    float complex* fft_u_o = get_fft_1d(trace_o, s->nt);
+    float complex* C_u_o = conjugate1d(fft_u_o, s->nt);
+    float complex* fft_d = get_fft_1d(trace_d, s->nt);
+
+    float eps = get_epsilon(C_u_o, fft_u_o, s->nt);
+
+    for (int iw = 0; iw < s->nt; ++iw)
+    {
+      float denominator = crealf(C_u_o[iw] * fft_u_o[iw]) + eps;
+      float complex numerator = fft_u_o[iw] * fft_d[iw];
+
+      adj_freq[iw] = numerator / denominator;
+    }
+
+    float* adj_time = get_ifft_1d(adj_freq, s->nt);
+
+    for (int t = 0; t < s->nt; ++t)
+    {
+      int idx = t * s->nrec + irec;
+
+      r->adjoint_source[idx] = -adj_time[t];
+    }
+
+    r->chi_0 += result;
+
+    free(adj_time);
+    free(fft_u_o);
+    free(C_u_o);
+    free(fft_d);
+  }
+
+  //shift_time(test, s->nt, s->nrec);
+  //plot_column(test, 140, s->nt, s->nrec);
+  //if(ishot == 25) plot2d(r->adjoint_source, s->nt, s->nrec);
+  //plot2d(r->adjoint_source, s->nt, s->nrec);
+
+  free(adj_freq);
+  free(weighted_d);
+  free(trace_o);
+  free(d);
+  free(P);
+  free(dobs);
+}
+
+void RTM_Cross_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int ishot)
+{
+  propagation_t* p = r->p;
+  seismogram_t* s = p->seismogram;
+  acoustic_state_t* a = p->physics_data;
+
+  #pragma omp parallel
+  for (int t = 1; t < p->nt - 1; ++t)
+  {
+    Propagation_VelocityUpdate(p, a->vel_arg);
+    Propagation_GetSeismogram(p, s->seismogram, t);
+    Propagation_InjectSource(p, isrc, t);
+  }
+
+  char PATH[256];
+
+  snprintf(
+    PATH,
+    sizeof(PATH),
+    "%s/seismogram_%dx%d_shot%d.bin",
+    DOBS_PATH,
+    s->nt,
+    s->nrec,
+    ishot
+  );
+
+  float* dobs = read2d(PATH, s->nt, s->nrec);
+  float* dcalc = s->seismogram;
+
+  float* P = get_penalty(s->nt, s->dt, 1.5f);
+  float* c = get_c_2d(dcalc, dobs, s->nt, s->nrec);
+  //shift_time(c, s->nt, s->nrec);
+  //plot_column(c, 140, s->nt, s->nrec);
+  //plot2d(c, s->nt, s->nrec);
+
+  float* trace_o = malloc(s->nt * sizeof(*trace_o));
+  float* trace_c = malloc(s->nt * s->nrec * sizeof(*trace_o));
+
+  float complex* adj_freq = malloc(s->nt * sizeof(*adj_freq));
+
+  for (int irec = 0; irec < s->nrec; ++irec)
+  {
+    double result = 0.0f;
+
+    for (int t = 0; t < s->nt; ++t)
+    {
+      int idx = t * s->nrec + irec;
+
+      trace_o[t] = dobs[idx];
+      trace_c[t] = P[t] * P[t] * c[idx];
+
+      float pc = P[t] * c[idx];
+
+      result += pc * pc;
+    }
+
+    float complex* fft_u_o = get_fft_1d(trace_o, s->nt);
+    float complex* fft_c = get_fft_1d(trace_c, s->nt);
+
+    for (int iw = 0; iw < s->nt; ++iw)
+      adj_freq[iw] = fft_u_o[iw] * fft_c[iw];
+
+    float* adj_time = get_ifft_1d(adj_freq, s->nt);
+
+    for (int t = 0; t < s->nt; ++t)
+      r->adjoint_source[t * s->nrec + irec] = -adj_time[t];
+
+    r->chi_0 += result;
+
+    free(adj_time);
+    free(fft_u_o);
+    free(fft_c);
+  }
+
+  //shift_time(test, s->nt, s->nrec);
+  //plot_column(test, 140, s->nt, s->nrec);
+  //if(ishot == 25) plot2d(r->adjoint_source, s->nt, s->nrec);
+  //plot2d(r->adjoint_source, s->nt, s->nrec);
+
+  free(adj_freq);
+  free(trace_o);
+  free(c);
+  free(P);
+  free(dobs);
+}
+
 void RTM_Decon_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int ishot)
 {
   propagation_t* p = r->p;
@@ -336,11 +543,14 @@ void RTM_Decon_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int isho
   float* dobs = read2d(PATH, s->nt, s->nrec);
   float* dcalc = s->seismogram;
 
-  float* P = get_penalty(s->nt, s->dt, 0.1f);
+  float* P = get_penalty(s->nt, s->dt, 1.5f);
   float* w = get_d_2d(dcalc, dobs, s->dt, s->nt, s->nrec);
+  //shift_time(w, s->nt, s->nrec);
+  //plot_column(w, 140, s->nt, s->nrec);
   //plot2d(w, s->nt, s->nrec);
 
   float* trace_o = malloc(s->nt * sizeof(*trace_o));
+  //float* test = malloc(s->nt * s->nrec * sizeof(*trace_o));
   float* weighted_d = malloc(s->nt * sizeof(*weighted_d));
 
   float complex* adj_freq = malloc(s->nt * sizeof(*adj_freq));
@@ -358,6 +568,7 @@ void RTM_Decon_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int isho
       double Pi = P[itau];
 
       pw += Pi * Pi * wi * wi;
+      //test[idx] = Pi * Pi * wi * wi;
       wTw += wi * wi;
     }
 
@@ -386,7 +597,8 @@ void RTM_Decon_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int isho
 
     for (int iw = 0; iw < s->nt; ++iw)
     {
-      float denominator = crealf(C_u_o[iw] * fft_u_o[iw]) + eps;
+      // was using crealf for some reason
+      float complex denominator = C_u_o[iw] * fft_u_o[iw] + eps;
 
       float complex A = fft_u_o[iw] / denominator;
 
@@ -397,8 +609,7 @@ void RTM_Decon_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int isho
 
     for (int t = 0; t < s->nt; ++t)
     {
-      // added dt*dt just to scale, remove later
-      r->adjoint_source[t * s->nrec + irec] = s->dt * adj_time[t];
+      r->adjoint_source[t * s->nrec + irec] = -adj_time[t];
     }
 
     free(adj_time);
@@ -407,6 +618,9 @@ void RTM_Decon_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int isho
     free(C_u_o);
   }
 
+  //shift_time(test, s->nt, s->nrec);
+  //plot2d(test, s->nt, s->nrec);
+  //plot_column(test, 140, s->nt, s->nrec);
   //if(ishot == 25) plot2d(r->adjoint_source, s->nt, s->nrec);
   //plot2d(r->adjoint_source, s->nt, s->nrec);
 
@@ -478,8 +692,10 @@ static void FWI_ImageCondition(rtm_t* r)
 
   #pragma omp parallel for schedule(static)
   for (size_t idx = 0; idx < size; ++idx)
-    // just for the test
-    r->image[idx] += r->num[idx] / r->snap_ratio;
+    // works perfectly for L2
+    //r->image[idx] += r->num[idx] / r->snap_ratio;
+    // decon test
+    r->image[idx] += (1.0f/(2.0f*r->snap_dt)) * r->num[idx];
     //r->image[idx] += r->snap_dt * r->num[idx];
 }
 
@@ -612,7 +828,9 @@ void RTMv2_Run(rtm_t* r, const char* DOBS_PATH, unsigned int flags)
     if (flags & RTM_L2_ADJOINT_SOURCE)
       RTM_GetResidual(r, DOBS_PATH, sidx, isrc);
     else if (flags & RTM_DECON_ADJOINT_SOURCE)
-      RTM_Decon_AdjointSource(r, DOBS_PATH, sidx, isrc);
+      RTM_DeconLuo_AdjointSource(r, DOBS_PATH, sidx, isrc);
+    else if (flags & RTM_CROSS_ADJOINT_SOURCE)
+      RTM_Cross_AdjointSource(r, DOBS_PATH, sidx, isrc);
       
     RTM_ResetFields(r);
 
@@ -643,7 +861,8 @@ void RTMv2_Run(rtm_t* r, const char* DOBS_PATH, unsigned int flags)
     //plot2d(r->adjoint_source, s->nt, s->nrec);
   }
 
-  r->chi_0 *= (double)p->dt;
+  //r->chi_0 *= (double)p->dt;
+  r->chi_0 *= 0.5f * (double)p->dt;
   printf("%g\n", r->chi_0);
 }
 

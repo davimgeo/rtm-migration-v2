@@ -28,6 +28,7 @@ int main()
   //Model_Load(model, "data/FWI/marmousi_141z_681x_25dxdz.bin", 681, 141, 1);
   //Model_Load(model, "data/FWI/m0_marmousi.bin", 681, 141, 0);
   Model_Load(model, "data/FWI/m0_gradient.bin", 681, 141, 0);
+  //Model_Load(model, "data/FWI/0.5s/m_4.bin", 681, 141, 0);
   //Model_GaussianSmooth(model, 10.0f, 10.0f, 0.01, 3e-2f, 1.5f);
   //Model_Extent(model);
 
@@ -46,7 +47,7 @@ int main()
   //Propagation_Run(prop, PROPAGATION_SAVE_SEISMOGRAM);
 
   rtm_t* rtm = RTM_Init(rtm, prop);
-  //RTMv2_Run(rtm, "data/FWI/dobs/", RTM_DECON_ADJOINT_SOURCE);
+  //RTMv2_Run(rtm, "data/FWI/dobs/", RTM_CROSS_ADJOINT_SOURCE);
 
   fwi_t* fwi = FWI_Init(fwi, rtm, "data/FWI/dobs/");
   FWI_Run(fwi);
@@ -61,7 +62,7 @@ int main()
   Seismogram_Destroy(seis);
   Propagation_Destroy(prop);
   RTM_Destroy(rtm);
-  //FWI_Destroy(fwi);
+  FWI_Destroy(fwi);
 
   return 0;
 }

@@ -6,6 +6,7 @@
 #include "internal.h"
 #include "model.h"
 #include "decon_objf.h"
+#include "cross_objf.h"
 #include "propagation.h"
 #include "propagation/acoustic/acoustic_c.h"
 #include "rtm.h"
@@ -16,7 +17,7 @@
 #define C1 1e-4f
 #define C2 0.9f
 
-#define MAX_ITERATIONS 20
+#define MAX_ITERATIONS 5
 #define MAX_LINE_SEARCH 10
 
 static void FWI_GetSlownessFromVelocity(
@@ -57,6 +58,7 @@ fwi_t* FWI_Init(fwi_t* f, rtm_t* rtm, const char* dobs_path)
   FWI_GetSlownessFromVelocity(f->vp_current, f->m_current, nz, nx);
 
   f->a_present = FWI_GetInitialAlpha(f->m_current, nz, nx);
+  //f->a_present = 6.416735143233154e-09;
 
   return f;
 }
@@ -112,7 +114,7 @@ static float FWI_GetInitialAlpha(const float* model, int nz, int nx)
       min = model[i];
   }
 
-  return 0.20f * (max - min);
+  return 0.10f * (max - min);
 }
 
 static void FWI_SetModel(fwi_t* f, float* vp)
@@ -259,7 +261,7 @@ static double FWI_DeconObjf(fwi_t* f, const float* dcalc)
 
   const size_t shot_size = (size_t)s->nt * s->nrec;
 
-  float* P = get_penalty(s->nt, s->dt, 0.1f);
+  float* P = get_penalty(s->nt, s->dt, 1.5f);
 
   for (int ishot = 0; ishot < g->nsrc; ++ishot)
   {
@@ -306,7 +308,121 @@ static double FWI_DeconObjf(fwi_t* f, const float* dcalc)
 
   free(P);
 
-  return 0.5f * f_awi * (double)s->dt;
+  return f_awi * (double)s->dt;
+}
+
+static double FWI_DeconLuoObjf(fwi_t* f, const float* dcalc)
+{
+  propagation_t* p = f->rtm->p;
+  seismogram_t* s = p->seismogram;
+  geometry_t* g = p->geometry;
+
+  double result = 0.0;
+
+  const size_t shot_size = (size_t)s->nt * s->nrec;
+
+  float* P = get_penalty(s->nt, s->dt, 1.5f);
+
+  for (int ishot = 0; ishot < g->nsrc; ++ishot)
+  {
+    char path[256];
+
+    snprintf(
+      path,
+      sizeof(path),
+      "%s/seismogram_%dx%d_shot%d.bin",
+      f->DOBS_PATH,
+      s->nt,
+      s->nrec,
+      ishot
+    );
+
+    const float* u_s = dcalc + (size_t)ishot * shot_size;
+
+    float* u_o = read2d(path, s->nt, s->nrec);
+
+    float* d = get_d_2d(u_s, u_o, s->dt, s->nt, s->nrec);
+
+    for (int irec = 0; irec < s->nrec; ++irec)
+    {
+      double acc = 0.0;
+
+      for (int itau = 0; itau < s->nt; ++itau)
+      {
+        int idx = itau * s->nrec + irec;
+
+        float pd = P[itau] * d[idx];
+
+        acc += pd * pd;
+      }
+
+      result += acc;
+    }
+
+    free(d);
+    free(u_o);
+  }
+
+  free(P);
+
+  return 0.5f * result * (double)s->dt;
+}
+
+static double FWI_CrossObjf(fwi_t* f, const float* dcalc)
+{
+  propagation_t* p = f->rtm->p;
+  seismogram_t* s = p->seismogram;
+  geometry_t* g = p->geometry;
+
+  double chi = 0.0;
+
+  const size_t shot_size = (size_t)s->nt * s->nrec;
+
+  float* P = get_penalty(s->nt, s->dt, 1.5f);
+
+  for (int ishot = 0; ishot < g->nsrc; ++ishot)
+  {
+    char path[256];
+
+    snprintf(
+      path,
+      sizeof(path),
+      "%s/seismogram_%dx%d_shot%d.bin",
+      f->DOBS_PATH,
+      s->nt,
+      s->nrec,
+      ishot
+    );
+
+    const float* u_s = dcalc + (size_t)ishot * shot_size;
+
+    float* u_o = read2d(path, s->nt, s->nrec);
+
+    float* c = get_c_2d(u_s, u_o, s->nt, s->nrec);
+
+    for (int irec = 0; irec < s->nrec; ++irec)
+    {
+      double result = 0.0;
+
+      for (int itau = 0; itau < s->nt; ++itau)
+      {
+        int idx = itau * s->nrec + irec;
+
+        float pc = P[itau] * c[idx];
+
+        result += pc * pc;
+      }
+
+      chi += result;
+    }
+
+    free(c);
+    free(u_o);
+  }
+
+  free(P);
+
+  return 0.5f * chi * (double)s->dt;
 }
 
 static double FWI_L2Norm(fwi_t* f, const float* dcalc)
@@ -406,7 +522,9 @@ static double FWI_GetPhi(fwi_t* f, double alpha)
 
   float* dcalc_1 = FWI_GetDcalc(f, f->vp_k1);
   //const double phi_alpha = FWI_L2Norm(f, dcalc_1);
-  const double phi_alpha = FWI_DeconObjf(f, dcalc_1);
+  //const double phi_alpha = FWI_DeconObjf(f, dcalc_1);
+  //const double phi_alpha = FWI_DeconLuoObjf(f, dcalc_1);
+  const double phi_alpha = FWI_CrossObjf(f, dcalc_1);
 
   free(dcalc_1);
 
@@ -430,16 +548,14 @@ static double FWI_GetPhiDerivative(fwi_t* f, double alpha)
   return phi_derivative;
 }
 
-static void FWI_UpdateModel(fwi_t* f, double alpha)
+static void FWI_UpdateModel(fwi_t* f)
 {
-  model_t* m = f->rtm->p->model;
+  model_t*m = f->rtm->p->model;
 
-  const size_t model_size = (size_t)m->nz * m->nx;
+  compare_diff(f->vp_current, f->vp_k1, m->nz, m->nx, "Old Model", "Inverted Model");
 
-  for (size_t i = 0; i < model_size; ++i)
-    f->m_current[i] += alpha * f->direction[i];
-
-  FWI_GetVelocityFromSlowness(f->m_current, f->vp_current, m->nz, m->nx);
+  SWAP(f->m_current, f->mk1, float*);
+  SWAP(f->vp_current, f->vp_k1, float*);
 
   FWI_SetModel(f, f->vp_current);
 }
@@ -642,15 +758,14 @@ static int FWI_LineSearchV2(fwi_t* f, double chi_0, double gTp_0)
 
     const int armijo = phi_alpha <= chi_0 + C1 * alpha * gTp_0;
 
-    printf("a_present: %.15e\n", alpha);
+    printf("a_current: %.15e\n", alpha);
+    printf("chi_0: %.15e\n", chi_0);
     printf("phi_present: %.15e\n", phi_alpha);
     printf("armijo: %.15e\n", chi_0 + C1 * alpha * gTp_0);
 
     if (armijo)
     {
       printf("ACCEPTED\n");
-
-      compare_diff(f->vp_current, f->vp_k1, m->nz, m->nx, "vp_current", "vp_k1");
 
       f->a_present = (float)alpha;
 
@@ -684,24 +799,23 @@ void FWI_Run(fwi_t* f)
     if(it == 0)
       nabla_chi = read2d("nabla_chi_141x681.bin", m->nz, m->nx);
     else
-      nabla_chi = FWI_GetGradient(f, f->vp_current);
+     nabla_chi = FWI_GetGradient(f, f->vp_current);
     //float* nabla_chi = FWI_GetGradient(f, f->vp_current);
     //write2d("nabla_chi_141x681.bin", nabla_chi, sizeof(float), m->nz, m->nx);
     //plot2d(nabla_chi, m->nz, m->nx);
     
     double chi_0;
     if(it == 0)
-      chi_0 = 0.00649491f;
+      chi_0 = 4.373069938221067e-03;
     else
       chi_0 = r->chi_0;
     //const double chi_0 = r->chi_0;
 
     FWI_GetDirection(f, nabla_chi);
     const double gTp_0 = FWI_GetGTP(f, nabla_chi);
-
+   
     const double alpha = FWI_LineSearchV2(f, chi_0, gTp_0);
-    compare_diff(f->vp_current, f->vp_k1, m->nz, m->nx, "vp_current", "vp_k1");
-    FWI_UpdateModel(f, alpha);
+    FWI_UpdateModel(f);
 
     FWI_SaveCurrent(f, it);
 
@@ -723,3 +837,4 @@ void FWI_Destroy(fwi_t* f)
 
   free(f);
 }
+
