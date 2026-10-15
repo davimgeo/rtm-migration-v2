@@ -856,14 +856,14 @@ void RTMv2_Run(rtm_t* r, const char* DOBS_PATH, unsigned int flags)
     }
 
     FWI_ImageCondition(r);
-    RTM_ShowModelingStatus(r);
+    if(!(isrc % 10)) RTM_ShowModelingStatus(r);
 
     //plot2d(r->adjoint_source, s->nt, s->nrec);
   }
 
   //r->chi_0 *= (double)p->dt;
   r->chi_0 *= 0.5f * (double)p->dt;
-  printf("%g\n", r->chi_0);
+  //printf("%g\n", r->chi_0);
 }
 
 void RTM_Destroy(rtm_t* r)
