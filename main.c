@@ -50,7 +50,7 @@ int main()
   //RTMv2_Run(rtm, "data/FWI/dobs/", RTM_CROSS_ADJOINT_SOURCE);
 
   fwi_t* fwi = FWI_Init(fwi, rtm, "data/FWI/dobs/");
-  FWI_Run(fwi);
+  FWI_RunV2(fwi);
 
   PROFILE_END();
 

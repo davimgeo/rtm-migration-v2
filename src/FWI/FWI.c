@@ -13,11 +13,15 @@
 
 #include "fwi.h"
 
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
+
 #define TOL 1e-6f
 #define C1 1e-4f
 #define C2 0.9f
 
-#define MAX_ITERATIONS 5
+#define LBGFS_M 5
+
+#define MAX_ITERATIONS 20
 #define MAX_LINE_SEARCH 10
 
 static void FWI_GetSlownessFromVelocity(
@@ -45,6 +49,12 @@ fwi_t* FWI_Init(fwi_t* f, rtm_t* rtm, const char* dobs_path)
 
   const size_t model_size = (size_t)nx * nz;
 
+  f->s = malloc(LBGFS_M * model_size * sizeof(float));
+  f->y = malloc(LBGFS_M * model_size * sizeof(float));
+
+  f->gradient_current = malloc(model_size * sizeof(float));
+  f->gradient_next = malloc(model_size * sizeof(float));
+
   f->vp_current = malloc(model_size * sizeof(float));
   f->vp_k1 = malloc(model_size * sizeof(float));
 
@@ -58,16 +68,15 @@ fwi_t* FWI_Init(fwi_t* f, rtm_t* rtm, const char* dobs_path)
   FWI_GetSlownessFromVelocity(f->vp_current, f->m_current, nz, nx);
 
   f->a_present = FWI_GetInitialAlpha(f->m_current, nz, nx);
-  //f->a_present = 6.416735143233154e-09;
 
   return f;
 }
 
-static float FWI_GradientScale(const float* gradient, size_t size)
+float FWI_GradientScale(const float* gradient, int size)
 {
   float scale = 0.0f;
 
-  for (size_t i = 0; i < size; ++i)
+  for (int i = 0; i < size; ++i)
   {
     float g = fabsf(gradient[i]);
 
@@ -89,12 +98,7 @@ static void FWI_GetSlownessFromVelocity(
     slowness[i] = 1.0f / (velocity[i] * velocity[i]);
 }
 
-static void FWI_GetVelocityFromSlowness(
-  const float* slowness,
-  float* velocity,
-  int nz,
-  int nx
-)
+void FWI_GetVelocityFromSlowness(const float* slowness, float* velocity, int nz, int nx)
 {
   for (int i = 0; i < nz * nx; ++i)
     velocity[i] = 1.0f / sqrtf(slowness[i]);
@@ -114,7 +118,7 @@ static float FWI_GetInitialAlpha(const float* model, int nz, int nx)
       min = model[i];
   }
 
-  return 0.10f * (max - min);
+  return 0.05f * (max - min);
 }
 
 static void FWI_SetModel(fwi_t* f, float* vp)
@@ -132,7 +136,7 @@ static void FWI_SetModel(fwi_t* f, float* vp)
     a->vel_arg[i] = dt2 * m->vp[i] * m->vp[i];
 }
 
-static float* FWI_GetGradient(fwi_t* f, float* vp)
+float* FWI_GetGradient(fwi_t* f, float* vp)
 {
   propagation_t* p = f->rtm->p;
   model_t* m = p->model;
@@ -162,7 +166,7 @@ static float* FWI_GetGradient(fwi_t* f, float* vp)
   return nabla_chi;
 }
 
-static float* FWI_GetDcalc(fwi_t* f, float* vp)
+float* FWI_GetDcalc(fwi_t* f, float* vp)
 {
   printf("Started Dcalc\n");
 
@@ -368,7 +372,7 @@ static double FWI_DeconLuoObjf(fwi_t* f, const float* dcalc)
   return 0.5f * result * (double)s->dt;
 }
 
-static double FWI_CrossObjf(fwi_t* f, const float* dcalc)
+double FWI_CrossObjf(fwi_t* f, const float* dcalc)
 {
   propagation_t* p = f->rtm->p;
   seismogram_t* s = p->seismogram;
@@ -483,7 +487,7 @@ static void FWI_GetDirection(fwi_t* f, const float* nabla_chi)
     f->direction[i] = -nabla_chi[i] / grad_scale;
 }
 
-static double FWI_GetGTP(fwi_t* f, const float* nabla_chi)
+double FWI_GetGTP(fwi_t* f, const float* nabla_chi)
 {
   model_t* m = f->rtm->p->model;
 
@@ -497,7 +501,7 @@ static double FWI_GetGTP(fwi_t* f, const float* nabla_chi)
   return gTp;
 }
 
-static void FWI_SaveCurrent(fwi_t* f, int it)
+void FWI_SaveCurrent(fwi_t* f, int it)
 {
   model_t* m = f->rtm->p->model;
 
@@ -508,7 +512,7 @@ static void FWI_SaveCurrent(fwi_t* f, int it)
   write2d(filename, f->vp_current, sizeof(float), m->nz, m->nx);
 }
 
-static double FWI_GetPhi(fwi_t* f, double alpha)
+double FWI_GetPhi(fwi_t* f, double alpha)
 {
   propagation_t* p = f->rtm->p;
   model_t* m = p->model;
@@ -517,7 +521,6 @@ static double FWI_GetPhi(fwi_t* f, double alpha)
 
   for (size_t i = 0; i < model_size; ++i)
     f->mk1[i] = f->m_current[i] + alpha * f->direction[i];
-
   FWI_GetVelocityFromSlowness(f->mk1, f->vp_k1, m->nz, m->nx);
 
   float* dcalc_1 = FWI_GetDcalc(f, f->vp_k1);
@@ -531,7 +534,7 @@ static double FWI_GetPhi(fwi_t* f, double alpha)
   return phi_alpha;
 }
 
-static double FWI_GetPhiDerivative(fwi_t* f, double alpha)
+double FWI_GetPhiDerivative(fwi_t* f, double alpha)
 {
   propagation_t* p = f->rtm->p;
   model_t* m = p->model;
@@ -543,12 +546,14 @@ static double FWI_GetPhiDerivative(fwi_t* f, double alpha)
   FWI_GetVelocityFromSlowness(f->mk1, f->vp_k1, m->nz, m->nx);
 
   float* gradient = FWI_GetGradient(f, f->vp_k1);
+  // saves ∇f(mk + ak*pk) = ∇X_k+1 
+  memcpy(f->gradient_next, gradient, model_size * sizeof(float));
   const double phi_derivative = FWI_GetGTP(f, gradient);
 
   return phi_derivative;
 }
 
-static void FWI_UpdateModel(fwi_t* f)
+void FWI_UpdateModel(fwi_t* f)
 {
   model_t*m = f->rtm->p->model;
 
@@ -661,83 +666,6 @@ static int FWI_LineSearch(fwi_t* f, double chi_0, double gTp_0, double* chi_acce
   return 0;
 }
 
-static double zoom(
-  double a_lo,
-  double a_hi,
-  fwi_t* f,
-  double phi_0,
-  double gTp_0,
-  double phi_lo
-)
-{
-  for (int i = 0; i < MAX_LINE_SEARCH; ++i)
-  {
-    const double a_j = a_lo + 0.5 * (a_hi - a_lo);
-
-    const double phi_aj = FWI_GetPhi(f, a_j);
-
-    if (phi_aj > phi_0 + C1 * a_j * gTp_0 || phi_aj >= phi_lo)
-    {
-      a_hi = a_j;
-    }
-    else
-    {
-      const double phi_derivative_aj = FWI_GetPhiDerivative(f, a_j);
-
-      if (fabs(phi_derivative_aj) <= -C2 * gTp_0)
-        return a_j;
-
-      if (phi_derivative_aj * (a_hi - a_lo) >= 0.0)
-        a_hi = a_lo;
-
-      a_lo = a_j;
-      phi_lo = phi_aj;
-    }
-  }
-
-  return -1.0;
-}
-
-// Algorithm 3.2 Numerical Optimization - Nocedal
-static double FWI_LineSearchV3(fwi_t* f, double phi_0, double gTp_0)
-{
-  const double a_max = 2.0 * f->a_present;
-
-  double a_past = 0.0;
-  double a_current = f->a_present;
-
-  double phi_past = phi_0;
-
-  for (int i = 0; i < MAX_LINE_SEARCH; ++i)
-  {
-    printf("it = %d\n", i);
-
-    const double phi_ai = FWI_GetPhi(f, a_current);
-
-    if (phi_ai > phi_0 + C1 * a_current * gTp_0 || (phi_ai >= phi_past && i > 0))
-      return zoom(a_past, a_current, f, phi_0, gTp_0, phi_past);
-
-    const double phi_ai_derivative = FWI_GetPhiDerivative(f, a_current);
-
-    if (fabs(phi_ai_derivative) <= -C2 * gTp_0)
-      return a_current;
-
-    if (phi_ai_derivative >= 0.0)
-      return zoom(a_current, a_past, f, phi_0, gTp_0, phi_ai);
-
-    const double a_next = 0.5 * (a_current + a_max);
-
-    a_past = a_current;
-    a_current = a_next;
-
-    phi_past = phi_ai;
-  }
-
-  printf("Line search failed\n");
-
-  return -1.0;
-}
-
 static int FWI_LineSearchV2(fwi_t* f, double chi_0, double gTp_0)
 {
   propagation_t* p = f->rtm->p;
@@ -795,20 +723,9 @@ void FWI_Run(fwi_t* f)
   {
     printf("\nIteration %d\n", it);
 
-    //float* nabla_chi;
-    //if(it == 0)
-    //  nabla_chi = read2d("nabla_chi_141x681.bin", m->nz, m->nx);
-    //else
-    // nabla_chi = FWI_GetGradient(f, f->vp_current);
     float* nabla_chi = FWI_GetGradient(f, f->vp_current);
-    write2d("nabla_chi_141x681.bin", nabla_chi, sizeof(float), m->nz, m->nx);
-    //plot2d(nabla_chi, m->nz, m->nx);
-    
-    //double chi_0;
-    //if(it == 0)
-    //  chi_0 = 4.373069938221067e-03;
-    //else
-    //  chi_0 = r->chi_0;
+    //write2d("nabla_chi_141x681.bin", nabla_chi, sizeof(float), m->nz, m->nx);
+
     const double chi_0 = r->chi_0;
 
     FWI_GetDirection(f, nabla_chi);
@@ -827,7 +744,11 @@ void FWI_Destroy(fwi_t* f)
 {
   if (!f) return;
 
+  free(f->s); free(f->y);
   free(f->direction);
+
+  free(f->gradient_current);
+  free(f->gradient_next);
 
   free(f->vp_k1);
   free(f->vp_current);
