@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <math.h>
 
@@ -13,6 +14,9 @@
 
 #include "fwi.h"
 
+#define LOW 1.0f / (1500.0f * 1500.0f)
+#define HIGH 1.0f / (4500.0f * 4500.0f)
+
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
 #define TOL 1e-6f
@@ -21,7 +25,7 @@
 
 #define LBGFS_M 5
 
-#define MAX_ITERATIONS 20
+#define MAX_ITERATIONS 50
 #define MAX_LINE_SEARCH 10
 
 static void FWI_GetSlownessFromVelocity(
@@ -33,12 +37,45 @@ static void FWI_GetSlownessFromVelocity(
 
 static float FWI_GetInitialAlpha(const float* model, int nz, int nx);
 
-fwi_t* FWI_Init(fwi_t* f, rtm_t* rtm, const char* dobs_path)
+fwi_t* FWI_Init(fwi_t* f, rtm_t* rtm, fwi_specs_t* specs)
 {
   f = alloc_struct(1, f);
 
   f->rtm = rtm;
-  f->DOBS_PATH = dobs_path;
+  f->DOBS_PATH = specs->dobs_path;
+
+  f->t0 = specs->t0;
+
+  char objective[32];
+
+  size_t len = strlen(specs->objective_function_flag);
+
+  if(len >= sizeof(objective))
+    return NULL;
+
+  for(size_t i = 0; i <= len; ++i)
+    objective[i] = toupper((unsigned char)specs->objective_function_flag[i]);
+
+  printf("Ricker Max Frequency: %g\n", rtm->p->wavelet->fmax);
+  printf("DOBS_PATH: %s\n", f->DOBS_PATH);
+
+  if(strcmp(objective, "DECON") == 0)
+  {
+    f->objective_function = RTM_DECON_ADJOINT_SOURCE;
+    printf("Using Deconvolution Objective Function\n");
+    printf("T0 = %gs\n", f->t0);
+  }
+  else if(strcmp(objective, "CROSS") == 0)
+  {
+    f->objective_function = RTM_CROSS_ADJOINT_SOURCE;
+    printf("Using Cross-correlation Objective Function\n");
+    printf("T0 = %gs\n", f->t0);
+  }
+  else if(strcmp(objective, "L2") == 0)
+  {
+    f->objective_function = RTM_L2_ADJOINT_SOURCE;
+    printf("Using L2 Objective Function\n");
+  }
 
   seismogram_t* s = rtm->p->seismogram;
   model_t* m = rtm->p->model;
@@ -118,7 +155,7 @@ static float FWI_GetInitialAlpha(const float* model, int nz, int nx)
       min = model[i];
   }
 
-  return 0.05f * (max - min);
+  return 0.01f * (max - min);
 }
 
 static void FWI_SetModel(fwi_t* f, float* vp)
@@ -143,7 +180,7 @@ float* FWI_GetGradient(fwi_t* f, float* vp)
 
   FWI_SetModel(f, vp);
 
-  RTMv2_Run(f->rtm, f->DOBS_PATH, RTM_CROSS_ADJOINT_SOURCE);
+  RTMv2_Run(f->rtm, f->DOBS_PATH, f->objective_function, f->t0);
 
   const size_t model_size = (size_t)m->nz * m->nx;
 
@@ -255,226 +292,6 @@ float* FWI_GetDcalc(fwi_t* f, float* vp)
   return dcalc;
 }
 
-static double FWI_DeconObjf(fwi_t* f, const float* dcalc)
-{
-  propagation_t* p = f->rtm->p;
-  seismogram_t* s = p->seismogram;
-  geometry_t* g = p->geometry;
-
-  double f_awi = 0.0;
-
-  const size_t shot_size = (size_t)s->nt * s->nrec;
-
-  float* P = get_penalty(s->nt, s->dt, 1.5f);
-
-  for (int ishot = 0; ishot < g->nsrc; ++ishot)
-  {
-    char path[256];
-
-    snprintf(
-      path,
-      sizeof(path),
-      "%s/seismogram_%dx%d_shot%d.bin",
-      f->DOBS_PATH,
-      s->nt,
-      s->nrec,
-      ishot
-    );
-
-    const float* u_s = dcalc + (size_t)ishot * shot_size;
-
-    float* u_o = read2d(path, s->nt, s->nrec);
-
-    float* w = get_d_2d(u_s, u_o, s->dt, s->nt, s->nrec);
-
-    for (int irec = 0; irec < s->nrec; ++irec)
-    {
-      double pw = 0.0;
-      double wTw = 0.0;
-
-      for (int itau = 0; itau < s->nt; ++itau)
-      {
-        int idx = itau * s->nrec + irec;
-
-        double wi = w[idx];
-        double Pi = P[itau];
-
-        pw += Pi * Pi * wi * wi;
-        wTw += wi * wi;
-      }
-
-      if (wTw > 0.0) f_awi += 0.5 * pw / wTw;
-    }
-
-    free(w);
-    free(u_o);
-  }
-
-  free(P);
-
-  return f_awi * (double)s->dt;
-}
-
-static double FWI_DeconLuoObjf(fwi_t* f, const float* dcalc)
-{
-  propagation_t* p = f->rtm->p;
-  seismogram_t* s = p->seismogram;
-  geometry_t* g = p->geometry;
-
-  double result = 0.0;
-
-  const size_t shot_size = (size_t)s->nt * s->nrec;
-
-  float* P = get_penalty(s->nt, s->dt, 1.5f);
-
-  for (int ishot = 0; ishot < g->nsrc; ++ishot)
-  {
-    char path[256];
-
-    snprintf(
-      path,
-      sizeof(path),
-      "%s/seismogram_%dx%d_shot%d.bin",
-      f->DOBS_PATH,
-      s->nt,
-      s->nrec,
-      ishot
-    );
-
-    const float* u_s = dcalc + (size_t)ishot * shot_size;
-
-    float* u_o = read2d(path, s->nt, s->nrec);
-
-    float* d = get_d_2d(u_s, u_o, s->dt, s->nt, s->nrec);
-
-    for (int irec = 0; irec < s->nrec; ++irec)
-    {
-      double acc = 0.0;
-
-      for (int itau = 0; itau < s->nt; ++itau)
-      {
-        int idx = itau * s->nrec + irec;
-
-        float pd = P[itau] * d[idx];
-
-        acc += pd * pd;
-      }
-
-      result += acc;
-    }
-
-    free(d);
-    free(u_o);
-  }
-
-  free(P);
-
-  return 0.5f * result * (double)s->dt;
-}
-
-double FWI_CrossObjf(fwi_t* f, const float* dcalc)
-{
-  propagation_t* p = f->rtm->p;
-  seismogram_t* s = p->seismogram;
-  geometry_t* g = p->geometry;
-
-  double chi = 0.0;
-
-  const size_t shot_size = (size_t)s->nt * s->nrec;
-
-  float* P = get_penalty(s->nt, s->dt, 1.5f);
-
-  for (int ishot = 0; ishot < g->nsrc; ++ishot)
-  {
-    char path[256];
-
-    snprintf(
-      path,
-      sizeof(path),
-      "%s/seismogram_%dx%d_shot%d.bin",
-      f->DOBS_PATH,
-      s->nt,
-      s->nrec,
-      ishot
-    );
-
-    const float* u_s = dcalc + (size_t)ishot * shot_size;
-
-    float* u_o = read2d(path, s->nt, s->nrec);
-
-    float* c = get_c_2d(u_s, u_o, s->nt, s->nrec);
-
-    for (int irec = 0; irec < s->nrec; ++irec)
-    {
-      double result = 0.0;
-
-      for (int itau = 0; itau < s->nt; ++itau)
-      {
-        int idx = itau * s->nrec + irec;
-
-        float pc = P[itau] * c[idx];
-
-        result += pc * pc;
-      }
-
-      chi += result;
-    }
-
-    free(c);
-    free(u_o);
-  }
-
-  free(P);
-
-  return 0.5f * chi * (double)s->dt;
-}
-
-static double FWI_L2Norm(fwi_t* f, const float* dcalc)
-{
-  propagation_t* p = f->rtm->p;
-  seismogram_t* s = p->seismogram;
-  geometry_t* g = p->geometry;
-
-  double result = 0.0;
-
-  const size_t shot_size = (size_t)s->nt * s->nrec;
-
-  for (int ishot = 0; ishot < g->nsrc; ++ishot)
-  {
-    const float* u_s = dcalc + (size_t)ishot * shot_size;
-
-    char path[256];
-
-    snprintf(
-      path,
-      sizeof(path),
-      "%s/seismogram_%dx%d_shot%d.bin",
-      f->DOBS_PATH,
-      s->nt,
-      s->nrec,
-      ishot
-    );
-
-    float* u_o = read2d(path, s->nt, s->nrec);
-
-    for (int irec = 0; irec < s->nrec; ++irec)
-    {
-      for (int t = 0; t < s->nt; ++t)
-      {
-        const size_t idx = (size_t)t * s->nrec + irec;
-
-        const double r = (double)u_s[idx] - (double)u_o[idx];
-
-        result += r * r;
-      }
-    }
-
-    free(u_o);
-  }
-
-  return 0.5 * result * (double)s->dt;
-}
-
 static void FWI_GetDirection(fwi_t* f, const float* nabla_chi)
 {
   model_t* m = f->rtm->p->model;
@@ -520,14 +337,23 @@ double FWI_GetPhi(fwi_t* f, double alpha)
   const size_t model_size = (size_t)m->nz * m->nx;
 
   for (size_t i = 0; i < model_size; ++i)
-    f->mk1[i] = f->m_current[i] + alpha * f->direction[i];
+  {
+    float v = f->m_current[i] + alpha * f->direction[i];
+
+    f->mk1[i] = v;
+  }
   FWI_GetVelocityFromSlowness(f->mk1, f->vp_k1, m->nz, m->nx);
 
   float* dcalc_1 = FWI_GetDcalc(f, f->vp_k1);
-  //const double phi_alpha = FWI_L2Norm(f, dcalc_1);
-  //const double phi_alpha = FWI_DeconObjf(f, dcalc_1);
-  //const double phi_alpha = FWI_DeconLuoObjf(f, dcalc_1);
-  const double phi_alpha = FWI_CrossObjf(f, dcalc_1);
+
+  double phi_alpha;
+  if (f->objective_function & RTM_L2_ADJOINT_SOURCE)
+    phi_alpha = FWI_L2Norm(f, dcalc_1);
+  else if (f->objective_function & RTM_DECON_ADJOINT_SOURCE)
+    phi_alpha = FWI_DeconObjf(f, dcalc_1);
+    //phi_alpha = FWI_DeconLuoObjf(f, dcalc_1);
+  else if (f->objective_function & RTM_CROSS_ADJOINT_SOURCE)
+    phi_alpha = FWI_CrossObjf(f, dcalc_1);
 
   free(dcalc_1);
 
@@ -542,13 +368,19 @@ double FWI_GetPhiDerivative(fwi_t* f, double alpha)
   const size_t model_size = (size_t)m->nz * m->nx;
 
   for (size_t i = 0; i < model_size; ++i)
-    f->mk1[i] = f->m_current[i] + alpha * f->direction[i];
+  {
+    float v = f->m_current[i] + alpha * f->direction[i];
+
+    f->mk1[i] = v;
+  }
   FWI_GetVelocityFromSlowness(f->mk1, f->vp_k1, m->nz, m->nx);
 
   float* gradient = FWI_GetGradient(f, f->vp_k1);
-  // saves ∇f(mk + ak*pk) = ∇X_k+1 
+  // saves ∇X(mk + ak*pk) = ∇X_k+1 
   memcpy(f->gradient_next, gradient, model_size * sizeof(float));
   const double phi_derivative = FWI_GetGTP(f, gradient);
+
+  free(gradient);
 
   return phi_derivative;
 }
@@ -666,7 +498,7 @@ static int FWI_LineSearch(fwi_t* f, double chi_0, double gTp_0, double* chi_acce
   return 0;
 }
 
-static int FWI_LineSearchV2(fwi_t* f, double chi_0, double gTp_0)
+static int FWI_LineSearch_Backtracking(fwi_t* f, double chi_0, double gTp_0)
 {
   propagation_t* p = f->rtm->p;
 
@@ -675,6 +507,8 @@ static int FWI_LineSearchV2(fwi_t* f, double chi_0, double gTp_0)
   model_t* m = p->model;
 
   const size_t model_size = (size_t)m->nz * m->nx;
+
+  printf("gTp_0: %.15e\n", gTp_0);
 
   double alpha = (double)f->a_present;
 
@@ -687,7 +521,7 @@ static int FWI_LineSearchV2(fwi_t* f, double chi_0, double gTp_0)
     const int armijo = phi_alpha <= chi_0 + C1 * alpha * gTp_0;
 
     printf("a_current: %.15e\n", alpha);
-    printf("chi_0: %.15e\n", chi_0);
+    printf("phi_0: %.15e\n", chi_0);
     printf("phi_present: %.15e\n", phi_alpha);
     printf("armijo: %.15e\n", chi_0 + C1 * alpha * gTp_0);
 
@@ -708,6 +542,95 @@ static int FWI_LineSearchV2(fwi_t* f, double chi_0, double gTp_0)
   return -1.0;
 }
 
+static double FWI_LineSearchV4(fwi_t* f, double chi_0, double gTp_0)
+{
+  double alpha = (double)f->a_present;
+
+  printf("\nAlgorithm 3.2 - Line Search\n");
+  printf("phi(0)  = %.15e\n", chi_0);
+  printf("phi'(0) = %.15e\n", gTp_0);
+
+  for (int ils = 0; ils < MAX_LINE_SEARCH; ++ils)
+  {
+    const double phi_alpha = FWI_GetPhi(f, alpha);
+
+    const double phi_ai_derivative = FWI_GetPhiDerivative(f, alpha);
+
+    const double armijo_rhs = chi_0 + C1 * alpha * gTp_0;
+    const double wolfe_rhs = -C2 * gTp_0;
+
+    const int armijo = phi_alpha <= armijo_rhs;
+    const int strong_wolfe = fabs(phi_ai_derivative) <= wolfe_rhs;
+
+    printf("\nIteration: %d | Alpha: %.15e\n", ils, alpha);
+    printf("+--------------+-------------------------+-------------------------+--------+\n");
+    printf("| %-12s | %-23s | %-23s | %-6s |\n",
+           "Condition", "Left Side", "Right Side", "Result");
+    printf("+--------------+-------------------------+-------------------------+--------+\n");
+    printf("| %-12s | %23.15e | %23.15e | %-6s |\n",
+           "Armijo", phi_alpha, armijo_rhs, armijo ? "PASS" : "FAIL");
+    printf("| %-12s | %23.15e | %23.15e | %-6s |\n",
+           "Strong Wolfe", fabs(phi_ai_derivative), wolfe_rhs,
+           strong_wolfe ? "PASS" : "FAIL");
+    printf("+--------------+-------------------------+-------------------------+--------+\n");
+
+    if (armijo && strong_wolfe)
+    {
+      printf("Line search ACCEPTED | Alpha: %.15e\n", alpha);
+
+      f->a_present = (float)alpha;
+
+      return alpha;
+    }
+
+    if (armijo && phi_ai_derivative < 0.0)
+      alpha *= 2.0;
+    else
+      alpha *= 0.5;
+  }
+
+  printf("\nLine search FAILED after %d iterations\n", MAX_LINE_SEARCH);
+
+  return -1.0;
+}
+
+void FWI_RunV3(fwi_t* f)
+{
+  rtm_t* r = f->rtm;
+  propagation_t* p = r->p;
+
+  seismogram_t* s = p->seismogram;
+  geometry_t* g = p->geometry;
+  model_t* m = p->model;
+
+  //float* gradient = FWI_GetGradient(f, f->vp_current);
+  float* gradient = read2d("nabla_chi_141x681.bin", m->nz, m->nx);
+  //write2d("nabla_chi_141x681.bin", gradient, sizeof(float), m->nz, m->nx);
+  memcpy(f->gradient_current, gradient, m->nz * m->nx * sizeof(float));
+
+  const size_t data_size = (size_t)s->nt * s->nrec * g->nsrc;
+
+  for (int it = 0; it < MAX_ITERATIONS; ++it)
+  {
+    printf("\nIteration %d\n", it);
+
+    double chi_0 = r->chi_0;
+    if(it == 0) chi_0 = 9.59912391451655e-01;
+
+    FWI_GetDirection(f, f->gradient_current);
+    const double gTp_0 = FWI_GetGTP(f, f->gradient_current);
+   
+    const double alpha = FWI_LineSearchV3(f, chi_0, gTp_0, it);
+    FWI_UpdateModel(f);
+
+    FWI_SaveCurrent(f, it);
+
+    SWAP(f->gradient_current, f->gradient_next, float*);
+
+    free(gradient);
+  }
+}
+
 void FWI_Run(fwi_t* f)
 {
   rtm_t* r = f->rtm;
@@ -723,15 +646,24 @@ void FWI_Run(fwi_t* f)
   {
     printf("\nIteration %d\n", it);
 
-    float* nabla_chi = FWI_GetGradient(f, f->vp_current);
+    //float* nabla_chi = FWI_GetGradient(f, f->vp_current);
+    float* nabla_chi = read2d("nabla_chi_141x681.bin", m->nz, m->nx);
     //write2d("nabla_chi_141x681.bin", nabla_chi, sizeof(float), m->nz, m->nx);
-
-    const double chi_0 = r->chi_0;
+    double chi_0 = r->chi_0;
+    if(it == 0) chi_0 = 1.676591474719380e-01;
 
     FWI_GetDirection(f, nabla_chi);
     const double gTp_0 = FWI_GetGTP(f, nabla_chi);
    
-    const double alpha = FWI_LineSearchV2(f, chi_0, gTp_0);
+    //const double alpha = FWI_LineSearch_Backtracking(f, chi_0, gTp_0);
+    const double alpha = FWI_LineSearchV3(f, chi_0, gTp_0, it);
+    if(alpha <= 0.0 || !isfinite(alpha))
+    {
+      printf("Line search failed at iteration %d\n", it);
+      break;
+    }
+    f->a_present = alpha;
+
     FWI_UpdateModel(f);
 
     FWI_SaveCurrent(f, it);
