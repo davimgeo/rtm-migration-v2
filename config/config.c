@@ -20,7 +20,7 @@ SpecsContext* Specs_Init(SpecsContext* specs)
     {
       .line_length = 681,
 
-      .src_depth = 18,
+      .src_depth = 8,
       .rec_depth = 2,
 
       .offset_rec = 2,
@@ -52,6 +52,13 @@ SpecsContext* Specs_Init(SpecsContext* specs)
       .dh = 25,
 
       .factor = 0.0015f
+    },
+
+    .fwi = 
+    {
+      .objective_function_flag = "Decon",
+      .dobs_path = "data/FWI/dobs_new_geometry/",
+      .t0 = 1.0f,
     }
   };
 

@@ -26,12 +26,13 @@ int main()
 
   model_t* model = Model_Init(model, &specs->model);
   //Model_Load(model, "data/FWI/marmousi_141z_681x_25dxdz.bin", 681, 141, 1);
-  //Model_Load(model, "data/FWI/m0_marmousi.bin", 681, 141, 0);
   Model_Load(model, "data/FWI/m0_gradient.bin", 681, 141, 0);
-  //Model_Load(model, "data/FWI/0.5s/m_4.bin", 681, 141, 0);
+  //Model_Load(model, "data/FWI/decon_12s_5hz/m_30.bin", 681, 141, 0);
+  //Model_Load(model, "data/FWI/m_39.bin", 681, 141, 0);
+  //Model_Load(model, "data/m_8_decon.bin", 681, 141, 0);
   //Model_GaussianSmooth(model, 10.0f, 10.0f, 0.01, 3e-2f, 1.5f);
   //Model_Extent(model);
-
+  
   //plot_model_geometry(model, 25, geom);
 
   seismogram_t* seis = Seismogram_Init(seis, &specs->seismogram, geom->nrec, 0);
@@ -44,13 +45,13 @@ int main()
     wave,
     seis,
     PROPAGATION_ACOUSTIC);
-  //Propagation_Run(prop, PROPAGATION_SAVE_SEISMOGRAM);
+  Propagation_Run(prop, PROPAGATION_SAVE_SEISMOGRAM);
 
   rtm_t* rtm = RTM_Init(rtm, prop);
-  //RTMv2_Run(rtm, "data/FWI/dobs/", RTM_CROSS_ADJOINT_SOURCE);
+  //RTMv2_Run(rtm, "data/FWI/dobs/", RTM_DECON_ADJOINT_SOURCE, specs->fwi.t0);
 
-  fwi_t* fwi = FWI_Init(fwi, rtm, "data/FWI/dobs/");
-  FWI_RunV2(fwi);
+  fwi_t* fwi = FWI_Init(fwi, rtm, &specs->fwi);
+  FWI_Run(fwi);
 
   PROFILE_END();
 

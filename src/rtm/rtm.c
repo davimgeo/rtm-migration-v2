@@ -327,7 +327,7 @@ void shift_time(float* arr, int nt, int nrec)
   free(tmp);
 }
 
-void RTM_DeconLuo_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int ishot)
+void RTM_DeconLuo_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int ishot, float t0)
 {
   propagation_t* p = r->p;
   seismogram_t* s = p->seismogram;
@@ -356,7 +356,7 @@ void RTM_DeconLuo_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int i
   float* dobs = read2d(PATH, s->nt, s->nrec);
   float* dcalc = s->seismogram;
 
-  float* P = get_penalty(s->nt, s->dt, 1.5f);
+  float* P = get_penalty(s->nt, s->dt, t0);
   float* d = get_d_2d(dcalc, dobs, s->dt, s->nt, s->nrec);
   //shift_time(w, s->nt, s->nrec);
   //plot_column(w, 140, s->nt, s->nrec);
@@ -428,7 +428,7 @@ void RTM_DeconLuo_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int i
   free(dobs);
 }
 
-void RTM_Cross_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int ishot)
+void RTM_Cross_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int ishot, float t0)
 {
   propagation_t* p = r->p;
   seismogram_t* s = p->seismogram;
@@ -457,7 +457,7 @@ void RTM_Cross_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int isho
   float* dobs = read2d(PATH, s->nt, s->nrec);
   float* dcalc = s->seismogram;
 
-  float* P = get_penalty(s->nt, s->dt, 1.5f);
+  float* P = get_penalty(s->nt, s->dt, t0);
   float* c = get_c_2d(dcalc, dobs, s->nt, s->nrec);
   //shift_time(c, s->nt, s->nrec);
   //plot_column(c, 140, s->nt, s->nrec);
@@ -514,7 +514,7 @@ void RTM_Cross_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int isho
   free(dobs);
 }
 
-void RTM_Decon_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int ishot)
+void RTM_Decon_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int ishot, float t0)
 {
   propagation_t* p = r->p;
   seismogram_t* s = p->seismogram;
@@ -543,7 +543,7 @@ void RTM_Decon_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int isho
   float* dobs = read2d(PATH, s->nt, s->nrec);
   float* dcalc = s->seismogram;
 
-  float* P = get_penalty(s->nt, s->dt, 1.5f);
+  float* P = get_penalty(s->nt, s->dt, t0);
   float* w = get_d_2d(dcalc, dobs, s->dt, s->nt, s->nrec);
   //shift_time(w, s->nt, s->nrec);
   //plot_column(w, 140, s->nt, s->nrec);
@@ -678,7 +678,9 @@ static void RTM_ImageCondition(rtm_t* r)
   #pragma omp parallel for schedule(static)
   for (size_t idx = 0; idx < size; ++idx)
   {
-    r->image[idx] += r->snap_dt * (r->num[idx] / (r->dem[idx] + epsilon));
+    //1e-9 just for scalling
+    r->image[idx] += 1e-9 * (1.0 / (2.0f*r->snap_dt)) * (r->num[idx] / (r->dem[idx] + epsilon));
+    //r->image[idx] += r->snap_dt * (r->num[idx] / (r->dem[idx] + epsilon));
     //r->image[idx] += r->snap_dt * r->num[idx];
   }
 }
@@ -697,6 +699,7 @@ static void FWI_ImageCondition(rtm_t* r)
     // decon test
     r->image[idx] += (1.0f/(2.0f*r->snap_dt)) * r->num[idx];
     //r->image[idx] += r->snap_dt * r->num[idx];
+    //r->image[idx] += 5.0f * r->num[idx];
 }
 
 static void RTM_ShowModelingStatus(rtm_t* r)
@@ -804,7 +807,7 @@ void RTM_Run(rtm_t* r, unsigned int flags)
   RTM_LaplacianFilter(r);
 }
 
-void RTMv2_Run(rtm_t* r, const char* DOBS_PATH, unsigned int flags)
+void RTMv2_Run(rtm_t* r, const char* DOBS_PATH, unsigned int flags, float t0)
 {
   propagation_t* p = r->p;
   acoustic_state_t* a = p->physics_data;
@@ -828,9 +831,10 @@ void RTMv2_Run(rtm_t* r, const char* DOBS_PATH, unsigned int flags)
     if (flags & RTM_L2_ADJOINT_SOURCE)
       RTM_GetResidual(r, DOBS_PATH, sidx, isrc);
     else if (flags & RTM_DECON_ADJOINT_SOURCE)
-      RTM_DeconLuo_AdjointSource(r, DOBS_PATH, sidx, isrc);
+      RTM_Decon_AdjointSource(r, DOBS_PATH, sidx, isrc, t0);
+      //RTM_DeconLuo_AdjointSource(r, DOBS_PATH, sidx, isrc, t0);
     else if (flags & RTM_CROSS_ADJOINT_SOURCE)
-      RTM_Cross_AdjointSource(r, DOBS_PATH, sidx, isrc);
+      RTM_Cross_AdjointSource(r, DOBS_PATH, sidx, isrc, t0);
       
     RTM_ResetFields(r);
 
@@ -855,8 +859,8 @@ void RTMv2_Run(rtm_t* r, const char* DOBS_PATH, unsigned int flags)
       RTM_InjectAdjountSource(r, t);
     }
 
-    FWI_ImageCondition(r);
-    if(!(isrc % 10)) RTM_ShowModelingStatus(r);
+    RTM_ImageCondition(r);
+    RTM_ShowModelingStatus(r);
 
     //plot2d(r->adjoint_source, s->nt, s->nrec);
   }
