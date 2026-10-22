@@ -1,0 +1,1051 @@
+❯ make
+Ricker Max Frequency: 5
+DOBS_PATH: data/FWI/dobs_12s_5hz_ng/
+Using Deconvolution Objective Function
+T0 = 1s
+
+Iteration 0
+gTp_0: -2.028858198215005e+03
+phi_0: 1.410715916578839e-01
+
+Line Search Iteration: 0 | Alpha: 3.950617255554789e-08
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   1.341224242266367e-01 |   1.410715836426419e-01 |
+ PASS   |
+ACCEPTED
+Current Alpha: 3.950617255554789e-08
+Current Alpha: 3.950617255554789e-08
+
+Iteration 1
+Progress: 2.3%
+Progress: 4.7%
+Progress: 7.0%
+Progress: 9.3%
+Progress: 11.6%
+Progress: 14.0%
+Progress: 16.3%
+Progress: 18.6%
+Progress: 20.9%
+Progress: 23.3%
+Progress: 25.6%
+Progress: 27.9%
+Progress: 30.2%
+Progress: 32.6%
+Progress: 34.9%
+Progress: 37.2%
+Progress: 39.5%
+Progress: 41.9%
+Progress: 44.2%
+Progress: 46.5%
+Progress: 48.8%
+Progress: 51.2%
+Progress: 53.5%
+Progress: 55.8%
+Progress: 58.1%
+Progress: 60.5%
+Progress: 62.8%
+Progress: 65.1%
+Progress: 67.4%
+Progress: 69.8%
+Progress: 72.1%
+Progress: 74.4%
+Progress: 76.7%
+Progress: 79.1%
+Progress: 81.4%
+Progress: 83.7%
+Progress: 86.0%
+Progress: 88.4%
+Progress: 90.7%
+Progress: 93.0%
+Progress: 95.3%
+Progress: 97.7%
+Progress: 100.0%
+gTp_0: -1.733340218301310e+03
+phi_0: 1.341224242266367e-01
+
+Line Search Iteration: 0 | Alpha: 3.950617255554789e-08
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   1.295084596285487e-01 |   1.341224173788731e-01 |
+ PASS   |
+ACCEPTED
+Current Alpha: 3.950617255554789e-08
+Current Alpha: 3.950617255554789e-08
+
+Iteration 2
+Progress: 102.3%
+Progress: 104.7%
+Progress: 107.0%
+Progress: 109.3%
+Progress: 111.6%
+Progress: 114.0%
+Progress: 116.3%
+Progress: 118.6%
+Progress: 120.9%
+Progress: 123.3%
+Progress: 125.6%
+Progress: 127.9%
+Progress: 130.2%
+Progress: 132.6%
+Progress: 134.9%
+Progress: 137.2%
+Progress: 139.5%
+Progress: 141.9%
+Progress: 144.2%
+Progress: 146.5%
+Progress: 148.8%
+Progress: 151.2%
+Progress: 153.5%
+Progress: 155.8%
+Progress: 158.1%
+Progress: 160.5%
+Progress: 162.8%
+Progress: 165.1%
+Progress: 167.4%
+Progress: 169.8%
+Progress: 172.1%
+Progress: 174.4%
+Progress: 176.7%
+Progress: 179.1%
+Progress: 181.4%
+Progress: 183.7%
+Progress: 186.0%
+Progress: 188.4%
+Progress: 190.7%
+Progress: 193.0%
+Progress: 195.3%
+Progress: 197.7%
+Progress: 200.0%
+gTp_0: -1.851954023045045e+03
+phi_0: 1.295084596285487e-01
+
+Line Search Iteration: 0 | Alpha: 3.950617255554789e-08
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   1.269522235267022e-01 |   1.295084523121874e-01 |
+ PASS   |
+ACCEPTED
+Current Alpha: 3.950617255554789e-08
+Current Alpha: 3.950617255554789e-08
+
+Iteration 3
+Progress: 202.3%
+Progress: 204.7%
+Progress: 207.0%
+Progress: 209.3%
+Progress: 211.6%
+Progress: 214.0%
+Progress: 216.3%
+Progress: 218.6%
+Progress: 220.9%
+Progress: 223.3%
+Progress: 225.6%
+Progress: 227.9%
+Progress: 230.2%
+Progress: 232.6%
+Progress: 234.9%
+Progress: 237.2%
+Progress: 239.5%
+Progress: 241.9%
+Progress: 244.2%
+Progress: 246.5%
+Progress: 248.8%
+Progress: 251.2%
+Progress: 253.5%
+Progress: 255.8%
+Progress: 258.1%
+Progress: 260.5%
+Progress: 262.8%
+Progress: 265.1%
+Progress: 267.4%
+Progress: 269.8%
+Progress: 272.1%
+Progress: 274.4%
+Progress: 276.7%
+Progress: 279.1%
+Progress: 281.4%
+Progress: 283.7%
+Progress: 286.0%
+Progress: 288.4%
+Progress: 290.7%
+Progress: 293.0%
+Progress: 295.3%
+Progress: 297.7%
+Progress: 300.0%
+gTp_0: -2.217104481411105e+03
+phi_0: 1.269522235267022e-01
+
+Line Search Iteration: 0 | Alpha: 3.950617255554789e-08
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   1.256469637867382e-01 |   1.269522147677712e-01 |
+ PASS   |
+ACCEPTED
+Current Alpha: 3.950617255554789e-08
+Current Alpha: 3.950617255554789e-08
+
+Iteration 4
+Progress: 302.3%
+Progress: 304.7%
+Progress: 307.0%
+Progress: 309.3%
+Progress: 311.6%
+Progress: 314.0%
+Progress: 316.3%
+Progress: 318.6%
+Progress: 320.9%
+Progress: 323.3%
+Progress: 325.6%
+Progress: 327.9%
+Progress: 330.2%
+Progress: 332.6%
+Progress: 334.9%
+Progress: 337.2%
+Progress: 339.5%
+Progress: 341.9%
+Progress: 344.2%
+Progress: 346.5%
+Progress: 348.8%
+Progress: 351.2%
+Progress: 353.5%
+Progress: 355.8%
+Progress: 358.1%
+Progress: 360.5%
+Progress: 362.8%
+Progress: 365.1%
+Progress: 367.4%
+Progress: 369.8%
+Progress: 372.1%
+Progress: 374.4%
+Progress: 376.7%
+Progress: 379.1%
+Progress: 381.4%
+Progress: 383.7%
+Progress: 386.0%
+Progress: 388.4%
+Progress: 390.7%
+Progress: 393.0%
+Progress: 395.3%
+Progress: 397.7%
+Progress: 400.0%
+gTp_0: -1.456334440993959e+03
+phi_0: 1.256469637867382e-01
+
+Line Search Iteration: 0 | Alpha: 3.950617255554789e-08
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   1.247855475384718e-01 |   1.256469580333184e-01 |
+ PASS   |
+ACCEPTED
+Current Alpha: 3.950617255554789e-08
+Current Alpha: 3.950617255554789e-08
+
+Iteration 5
+Progress: 402.3%
+Progress: 404.7%
+Progress: 407.0%
+Progress: 409.3%
+Progress: 411.6%
+Progress: 414.0%
+Progress: 416.3%
+Progress: 418.6%
+Progress: 420.9%
+Progress: 423.3%
+Progress: 425.6%
+Progress: 427.9%
+Progress: 430.2%
+Progress: 432.6%
+Progress: 434.9%
+Progress: 437.2%
+Progress: 439.5%
+Progress: 441.9%
+Progress: 444.2%
+Progress: 446.5%
+Progress: 448.8%
+Progress: 451.2%
+Progress: 453.5%
+Progress: 455.8%
+Progress: 458.1%
+Progress: 460.5%
+Progress: 462.8%
+Progress: 465.1%
+Progress: 467.4%
+Progress: 469.8%
+Progress: 472.1%
+Progress: 474.4%
+Progress: 476.7%
+Progress: 479.1%
+Progress: 481.4%
+Progress: 483.7%
+Progress: 486.0%
+Progress: 488.4%
+Progress: 490.7%
+Progress: 493.0%
+Progress: 495.3%
+Progress: 497.7%
+Progress: 500.0%
+gTp_0: -1.060429670235462e+03
+phi_0: 1.247855475384718e-01
+
+Line Search Iteration: 0 | Alpha: 3.950617255554789e-08
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   1.242713557613570e-01 |   1.247855433491201e-01 |
+ PASS   |
+ACCEPTED
+Current Alpha: 3.950617255554789e-08
+Current Alpha: 3.950617255554789e-08
+
+Iteration 6
+Progress: 502.3%
+Progress: 504.7%
+Progress: 507.0%
+Progress: 509.3%
+Progress: 511.6%
+Progress: 514.0%
+Progress: 516.3%
+Progress: 518.6%
+Progress: 520.9%
+Progress: 523.3%
+Progress: 525.6%
+Progress: 527.9%
+Progress: 530.2%
+Progress: 532.6%
+Progress: 534.9%
+Progress: 537.2%
+Progress: 539.5%
+Progress: 541.9%
+Progress: 544.2%
+Progress: 546.5%
+Progress: 548.8%
+Progress: 551.2%
+Progress: 553.5%
+Progress: 555.8%
+Progress: 558.1%
+Progress: 560.5%
+Progress: 562.8%
+Progress: 565.1%
+Progress: 567.4%
+Progress: 569.8%
+Progress: 572.1%
+Progress: 574.4%
+Progress: 576.7%
+Progress: 579.1%
+Progress: 581.4%
+Progress: 583.7%
+Progress: 586.0%
+Progress: 588.4%
+Progress: 590.7%
+Progress: 593.0%
+Progress: 595.3%
+Progress: 597.7%
+Progress: 600.0%
+gTp_0: -8.707202734860394e+02
+phi_0: 1.242713557613570e-01
+
+Line Search Iteration: 0 | Alpha: 3.950617255554789e-08
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   1.239951254663513e-01 |   1.242713523214746e-01 |
+ PASS   |
+ACCEPTED
+Current Alpha: 3.950617255554789e-08
+Current Alpha: 3.950617255554789e-08
+Iteration 7
+Progress: 602.3%
+Progress: 604.7%
+Progress: 607.0%
+Progress: 609.3%
+Progress: 611.6%
+Progress: 614.0%
+Progress: 616.3%
+Progress: 618.6%
+Progress: 620.9%
+Progress: 623.3%
+Progress: 625.6%
+Progress: 627.9%
+Progress: 630.2%
+Progress: 632.6%
+Progress: 634.9%
+Progress: 637.2%
+Progress: 639.5%
+Progress: 641.9%
+Progress: 644.2%
+Progress: 646.5%
+Progress: 648.8%
+Progress: 651.2%
+Progress: 653.5%
+Progress: 655.8%
+Progress: 658.1%
+Progress: 660.5%
+Progress: 662.8%
+Progress: 665.1%
+Progress: 667.4%
+Progress: 669.8%
+Progress: 672.1%
+Progress: 674.4%
+Progress: 676.7%
+Progress: 679.1%
+Progress: 681.4%
+Progress: 683.7%
+Progress: 686.0%
+Progress: 688.4%
+Progress: 690.7%
+Progress: 693.0%
+Progress: 695.3%
+Progress: 697.7%
+Progress: 700.0%
+gTp_0: -7.582772330231194e+02
+phi_0: 1.239951254663513e-01
+
+Line Search Iteration: 0 | Alpha: 3.950617255554789e-08
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   1.238851419411611e-01 |   1.239951224706882e-01 |
+ PASS   |
+ACCEPTED
+Current Alpha: 3.950617255554789e-08
+Current Alpha: 3.950617255554789e-08
+
+Iteration 8
+Progress: 702.3%
+Progress: 704.7%
+Progress: 707.0%
+Progress: 709.3%
+Progress: 711.6%
+Progress: 714.0%
+Progress: 716.3%
+Progress: 718.6%
+Progress: 720.9%
+Progress: 723.3%
+Progress: 725.6%
+Progress: 727.9%
+Progress: 730.2%
+Progress: 732.6%
+Progress: 734.9%
+Progress: 737.2%
+Progress: 739.5%
+Progress: 741.9%
+Progress: 744.2%
+Progress: 746.5%
+Progress: 748.8%
+Progress: 751.2%
+Progress: 753.5%
+Progress: 755.8%
+Progress: 758.1%
+Progress: 760.5%
+Progress: 762.8%
+Progress: 765.1%
+Progress: 767.4%
+Progress: 769.8%
+Progress: 772.1%
+Progress: 774.4%
+Progress: 776.7%
+Progress: 779.1%
+Progress: 781.4%
+Progress: 783.7%
+Progress: 786.0%
+Progress: 788.4%
+Progress: 790.7%
+Progress: 793.0%
+Progress: 795.3%
+Progress: 797.7%
+Progress: 800.0%
+gTp_0: -6.915672376072920e+02
+phi_0: 1.238851419411611e-01
+
+Line Search Iteration: 0 | Alpha: 3.950617255554789e-08
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   1.239004400104975e-01 |   1.238851392090437e-01 |
+ FAIL   |
+
+Line Search Iteration: 1 | Alpha: 1.975308627777395e-08
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   1.238827775717757e-01 |   1.238851405751024e-01 |
+ PASS   |
+ACCEPTED
+Current Alpha: 1.975308627777395e-08
+Current Alpha: 1.975308627777395e-08
+
+Iteration 9
+Progress: 802.3%
+Progress: 804.7%
+Progress: 807.0%
+Progress: 809.3%
+Progress: 811.6%
+Progress: 814.0%
+Progress: 816.3%
+Progress: 818.6%
+Progress: 820.9%
+Progress: 823.3%
+Progress: 825.6%
+Progress: 827.9%
+Progress: 830.2%
+Progress: 832.6%
+Progress: 834.9%
+Progress: 837.2%
+Progress: 839.5%
+Progress: 841.9%
+Progress: 844.2%
+Progress: 846.5%
+Progress: 848.8%
+Progress: 851.2%
+Progress: 853.5%
+Progress: 855.8%
+Progress: 858.1%
+Progress: 860.5%
+Progress: 862.8%
+Progress: 865.1%
+Progress: 867.4%
+Progress: 869.8%
+Progress: 872.1%
+Progress: 874.4%
+Progress: 876.7%
+Progress: 879.1%
+Progress: 881.4%
+Progress: 883.7%
+Progress: 886.0%
+Progress: 888.4%
+Progress: 890.7%
+Progress: 893.0%
+Progress: 895.3%
+Progress: 897.7%
+Progress: 900.0%
+gTp_0: -6.252954311352523e+02
+phi_0: 1.238827775717757e-01
+
+Line Search Iteration: 0 | Alpha: 1.975308627777395e-08
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   1.239116612139257e-01 |   1.238827763366243e-01 |
+ FAIL   |
+
+Line Search Iteration: 1 | Alpha: 9.876543138886973e-09
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   1.238952877653006e-01 |   1.238827769542000e-01 |
+ FAIL   |
+
+Line Search Iteration: 2 | Alpha: 4.938271569443486e-09
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   1.238882548983363e-01 |   1.238827772629879e-01 |
+ FAIL   |
+
+Line Search Iteration: 3 | Alpha: 2.469135784721743e-09
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   1.238859467202483e-01 |   1.238827774173818e-01 |
+ FAIL   |
+
+Line Search Iteration: 4 | Alpha: 1.234567892360872e-09
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   1.238842095316205e-01 |   1.238827774945787e-01 |
+ FAIL   |
+
+Line Search Iteration: 5 | Alpha: 6.172839461804358e-10
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   1.238836032124310e-01 |   1.238827775331772e-01 |
+ FAIL   |
+
+Line Search Iteration: 6 | Alpha: 3.086419730902179e-10
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   1.238831176221437e-01 |   1.238827775524765e-01 |
+ FAIL   |
+
+Line Search Iteration: 7 | Alpha: 1.543209865451090e-10
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   1.238837050977711e-01 |   1.238827775621261e-01 |
+ FAIL   |
+
+Line Search Iteration: 8 | Alpha: 7.716049327255448e-11
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   1.238829853028983e-01 |   1.238827775669509e-01 |
+ FAIL   |
+
+Line Search Iteration: 9 | Alpha: 3.858024663627724e-11
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   1.238826003250894e-01 |   1.238827775693633e-01 |
+ PASS   |
+ACCEPTED
+Current Alpha: 3.858024663627724e-11
+Current Alpha: 3.858024663627724e-11
+
+Iteration 10
+Progress: 902.3%
+Progress: 904.7%
+Progress: 907.0%
+Progress: 909.3%
+Progress: 911.6%
+Progress: 914.0%
+Progress: 916.3%
+Progress: 918.6%
+Progress: 920.9%
+Progress: 923.3%
+Progress: 925.6%
+Progress: 927.9%
+Progress: 930.2%
+Progress: 932.6%
+Progress: 934.9%
+Progress: 937.2%
+Progress: 939.5%
+Progress: 941.9%
+Progress: 944.2%
+Progress: 946.5%
+Progress: 948.8%
+Progress: 951.2%
+Progress: 953.5%
+Progress: 955.8%
+Progress: 958.1%
+Progress: 960.5%
+Progress: 962.8%
+Progress: 965.1%
+Progress: 967.4%
+Progress: 969.8%
+Progress: 972.1%
+Progress: 974.4%
+Progress: 976.7%
+Progress: 979.1%
+Progress: 981.4%
+Progress: 983.7%
+Progress: 986.0%
+Progress: 988.4%
+Progress: 990.7%
+Progress: 993.0%
+Progress: 995.3%
+Progress: 997.7%
+Progress: 1000.0%
+gTp_0: -5.588379868424464e+02
+phi_0: 1.238826003250894e-01
+
+Line Search Iteration: 0 | Alpha: 3.858024663627724e-11
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   1.238834837997002e-01 |   1.238826003229334e-01 |
+ FAIL   |
+
+Line Search Iteration: 1 | Alpha: 1.929012331813862e-11
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   1.238829192371578e-01 |   1.238826003240114e-01 |
+ FAIL   |
+
+Line Search Iteration: 2 | Alpha: 9.645061659069309e-12
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   1.238826685509675e-01 |   1.238826003245504e-01 |
+ FAIL   |
+
+Line Search Iteration: 3 | Alpha: 4.822530829534655e-12
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   1.238828617678080e-01 |   1.238826003248199e-01 |
+ FAIL   |
+
+Line Search Iteration: 4 | Alpha: 2.411265414767327e-12
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   1.238827481393115e-01 |   1.238826003249547e-01 |
+ FAIL   |
+
+Line Search Iteration: 5 | Alpha: 1.205632707383664e-12
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   1.238831145342879e-01 |   1.238826003250220e-01 |
+ FAIL   |
+
+Line Search Iteration: 6 | Alpha: 6.028163536918318e-13
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   1.238832012107299e-01 |   1.238826003250557e-01 |
+ FAIL   |
+
+Line Search Iteration: 7 | Alpha: 3.014081768459159e-13
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   1.238828496268587e-01 |   1.238826003250726e-01 |
+ FAIL   |
+
+Line Search Iteration: 8 | Alpha: 1.507040884229580e-13
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   1.238832600860341e-01 |   1.238826003250810e-01 |
+ FAIL   |
+
+Line Search Iteration: 9 | Alpha: 7.535204421147898e-14
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   1.238828998613036e-01 |   1.238826003250852e-01 |
+ FAIL   |
+Line search failed
+Current Alpha: -1.000000000000000e+00
+
+Iteration 11
+Progress: 1002.3%
+Progress: 1004.7%
+Progress: 1007.0%
+Progress: 1009.3%
+Progress: 1011.6%
+Progress: 1014.0%
+Progress: 1016.3%
+Progress: 1018.6%
+Progress: 1020.9%
+Progress: 1023.3%
+Progress: 1025.6%
+Progress: 1027.9%
+Progress: 1030.2%
+Progress: 1032.6%
+Progress: 1034.9%
+Progress: 1037.2%
+Progress: 1039.5%
+Progress: 1041.9%
+Progress: 1044.2%
+Progress: 1046.5%
+Progress: 1048.8%
+Progress: 1051.2%
+Progress: 1053.5%
+Progress: 1055.8%
+Progress: 1058.1%
+Progress: 1060.5%
+Progress: 1062.8%
+Progress: 1065.1%
+Progress: 1067.4%
+Progress: 1069.8%
+Progress: 1072.1%
+Progress: 1074.4%
+Progress: 1076.7%
+Progress: 1079.1%
+Progress: 1081.4%
+Progress: 1083.7%
+Progress: 1086.0%
+Progress: 1088.4%
+Progress: 1090.7%
+Progress: 1093.0%
+Progress: 1095.3%
+Progress: 1097.7%
+Progress: 1100.0%
+gTp_0: -5.091092371860785e+02
+phi_0: 1.238828998613036e-01
+
+Line Search Iteration: 0 | Alpha: -1.000000000000000e+00
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   0.000000000000000e+00 |   1.747938222937933e-01 |
+ PASS   |
+ACCEPTED
+Current Alpha: -1.000000000000000e+00
+Current Alpha: -1.000000000000000e+00
+
+Iteration 12
+Progress: 1102.3%
+Progress: 1104.7%
+Progress: 1107.0%
+Progress: 1109.3%
+Progress: 1111.6%
+Progress: 1114.0%
+Progress: 1116.3%
+Progress: 1118.6%
+Progress: 1120.9%
+Progress: 1123.3%
+Progress: 1125.6%
+Progress: 1127.9%
+Progress: 1130.2%
+Progress: 1132.6%
+Progress: 1134.9%
+Progress: 1137.2%
+Progress: 1139.5%
+Progress: 1141.9%
+Progress: 1144.2%
+Progress: 1146.5%
+Progress: 1148.8%
+Progress: 1151.2%
+Progress: 1153.5%
+Progress: 1155.8%
+Progress: 1158.1%
+Progress: 1160.5%
+Progress: 1162.8%
+Progress: 1165.1%
+Progress: 1167.4%
+Progress: 1169.8%
+Progress: 1172.1%
+Progress: 1174.4%
+Progress: 1176.7%
+Progress: 1179.1%
+Progress: 1181.4%
+Progress: 1183.7%
+Progress: 1186.0%
+Progress: 1188.4%
+Progress: 1190.7%
+Progress: 1193.0%
+Progress: 1195.3%
+Progress: 1197.7%
+Progress: 1200.0%
+gTp_0: nan
+phi_0: nan
+
+Line Search Iteration: 0 | Alpha: -1.000000000000000e+00
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   0.000000000000000e+00 |                     nan |
+ FAIL   |
+
+Line Search Iteration: 1 | Alpha: -5.000000000000000e-01
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   0.000000000000000e+00 |                     nan |
+ FAIL   |
+
+Line Search Iteration: 2 | Alpha: -2.500000000000000e-01
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   0.000000000000000e+00 |                     nan |
+ FAIL   |
+
+Line Search Iteration: 3 | Alpha: -1.250000000000000e-01
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   0.000000000000000e+00 |                     nan |
+ FAIL   |
+
+Line Search Iteration: 4 | Alpha: -6.250000000000000e-02
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   0.000000000000000e+00 |                     nan |
+ FAIL   |
+
+Line Search Iteration: 5 | Alpha: -3.125000000000000e-02
+Started Dcalc
+Finished Dcalc
++--------------+-------------------------+-------------------------+
+--------+
+| Condition    | Left Side               | Right Side              |
+ Result |
++--------------+-------------------------+-------------------------+
+--------+
+| Armijo       |   0.000000000000000e+00 |                     nan |
+ FAIL   |

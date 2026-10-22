@@ -63,7 +63,9 @@ static void RTM_ResetFields(rtm_t* r)
   memset(a->upre, 0, size * sizeof(float));
 
   memset(r->num, 0, size * sizeof(float));
-  memset(r->dem, 0, size * sizeof(float));
+  //memset(r->dem, 0, size * sizeof(float));
+
+  //memset(r->adjoint_source, 0, (size_t)s->nt * s->nrec * sizeof(float));
 
   r->current_src_id = 0;
   r->current_rec_id = r->nsnaps - 1;
@@ -304,7 +306,7 @@ void RTM_GetResidual(rtm_t* r, const char* DOBS_PATH, int isrc, int ishot)
   //compare_diff(dcalc, dobs, s->nt, s->nrec, "dcalc", "dobs");
   //write2d("data/dcalc.bin", dcalc, sizeof(float), s->nt, s->nrec);
   //write2d("data/dobs.bin", dobs, sizeof(float), s->nt, s->nrec);
-  
+
   free(dobs);
 }
 
@@ -420,6 +422,7 @@ void RTM_DeconLuo_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int i
   //if(ishot == 25) plot2d(r->adjoint_source, s->nt, s->nrec);
   //plot2d(r->adjoint_source, s->nt, s->nrec);
 
+
   free(adj_freq);
   free(weighted_d);
   free(trace_o);
@@ -506,6 +509,13 @@ void RTM_Cross_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int isho
   //plot_column(test, 140, s->nt, s->nrec);
   //if(ishot == 25) plot2d(r->adjoint_source, s->nt, s->nrec);
   //plot2d(r->adjoint_source, s->nt, s->nrec);
+  //
+  if(ishot == 25) 
+  {
+   compare_diff(dcalc, dobs, s->nt, s->nrec, "dcalc", "dobs");
+   write2d("data/dcalc.bin", dcalc, sizeof(float), s->nt, s->nrec);
+   write2d("data/dobs.bin", dobs, sizeof(float), s->nt, s->nrec);
+  }
 
   free(adj_freq);
   free(trace_o);
@@ -623,6 +633,8 @@ void RTM_Decon_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int isho
   //plot_column(test, 140, s->nt, s->nrec);
   //if(ishot == 25) plot2d(r->adjoint_source, s->nt, s->nrec);
   //plot2d(r->adjoint_source, s->nt, s->nrec);
+  //
+
 
   free(adj_freq);
   free(weighted_d);
@@ -667,21 +679,13 @@ static void RTM_ImageCondition(rtm_t* r)
   const int nzz = r->p->model->nzz;
   const size_t size = (size_t)nxx * nzz;
 
-  float dem_max = 0.0f;
-
-  for (size_t idx = 0; idx < size; ++idx)
-    if (r->dem[idx] > dem_max)
-      dem_max = r->dem[idx];
-
-  const float epsilon = 0.01f * dem_max;
-
   #pragma omp parallel for schedule(static)
   for (size_t idx = 0; idx < size; ++idx)
   {
     //1e-9 just for scalling
-    r->image[idx] += 1e-9 * (1.0 / (2.0f*r->snap_dt)) * (r->num[idx] / (r->dem[idx] + epsilon));
+    //r->image[idx] += 1e-9 * (1.0 / (2.0f*r->snap_dt)) * (r->num[idx] / (r->dem[idx] + epsilon));
     //r->image[idx] += r->snap_dt * (r->num[idx] / (r->dem[idx] + epsilon));
-    //r->image[idx] += r->snap_dt * r->num[idx];
+    r->image[idx] += r->num[idx];
   }
 }
 
@@ -697,9 +701,9 @@ static void FWI_ImageCondition(rtm_t* r)
     // works perfectly for L2
     //r->image[idx] += r->num[idx] / r->snap_ratio;
     // decon test
-    r->image[idx] += (1.0f/(2.0f*r->snap_dt)) * r->num[idx];
+    //r->image[idx] += (1.0f/(2.0f*r->snap_dt)) * r->num[idx];
     //r->image[idx] += r->snap_dt * r->num[idx];
-    //r->image[idx] += 5.0f * r->num[idx];
+    r->image[idx] += r->snap_ratio * r->num[idx];
 }
 
 static void RTM_ShowModelingStatus(rtm_t* r)
@@ -807,6 +811,50 @@ void RTM_Run(rtm_t* r, unsigned int flags)
   RTM_LaplacianFilter(r);
 }
 
+static void FWI_NormalizeGradient(rtm_t* r)
+{
+  model_t* m = r->p->model;
+
+  const int nxx = m->nxx;
+  const int nzz = m->nzz;
+
+  const size_t size = (size_t)nxx * nzz;
+
+  const float idh2 = 1.0f / (r->p->dh * r->p->dh);
+
+  float* normalized = allocf(size * sizeof(float));
+
+  for(size_t idx = 0; idx < size; ++idx)
+    normalized[idx] = r->image[idx] / r->dem[idx];
+
+  memset(r->image, 0, size * sizeof(float));
+
+  // apply laplacian
+  for(int i = m->nb + 20; i < m->nb + m->nz - 1; ++i)
+  {
+    for(int j = m->nb; j < m->nb + m->nx; ++j)
+    {
+      const size_t idx = (size_t)i * nxx + j;
+  
+     r->image[idx] = -(
+       normalized[idx - nxx]
+       - 2.0f * normalized[idx]
+        + normalized[idx + nxx]
+      ) * idh2;
+    }
+  }
+
+  float gmax = 0.0f;
+  for(size_t idx = 0; idx < size; ++idx)
+    gmax = fmaxf(gmax, fabsf(r->image[idx]));
+
+  for(size_t idx = 0; idx < size; ++idx)
+    r->image[idx] /= gmax;
+
+  free(normalized);
+}
+
+
 void RTMv2_Run(rtm_t* r, const char* DOBS_PATH, unsigned int flags, float t0)
 {
   propagation_t* p = r->p;
@@ -859,15 +907,17 @@ void RTMv2_Run(rtm_t* r, const char* DOBS_PATH, unsigned int flags, float t0)
       RTM_InjectAdjountSource(r, t);
     }
 
-    RTM_ImageCondition(r);
+    FWI_ImageCondition(r);
     RTM_ShowModelingStatus(r);
 
-    //plot2d(r->adjoint_source, s->nt, s->nrec);
+    memset(r->adjoint_source, 0, (size_t)s->nt * s->nrec * sizeof(float));
   }
 
-  //r->chi_0 *= (double)p->dt;
+  //for (size_t idx = 0; idx < size; ++idx)
+  //  r->image[idx] /= r->dem[idx];
+  //FWI_NormalizeGradient(r);
+
   r->chi_0 *= 0.5f * (double)p->dt;
-  //printf("%g\n", r->chi_0);
 }
 
 void RTM_Destroy(rtm_t* r)
