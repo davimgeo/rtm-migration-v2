@@ -231,7 +231,7 @@ def plot2d(arr: np.ndarray) -> None:
                   vmin=scale_min, vmax=scale_max)
 
   #img = ax.imshow(arr, aspect="auto", cmap="jet")
-  #plt.colorbar(img, ax=ax, label="VP [m/s]")
+  plt.colorbar(img, ax=ax)
   
   plt.tight_layout()
   plt.show()

@@ -11,9 +11,9 @@ SpecsContext* Specs_Init(SpecsContext* specs)
     .wavelet =
     {
       .dt = 1e-3f,
-      .fmax = 5.0f,
+      .fmax = 10.0f,
       .nt = 12001,
-      .tlag = 0.70f,
+      .tlag = 0.30f,
     },
 
     .geometry =
@@ -56,8 +56,9 @@ SpecsContext* Specs_Init(SpecsContext* specs)
 
     .fwi = 
     {
-      .objective_function_flag = "Decon",
-      .dobs_path = "data/FWI/dobs_new_geometry/",
+      .objective_function_flag = "L2",
+      .dobs_path = "data/FWI/dobs_12s_10hz_ng/",
+      .export_path = "data/FWI/L2_AWI/",
       .t0 = 1.0f,
     }
   };

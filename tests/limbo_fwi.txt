@@ -1,0 +1,208 @@
+static double FWI_LineSearchV4(fwi_t* f, double chi_0, double gTp_0)
+{
+  double alpha = (double)f->a_present;
+
+  printf("\nAlgorithm 3.2 - Line Search\n");
+  printf("phi(0)  = %.15e\n", chi_0);
+  printf("phi'(0) = %.15e\n", gTp_0);
+
+  for (int ils = 0; ils < MAX_LINE_SEARCH; ++ils)
+  {
+    const double phi_alpha = FWI_GetPhi(f, alpha);
+
+    const double phi_ai_derivative = FWI_GetPhiDerivative(f, alpha);
+
+    const double armijo_rhs = chi_0 + C1 * alpha * gTp_0;
+    const double wolfe_rhs = -C2 * gTp_0;
+
+    const int armijo = phi_alpha <= armijo_rhs;
+    const int strong_wolfe = fabs(phi_ai_derivative) <= wolfe_rhs;
+
+    printf("\nIteration: %d | Alpha: %.15e\n", ils, alpha);
+    printf("+--------------+-------------------------+-------------------------+--------+\n");
+    printf("| %-12s | %-23s | %-23s | %-6s |\n",
+           "Condition", "Left Side", "Right Side", "Result");
+    printf("+--------------+-------------------------+-------------------------+--------+\n");
+    printf("| %-12s | %23.15e | %23.15e | %-6s |\n",
+           "Armijo", phi_alpha, armijo_rhs, armijo ? "PASS" : "FAIL");
+    printf("| %-12s | %23.15e | %23.15e | %-6s |\n",
+           "Strong Wolfe", fabs(phi_ai_derivative), wolfe_rhs,
+           strong_wolfe ? "PASS" : "FAIL");
+    printf("+--------------+-------------------------+-------------------------+--------+\n");
+
+    if (armijo && strong_wolfe)
+    {
+      printf("Line search ACCEPTED | Alpha: %.15e\n", alpha);
+
+      f->a_present = (float)alpha;
+
+      return alpha;
+    }
+
+    if (armijo && phi_ai_derivative < 0.0)
+      alpha *= 2.0;
+    else
+      alpha *= 0.5;
+  }
+
+  printf("\nLine search FAILED after %d iterations\n", MAX_LINE_SEARCH);
+
+  return -1.0;
+}
+
+void FWI_RunV3(fwi_t* f)
+{
+  rtm_t* r = f->rtm;
+  propagation_t* p = r->p;
+  model_t* m = p->model;
+
+  const size_t model_size = (size_t)m->nz * m->nx;
+
+  float* nabla_chi = FWI_GetGradient(f, f->vp_current);
+  //float* nabla_chi = read2d("nabla_chi_141x681.bin", m->nz, m->nx);
+  //plot2d(nabla_chi, m->nz, m->nx);
+  //write2d("nabla_chi_141x681_paulo_notnorm.bin", nabla_chi, sizeof(float), m->nz, m->nx);
+  memcpy(f->gradient_current, nabla_chi, model_size * sizeof(float));
+  free(nabla_chi);
+
+  printf("phi_0: %.15e\n", r->chi_0);
+
+  double chi_0 = r->chi_0;
+
+  for(int it = 0; it < MAX_ITERATIONS; ++it)
+  {
+    printf("\nIteration %d\n", it);
+
+    FWI_GetDirection(f, f->gradient_current, it);
+
+    const double gTp_0 = FWI_GetGTP(f, f->gradient_current);
+
+    printf("gTp_0: %.15e\n", gTp_0);
+
+    if(!isfinite(gTp_0) || gTp_0 >= 0.0)
+    {
+      printf("Invalid descent direction at iteration %d\n", it);
+      break;
+    }
+
+    const double alpha = FWI_LineSearchV3(f, chi_0, gTp_0, it);
+
+    if(alpha <= 0.0 || !isfinite(alpha))
+    {
+      printf("Line search failed at iteration %d\n", it);
+      break;
+    }
+
+    f->a_present = alpha;
+
+    chi_0 = r->chi_0;
+
+    FWI_UpdateModel(f);
+    FWI_SaveCurrent(f, it);
+
+    SWAP(f->gradient_current, f->gradient_next, float*);
+  }
+}
+
+static int FWI_LineSearch(fwi_t* f, double chi_0, double gTp_0, double* chi_accepted)
+{
+  propagation_t* p = f->rtm->p;
+
+  seismogram_t* s = p->seismogram;
+  geometry_t* g = p->geometry;
+  model_t* m = p->model;
+
+  const size_t model_size = (size_t)m->nz * m->nx;
+
+  float a_past = 0.0f;
+
+  double chi_past = chi_0;
+  double gTp_past = gTp_0;
+
+  printf("a_present: %.15e\n", (double)f->a_present);
+  printf("a_past: %.15e\n", (double)a_past);
+
+  for (int ils = 0; ils < MAX_LINE_SEARCH; ++ils)
+  {
+    printf("it = %d\n", ils);
+
+    for (size_t i = 0; i < model_size; ++i)
+      f->mk1[i] = f->m_current[i] + f->a_present * f->direction[i];
+
+    FWI_GetVelocityFromSlowness(f->mk1, f->vp_k1, m->nz, m->nx);
+
+    float* dcalc_1 = FWI_GetDcalc(f, f->vp_k1);
+
+    float* nabla_chi_present = FWI_GetGradient(f, f->vp_k1);
+    const double gTp_present = FWI_GetGTP(f, nabla_chi_present);
+
+    const double chi_present = FWI_L2Norm(f, dcalc_1);
+
+    const double armijo_rhs = chi_0 + C1 * (double)f->a_present * gTp_0;
+    const double wolfe_rhs = C2 * gTp_0;
+
+    printf("a_past: %.15e\n", (double)a_past);
+    printf("a_present: %.15e\n", (double)f->a_present);
+    printf("chi_present: %.15e\n", chi_present);
+    printf("armijo: %.15e\n", armijo_rhs);
+    printf("gtp_past: %.15e\n", gTp_past);
+    printf("gtp_present: %.15e\n", gTp_present);
+    printf("wolfe: %.15e\n", wolfe_rhs);
+
+    const int armijo = chi_present <= armijo_rhs;
+    const int wolfe = gTp_present >= wolfe_rhs;
+
+    if (armijo && wolfe)
+    {
+      printf("ACCEPTED\n");
+
+      SWAP(f->m_current, f->mk1, float*);
+      SWAP(f->vp_current, f->vp_k1, float*);
+
+      FWI_SetModel(f, f->vp_current);
+
+      *chi_accepted = chi_present;
+
+      free(nabla_chi_present);
+      free(dcalc_1);
+
+      return 1;
+    }
+
+    const double d1 =
+      gTp_past + gTp_present
+      - 3.0 * (chi_past - chi_present)
+      / ((double)a_past - (double)f->a_present);
+
+    const double d2 = sqrt(d1 * d1 - gTp_past * gTp_present);
+
+    double a_next =
+      f->a_present
+      - (f->a_present - a_past)
+      * (gTp_present + d2 - d1)
+      / (gTp_present - gTp_past + 2.0 * d2);
+
+    printf("a_interpolated: %.15e\n", a_next);
+    printf("ratio: %.15e\n", a_next / (double)f->a_present);
+
+    if (a_next > 0.9 * f->a_present || a_next < 0.1 * f->a_present)
+    {
+      printf("SAFEGUARD\n");
+
+      a_next = 0.5 * f->a_present;
+    }
+
+    a_past = f->a_present;
+    chi_past = chi_present;
+    gTp_past = gTp_present;
+
+    f->a_present = (float)a_next;
+
+    free(nabla_chi_present);
+    free(dcalc_1);
+  }
+
+  return 0;
+}
+
+

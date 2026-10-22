@@ -153,7 +153,8 @@ double FWI_LineSearchV3(fwi_t* f, double phi_0, double gTp_0, int k)
 {
   //if(k == 1) f->a_present = 1.0f;
 
-  const double a_max = 4.0 * f->a_present;
+  // 5 times the 1% of (max - min)
+  const double a_max = 5.0f * f->a_present;
 
   double a_past = 0.0;
   double a_current = f->a_present;
@@ -165,6 +166,28 @@ double FWI_LineSearchV3(fwi_t* f, double phi_0, double gTp_0, int k)
   printf("phi(0)  = %.15e\n", phi_0);
   printf("phi'(0) = %.15e\n", gTp_0);
   printf("a_max   = %.15e\n", a_max);
+
+  #if 0
+  const double eps_values[] = {
+    1e-10, 2e-10, 5e-10, 1e-9, 2e-9
+  };
+
+  printf("\nDirectional Derivative Test - DECON\n");
+  printf("gTp_0 = %.15e\n", gTp_0);
+
+  for(int i = 0; i < 5; ++i)
+  {
+    const double eps = eps_values[i];
+
+    const double phi_plus = FWI_GetPhi(f, eps);
+    const double phi_minus = FWI_GetPhi(f, -eps);
+
+    const double d_fd = (phi_plus - phi_minus) / (2.0 * eps);
+
+    printf("eps = %.15e | D_fd = %.15e | ratio = %.15e\n",
+           eps, d_fd, d_fd / gTp_0);
+  }
+  #endif 
 
   for (int i = 0; i < MAX_LINE_SEARCH; ++i)
   {
@@ -218,9 +241,7 @@ double FWI_LineSearchV3(fwi_t* f, double phi_0, double gTp_0, int k)
       return zoom(a_current, a_past, f, phi_0, gTp_0, phi_ai);
     }
 
-    const double a_next = 2.0 * a_current < a_max
-      ? 2.0 * a_current
-      : 0.5 * (a_current + a_max);
+    const double a_next = 0.5 * (a_current + a_max);
 
     printf("Action: CONTINUE | Next Alpha: %.15e\n", a_next);
 
@@ -473,6 +494,8 @@ void FWI_Run_LBFGS(fwi_t* f)
   write2d("nabla_chi_141x681.bin", gradient, sizeof(float), m->nz, m->nx);
   //float* gradient = read2d("nabla_chi_141x681.bin", m->nz, m->nx);
   memcpy(f->gradient_current, gradient, model_size * sizeof(float));
+
+  printf("phi_0: %.15e\n", r->chi_0);
 
   for(int k = 0; k < MAX_ITERATIONS; k++)
   {

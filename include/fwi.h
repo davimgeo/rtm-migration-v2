@@ -6,6 +6,7 @@ typedef struct
 {
   char* objective_function_flag;
   char* dobs_path;
+  char* export_path;
   float t0;
 
 } fwi_specs_t;
@@ -14,10 +15,13 @@ typedef struct
 {
   rtm_t* rtm;
 
+  int FWI_ITERATION;
+
   unsigned int objective_function;
 
   float a_present;
   const char* DOBS_PATH;
+  const char* export_path;
   float t0;
 
   // L-BFGS
