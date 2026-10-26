@@ -9,7 +9,7 @@
 
 static int initialized = 0;
 
-float get_epsilon(float complex*arr1, float complex*arr2, int size)
+float get_epsilonV2(float complex*arr1, float complex*arr2, int size)
 {
   float max = 0.0f;
   for(int i = 0; i < size; i++) 
@@ -20,6 +20,103 @@ float get_epsilon(float complex*arr1, float complex*arr2, int size)
   return 0.05f * max;
 }
 
+float get_epsilon(const float complex* U_o, int size)
+{
+  float max = 0.0f;
+      
+  for(int i = 0; i < size; ++i)
+  {
+    float temp = cabsf(U_o[i]);
+
+    if(temp > max)
+      max = temp;
+  }
+
+  return 1e-2f * max;
+}
+
+// just testing, remove later
+float* get_penaltyV2(int nt, float dt, float t0)
+{
+  float* P = malloc(nt * sizeof(float));
+
+  float sigma = 0.05f * (nt*dt);
+
+  for (int i = 0; i < nt; ++i)
+  {
+    int lag_index = i - nt / 2;
+    float tau = lag_index * dt;
+
+    int j = (i + nt - nt / 2) % nt;
+
+    float x = tau / sigma;
+
+    P[j] = expf(-x * x);
+  }
+
+  return P;
+}
+
+float* get_penalty2D(
+  const float* dcalc,
+  const float* dobs,
+  float dt,
+  int nt,
+  int nrec
+)
+{
+  float* P = callocf(nt * nrec * sizeof(float));
+
+  for(int irec = 0; irec < nrec; ++irec)
+  {
+    float max_o = 0.0f;
+    float max_s = 0.0f;
+
+    int idx_o = 0;
+    int idx_s = 0;
+
+    for(int t = 0; t < nt; ++t)
+    {
+      int idx = t * nrec + irec;
+
+      float temp_o = fabsf(dobs[idx]);
+      float temp_s = fabsf(dcalc[idx]);
+
+      if(temp_o > max_o)
+      {
+        max_o = temp_o;
+        idx_o = t;
+      }
+
+      if(temp_s > max_s)
+      {
+        max_s = temp_s;
+        idx_s = t;
+      }
+    }
+
+    float sigma = fabsf((float)(idx_o - idx_s)) * dt;
+
+    sigma = fmaxf(sigma, 0.25f);
+    if(sigma > 0.25f) printf("sigma: %.3e s\n", sigma);
+
+    for(int i = 0; i < nt; ++i)
+    {
+      int lag_index = i - nt / 2;
+      float tau = lag_index * dt;
+
+      int j = (i + nt - nt / 2) % nt;
+
+      float x = tau / sigma;
+
+      P[j * nrec + irec] = expf(-x * x);
+    }
+  }
+
+  return P;
+}
+
+// working
 float* get_penalty(int nt, float dt, float t0)
 {
   float* P = malloc(nt * sizeof(*P));
@@ -64,7 +161,7 @@ float* get_d_1d(float* dcalc, float* dobs, float dt, int nt)
 
   float complex* d = malloc((size_t)nt * sizeof(float complex));
 
-  float epsilon = get_epsilon(C_u_o, fft_u_o, nt);
+  float epsilon = get_epsilon(fft_u_o, nt);
 
   for (int iw = 0; iw < nt; ++iw)
   {

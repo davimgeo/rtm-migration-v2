@@ -40,7 +40,7 @@ double FWI_DeconObjf(fwi_t* f, const float* dcalc)
     const float* u_s = dcalc + (size_t)ishot * shot_size;
     float* u_o = read2d(path, s->nt, s->nrec);
 
-    if(ishot == 25) 
+    if(ishot == 42) 
     {
        char filename[256];
 
@@ -83,6 +83,81 @@ double FWI_DeconObjf(fwi_t* f, const float* dcalc)
   }
 
   free(P);
+
+  return 0.5f * f_awi * (double)s->dt;
+}
+
+double FWI_DeconObjf2(fwi_t* f, const float* dcalc)
+{
+  propagation_t* p = f->rtm->p;
+  seismogram_t* s = p->seismogram;
+  geometry_t* g = p->geometry;
+
+  double f_awi = 0.0;
+
+  const size_t shot_size = (size_t)s->nt * s->nrec;
+
+  for (int ishot = 0; ishot < g->nsrc; ++ishot)
+  {
+    char path[256];
+
+    snprintf(
+      path,
+      sizeof(path),
+      "%s/seismogram_%dx%d_shot%d.bin",
+      f->DOBS_PATH,
+      s->nt,
+      s->nrec,
+      ishot
+    );
+
+    const float* u_s = dcalc + (size_t)ishot * shot_size;
+    float* u_o = read2d(path, s->nt, s->nrec);
+
+    float* P = get_penalty2D(u_s, u_o, s->dt, s->nt, s->nrec);
+
+    if(ishot == 42) 
+    {
+       char filename[256];
+
+       snprintf(
+         filename,
+         sizeof(filename),
+         "%sdata/dcalc_%01d.bin",
+         f->export_path,
+         f->FWI_ITERATION + 1
+       );
+
+       write2d(filename, u_s, sizeof(float), s->nt, s->nrec);
+
+       printf("Saved dcalc in %s\n", filename);
+    }
+
+    float* w = get_d_2d(u_s, u_o, s->dt, s->nt, s->nrec);
+
+    for (int irec = 0; irec < s->nrec; ++irec)
+    {
+      double pw = 0.0;
+      double wTw = 0.0;
+
+      for (int itau = 0; itau < s->nt; ++itau)
+      {
+        int idx = itau * s->nrec + irec;
+
+        double wi = w[idx];
+        double Pi = P[idx];
+
+        pw += Pi * Pi * wi * wi;
+        wTw += wi * wi;
+      }
+
+      if (wTw > 0.0) f_awi += 0.5 * pw / wTw;
+    }
+
+    free(w);
+    free(u_o);
+    free(P);
+  }
 
   return 0.5f * f_awi * (double)s->dt;
 }
@@ -229,7 +304,7 @@ double FWI_L2Norm(fwi_t* f, const float* dcalc)
 
     float* u_o = read2d(path, s->nt, s->nrec);
 
-    if(ishot == 25) 
+    if(ishot == 42) 
     {
        char filename[256];
 

@@ -47,7 +47,7 @@ float* get_ifft_1d(float complex* arr, int N)
 
 float* fftshift(float* x, int N)
 {
-  float* y = (float*)malloc(N * sizeof(float));
+  float* y = (float*)malloc((N + 1) * sizeof(float));
 
   //int shift = N / 2;
   int shift = (N + 1) / 2;

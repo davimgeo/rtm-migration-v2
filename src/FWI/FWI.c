@@ -12,8 +12,8 @@
 
 #include "fwi.h"
 
-#define LOW 1.0f / (1500.0f * 1500.0f)
-#define HIGH 1.0f / (4500.0f * 4500.0f)
+#define HIGH 1.0f / (1500.0f * 1500.0f)
+#define LOW 1.0f / (4500.0f * 4500.0f)
 
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
@@ -23,7 +23,7 @@
 
 #define LBGFS_M 5
 
-#define MAX_ITERATIONS 200
+#define MAX_ITERATIONS 78
 #define MAX_LINE_SEARCH 10
 
 static void FWI_GetSlownessFromVelocity(
@@ -158,7 +158,7 @@ static float FWI_GetInitialAlpha(const float* model, int nz, int nx)
   return 0.05f * (max - min);
 }
 
-static void FWI_SetModel(fwi_t* f, float* vp)
+void FWI_SetModel(fwi_t* f, float* vp)
 {
   propagation_t* p = f->rtm->p;
   acoustic_state_t* a = p->physics_data;
@@ -292,7 +292,7 @@ float* FWI_GetDcalc(fwi_t* f, float* vp)
   return dcalc;
 }
 
-static void FWI_GetDirection(fwi_t* f, const float* nabla_chi, float grad_scale)
+void FWI_GetDirection(fwi_t* f, const float* nabla_chi, float grad_scale)
 {
   model_t* m = f->rtm->p->model;
 
@@ -397,9 +397,10 @@ double FWI_GetPhi(fwi_t* f, double alpha)
   {
     float v = f->m_current[i] + alpha * f->direction[i];
 
-    f->mk1[i] = v;
+    f->mk1[i] = fmax(LOW, fmin(HIGH, v));
   }
   FWI_GetVelocityFromSlowness(f->mk1, f->vp_k1, m->nz, m->nx);
+  //plot2d(f->vp_k1, m->nz, m->nx);
 
   float* dcalc_1 = FWI_GetDcalc(f, f->vp_k1);
 
@@ -428,7 +429,7 @@ double FWI_GetPhiDerivative(fwi_t* f, double alpha)
   {
     float v = f->m_current[i] + alpha * f->direction[i];
 
-    f->mk1[i] = v;
+    f->mk1[i] = fmax(LOW, fmin(HIGH, v));
   }
   FWI_GetVelocityFromSlowness(f->mk1, f->vp_k1, m->nz, m->nx);
 
@@ -512,7 +513,7 @@ void FWI_Run(fwi_t* f)
   const size_t data_size = (size_t)s->nt * s->nrec * g->nsrc;
   const size_t model_size = (size_t)m->nz * m->nx;
 
-  for (int it = 78; it < MAX_ITERATIONS; ++it)
+  for (int it = 0; it < MAX_ITERATIONS; ++it)
   {
     f->FWI_ITERATION = it;
 
@@ -522,8 +523,7 @@ void FWI_Run(fwi_t* f)
     write2d("nabla_chi_141x681.bin", nabla_chi, sizeof(float), m->nz, m->nx);
     double chi_0 = r->chi_0;
 
-    float grad_scale;
-    if(it == 78) grad_scale = FWI_GradientScale(nabla_chi, model_size);
+    float grad_scale = FWI_GradientScale(nabla_chi, model_size);
     //FWI_GetDirectionConditioned(f, nabla_chi, grad_scale);
     FWI_GetDirection(f, nabla_chi, grad_scale);
     const double gTp_0 = FWI_GetGTP(f, nabla_chi);

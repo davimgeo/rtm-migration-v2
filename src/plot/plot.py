@@ -227,7 +227,7 @@ def plot2d(arr: np.ndarray) -> None:
 
   fig, ax = plt.subplots(figsize=(10, 8))
 
-  img = ax.imshow(arr, aspect="auto", cmap="Greys", 
+  img = ax.imshow(arr, aspect="auto", cmap="jet", 
                   vmin=scale_min, vmax=scale_max)
 
   #img = ax.imshow(arr, aspect="auto", cmap="jet")
@@ -256,11 +256,11 @@ def compare_diff(
 
   _, axs = plt.subplots(nrows=1, ncols=3, figsize=(15, 5))
 
-  im0 = axs[0].imshow(model1, aspect='auto', cmap="Greys", vmin=vmin, vmax=vmax)
+  im0 = axs[0].imshow(model1, aspect='auto', cmap="Greys")
   axs[0].set_title(title1)
   plt.colorbar(im0, ax=axs[0])
 
-  im1 = axs[1].imshow(model2, aspect='auto', cmap="Greys", vmin=vmin, vmax=vmax)
+  im1 = axs[1].imshow(model2, aspect='auto', cmap="Greys")
   axs[1].set_title(title2)
   plt.colorbar(im1, ax=axs[1])
 

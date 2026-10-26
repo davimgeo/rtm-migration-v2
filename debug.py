@@ -4,8 +4,6 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from scipy.ndimage import uniform_filter1d
 
-PATH = "data/FWI/L2_AWI/"
-DOBS_PATH = "data/FWI/dobs_12s_10hz_ng/"
 
 def load(path: str, height: int, weight: int) -> np.ndarray:
   return np.fromfile(
@@ -53,7 +51,7 @@ def plot_model_and_real(model, perc=99) -> None:
 
 def animate_iterations(
   iterations,
-  shot=25,
+  shot=42,
   reference_trace=90,
   nt=12001,
   nrec=341,
@@ -295,16 +293,162 @@ def animate_iterations(
 
   return ani
 
-def check_iteration(it: int) -> None:
-  pass
+def plot_agc(
+  dobs,
+  dcalc,
+  dt=1e-3,
+  receiver_spacing=50,
+  window_time=0.5,
+  clip_percentile=99
+):
+  nt, nrec = dobs.shape
 
-MIN_ITERATION = 75
-MAX_ITERATION = 83
+  window = max(1, int(window_time / dt))
 
-#ani = animate_iterations(iterations=range(MIN_ITERATION, MAX_ITERATION + 1))
+  energy = 0.5 * (
+    dobs.astype(np.float64)**2
+    + dcalc.astype(np.float64)**2
+  )
 
+  rms = np.sqrt(
+    uniform_filter1d(energy, size=window, axis=0)
+  )
+
+  floor = 0.02 * np.max(rms, axis=0, keepdims=True)
+  scale = np.maximum(rms, floor + 1e-30)
+
+  dobs_agc = dobs / scale
+  dcalc_agc = dcalc / scale
+
+  clip = np.percentile(
+    np.abs(np.concatenate((
+      dobs_agc.ravel(),
+      dcalc_agc.ravel()
+    ))),
+    clip_percentile
+  )
+
+  clip = max(clip, 1e-10)
+
+  extent = [
+    0,
+    (nrec - 1) * receiver_spacing,
+    (nt - 1) * dt,
+    0
+  ]
+
+  fig, axs = plt.subplots(
+    1, 2, figsize=(16, 8),
+    sharey=True,
+    constrained_layout=True
+  )
+
+  for ax, data, title in zip(
+    axs,
+    [dobs_agc, dcalc_agc],
+    ["dobs - AGC", "dcalc - AGC"]
+  ):
+    ax.imshow(
+      data,
+      cmap="Greys",
+      aspect="auto",
+      vmin=-clip,
+      vmax=clip,
+      extent=extent
+    )
+
+    ax.set_title(title, fontsize=13)
+    ax.set_xlabel("Receiver Position [m]")
+    ax.set_ylabel("Time [s]")
+
+  plt.show()
+
+  return dobs_agc, dcalc_agc
+
+PATH = "data/FWI/AWI_Test/"
+DOBS_PATH = "data/FWI/dobs_12s_10hz_ng/"
+
+MIN_ITERATION = 1
+MAX_ITERATION = 21
+
+#ani = animate_traces(
+#  iteration=1,
+#  shot=25,
+#  tmin=1000,
+#  tmax=12000,
+#  t0=0.5,
+#  receiver_step=1,
+#  interval=100
+#)
+
+ani = animate_iterations(iterations=range(MIN_ITERATION, MAX_ITERATION + 1))
+
+m_gradient = load("data/FWI/m0_gradient.bin", 141, 681)
 m_current = load(PATH + f"m_{MAX_ITERATION}.bin", 141, 681)
+
+#wiener = load("wiener.bin", 12001, 341)
 
 #plot_model_and_real(m_current)
 plot_model(m_current)
 
+import numpy as np
+import matplotlib.pyplot as plt
+
+gradient = load("nabla_chi_141x681.bin", 141, 681)
+
+# Your current velocity model in m/s
+vp = m_gradient
+
+nz, nx = gradient.shape
+
+dz = 25.0
+dx = 25.0
+f_ref = 10.0
+
+L = 0.3 * vp / f_ref
+
+smooth_grad = np.zeros_like(gradient)
+
+for i in range(nz):
+  for j in range(nx):
+    length = L[i, j]
+
+    sigma_z = length / dz
+    sigma_x = length / dx
+
+    rz = int(np.ceil(3 * sigma_z))
+    rx = int(np.ceil(3 * sigma_x))
+
+    i0 = max(0, i - rz)
+    i1 = min(nz, i + rz + 1)
+
+    j0 = max(0, j - rx)
+    j1 = min(nx, j + rx + 1)
+
+    z = (np.arange(i0, i1) - i) * dz
+    x = (np.arange(j0, j1) - j) * dx
+
+    G = np.exp(
+      -0.5 * (
+        (z[:, None] / length)**2 +
+        (x[None, :] / length)**2
+      )
+    )
+
+    window = gradient[i0:i1, j0:j1]
+
+    smooth_grad[i, j] = np.sum(G * window) / np.sum(G)
+
+fig, axs = plt.subplots(1, 3, figsize=(14, 5))
+
+axs[0].imshow(gradient, cmap="Greys", aspect="auto")
+axs[0].set_title("Original Gradient")
+
+axs[1].imshow(smooth_grad, cmap="Greys", aspect="auto")
+axs[1].set_title("Gaussian-Smoothed Gradient")
+
+axs[2].imshow(gradient - smooth_grad, cmap="Greys", aspect="auto")
+axs[2].set_title("Difference")
+
+plt.tight_layout()
+plt.show()

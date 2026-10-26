@@ -112,7 +112,6 @@ void RTM_RemoveDirectWave(rtm_t* r, const int sidx)
 
   memset(a_homo->upas, 0, size * sizeof(float));
   memset(a_homo->upre, 0, size * sizeof(float));
-  memset(a_homo->ufut, 0, size * sizeof(float));
 
   const size_t seis_size = (size_t)s->nt * s->nrec;
 
@@ -390,7 +389,7 @@ void RTM_DeconLuo_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int i
     float complex* C_u_o = conjugate1d(fft_u_o, s->nt);
     float complex* fft_d = get_fft_1d(trace_d, s->nt);
 
-    float eps = get_epsilon(C_u_o, fft_u_o, s->nt);
+    float eps = get_epsilon(fft_u_o, s->nt);
 
     for (int iw = 0; iw < s->nt; ++iw)
     {
@@ -555,9 +554,6 @@ void RTM_Decon_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int isho
 
   float* P = get_penalty(s->nt, s->dt, t0);
   float* w = get_d_2d(dcalc, dobs, s->dt, s->nt, s->nrec);
-  //shift_time(w, s->nt, s->nrec);
-  //plot_column(w, 140, s->nt, s->nrec);
-  //plot2d(w, s->nt, s->nrec);
 
   float* trace_o = malloc(s->nt * sizeof(*trace_o));
   //float* test = malloc(s->nt * s->nrec * sizeof(*trace_o));
@@ -603,7 +599,7 @@ void RTM_Decon_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int isho
     float complex* fft_u_o = get_fft_1d(trace_o, s->nt);
     float complex* C_u_o = conjugate1d(fft_u_o, s->nt);
 
-    float eps = get_epsilon(C_u_o, fft_u_o, s->nt);
+    float eps = get_epsilon(fft_u_o, s->nt);
 
     for (int iw = 0; iw < s->nt; ++iw)
     {
@@ -629,12 +625,124 @@ void RTM_Decon_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int isho
   }
 
   //shift_time(test, s->nt, s->nrec);
-  //plot2d(test, s->nt, s->nrec);
+  //if(ishot == 25) plot2d(test, s->nt, s->nrec);
+  //if(ishot == 25) write2d("test.bin", test, sizeof(float), s->nt, s->nrec);
   //plot_column(test, 140, s->nt, s->nrec);
   //if(ishot == 25) plot2d(r->adjoint_source, s->nt, s->nrec);
   //plot2d(r->adjoint_source, s->nt, s->nrec);
   //
 
+  free(adj_freq);
+  free(weighted_d);
+  free(trace_o);
+  free(w);
+  free(P);
+  free(dobs);
+}
+
+void RTM_Decon_AdjointSource2(rtm_t* r, const char* DOBS_PATH, int isrc, int ishot, float t0)
+{
+  propagation_t* p = r->p;
+  seismogram_t* s = p->seismogram;
+  acoustic_state_t* a = p->physics_data;
+
+  #pragma omp parallel
+  for (int t = 1; t < p->nt - 1; ++t)
+  {
+    Propagation_VelocityUpdate(p, a->vel_arg);
+    Propagation_GetSeismogram(p, s->seismogram, t);
+    Propagation_InjectSource(p, isrc, t);
+  }
+
+  char PATH[256];
+
+  snprintf(
+    PATH,
+    sizeof(PATH),
+    "%s/seismogram_%dx%d_shot%d.bin",
+    DOBS_PATH,
+    s->nt,
+    s->nrec,
+    ishot
+  );
+
+  float* dobs = read2d(PATH, s->nt, s->nrec);
+  float* dcalc = s->seismogram;
+
+  float* P = get_penalty2D(dcalc, dobs, s->dt, s->nt, s->nrec);
+  float* w = get_d_2d(dcalc, dobs, s->dt, s->nt, s->nrec);
+  //write2d("wiener_1e-2.bin", w, sizeof(float), s->nt, s->nrec);
+  //shift_time(w, s->nt, s->nrec);
+  //plot_column(w, 200, s->nt, s->nrec);
+
+  float* trace_o = malloc(s->nt * sizeof(*trace_o));
+  //float* test = malloc(s->nt * s->nrec * sizeof(*trace_o));
+  float* weighted_d = malloc(s->nt * sizeof(*weighted_d));
+
+  float complex* adj_freq = malloc(s->nt * sizeof(*adj_freq));
+
+  for (int irec = 0; irec < s->nrec; ++irec)
+  {
+    double pw = 0.0;
+    double wTw = 0.0;
+
+    for (int itau = 0; itau < s->nt; ++itau)
+    {
+      int idx = itau * s->nrec + irec;
+
+      double wi = w[idx];
+      double Pi = P[idx];
+
+      pw += Pi * Pi * wi * wi;
+      //test[idx] = Pi * Pi * wi * wi;
+      wTw += wi * wi;
+    }
+
+    if (wTw <= 0.0) continue;
+
+    double f_awi = 0.5 * pw / wTw;
+
+    r->chi_0 += f_awi;
+
+    for (int itau = 0; itau < s->nt; ++itau)
+    {
+      int idx = itau * s->nrec + irec;
+
+      weighted_d[itau] = (float)(((P[idx] * P[idx] - 2.0 * f_awi) / wTw)* w[idx]);
+    }
+
+    float complex* fft_weighted_d = get_fft_1d(weighted_d, s->nt);
+
+    for (int t = 0; t < s->nt; ++t)
+      trace_o[t] = dobs[t * s->nrec + irec];
+
+    float complex* fft_u_o = get_fft_1d(trace_o, s->nt);
+    float complex* C_u_o = conjugate1d(fft_u_o, s->nt);
+
+    float eps = get_epsilon(fft_u_o, s->nt);
+
+    for (int iw = 0; iw < s->nt; ++iw)
+    {
+      // was using crealf for some reason
+      float complex denominator = C_u_o[iw] * fft_u_o[iw] + eps;
+
+      float complex A = fft_u_o[iw] / denominator;
+
+      adj_freq[iw] = A * fft_weighted_d[iw];
+    }
+
+    float* adj_time = get_ifft_1d(adj_freq, s->nt);
+
+    for (int t = 0; t < s->nt; ++t)
+    {
+      r->adjoint_source[t * s->nrec + irec] = -adj_time[t];
+    }
+
+    free(adj_time);
+    free(fft_weighted_d);
+    free(fft_u_o);
+    free(C_u_o);
+  }
 
   free(adj_freq);
   free(weighted_d);
@@ -646,7 +754,7 @@ void RTM_Decon_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int isho
 
 void RTM_Accumulate_CrossCorrelation(rtm_t* r, int t)
 {
-  if (!(t % r->snap_ratio))
+  if (t >= r->tstop && !(t % r->snap_ratio))
   {
     propagation_t* p = r->p;
     acoustic_state_t* a = p->physics_data;
@@ -687,6 +795,8 @@ static void RTM_ImageCondition(rtm_t* r)
     //r->image[idx] += r->snap_dt * (r->num[idx] / (r->dem[idx] + epsilon));
     r->image[idx] += r->num[idx];
   }
+
+  //plot2d(r->image, nzz, nxx);
 }
 
 static void FWI_ImageCondition(rtm_t* r)
@@ -716,46 +826,51 @@ static void RTM_ShowModelingStatus(rtm_t* r)
 
 static void RTM_LaplacianFilter(rtm_t* r)
 {
-  const int nxx = r->p->model->nxx;
-  const int nzz = r->p->model->nzz;
+  model_t* m = r->p->model;
 
-  const float inv_dh = 1.0f / (12.0f * r->p->dh * r->p->dh);
+  const int nxx = m->nxx;
+  const int nzz = m->nzz;
 
   const size_t size = (size_t)nxx * nzz;
 
+  const float idh2 = 1.0f / (r->p->dh * r->p->dh);
+
+  float dem_max = 0.0f;
+
+  for(size_t idx = 0; idx < size; ++idx)
+    dem_max = fmaxf(dem_max, r->dem[idx]);
+
+  if(dem_max <= 0.0f)
+    return;
+
+  const float epsilon = 1e-6f * dem_max;
+
+  float* normalized = callocf(size);
   float* gradient = callocf(size);
 
-  for (int i = 2; i < nzz - 2; ++i)
+  for(size_t idx = 0; idx < size; ++idx)
+    normalized[idx] = r->image[idx] / (r->dem[idx] + epsilon);
+
+  for(int i = m->nb + 1; i < m->nb + m->nz - 1; ++i)
   {
-    for (int j = 2; j < nxx - 2; ++j)
+    for(int j = m->nb; j < m->nb + m->nx; ++j)
     {
       const size_t idx = (size_t)i * nxx + j;
 
-      const float d2u_dx2 =
-      (
-        -r->image[(size_t)(i - 2) * nxx + j]
-        + 16.0f * r->image[(size_t)(i - 1) * nxx + j]
-        - 30.0f * r->image[idx]
-        + 16.0f * r->image[(size_t)(i + 1) * nxx + j]
-        - r->image[(size_t)(i + 2) * nxx + j]
-      ) * inv_dh;
-
-      const float d2u_dz2 =
-      (
-        -r->image[(size_t)i * nxx + (j - 2)]
-        + 16.0f * r->image[(size_t)i * nxx + (j - 1)]
-        - 30.0f * r->image[idx]
-        + 16.0f * r->image[(size_t)i * nxx + (j + 1)]
-        - r->image[(size_t)i * nxx + (j + 2)]
-      ) * inv_dh;
-
-      gradient[idx] = d2u_dx2 + d2u_dz2;
+      gradient[idx] = -(
+        normalized[idx - nxx]
+        - 2.0f * normalized[idx]
+        + normalized[idx + nxx]
+      ) * idh2;
     }
   }
 
+  free(normalized);
   free(r->image);
+
   r->image = gradient;
 }
+
 
 inline int RTM_GetSourceIndex(geometry_t* g, model_t* m, int isrc)
 {
@@ -808,7 +923,10 @@ void RTM_Run(rtm_t* r, unsigned int flags)
     RTM_ShowModelingStatus(r);
   }
 
+  size_t image_size = p->model->nzz * p->model->nxx;
+
   RTM_LaplacianFilter(r);
+
 }
 
 static void FWI_NormalizeGradient(rtm_t* r)
@@ -853,7 +971,6 @@ static void FWI_NormalizeGradient(rtm_t* r)
 
   free(normalized);
 }
-
 
 void RTMv2_Run(rtm_t* r, const char* DOBS_PATH, unsigned int flags, float t0)
 {

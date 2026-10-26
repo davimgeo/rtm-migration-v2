@@ -15,7 +15,6 @@ void Propagation_InitAcoustic(propagation_t* p)
 
   a->upas         = allocf(p->shape);
   a->upre         = allocf(p->shape);
-  a->ufut         = allocf(p->shape);
   a->vel_arg      = allocf(p->shape);
   a->vel_arg_homo = allocf(p->shape);
 
@@ -41,7 +40,6 @@ void Propagation_ResetFields(propagation_t *p)
 
   memset(a->upas, 0, nxx * nzz * sizeof(float));
   memset(a->upre, 0, nxx * nzz * sizeof(float));
-  memset(a->ufut, 0, nxx * nzz * sizeof(float));
 
   p->snap_id_src = 0;
 }
@@ -64,7 +62,6 @@ inline void Propagation_InjectSourceAny(propagation_t *p, const float* wav, int 
   acoustic_state_t *a = p->physics_data;
 
   const float *restrict wavelet = wav;
-
   //const float source_scale = 1.0f / (p->dh * p->dh);
   const float source_scale_seiswave = (p->dt*p->dt) / (p->dh * p->dh);
 
@@ -83,7 +80,8 @@ inline void Propagation_InjectSeismogram(propagation_t *p, int t)
   const int nxx = p->model->nxx;
   const int nb  = p->model->nb;
 
-  const float source_scale = 1.0f / (p->dh * p->dh);
+  //const float source_scale = 1.0f / (p->dh * p->dh);
+  const float source_scale_seiswave = (p->dt*p->dt) / (p->dh * p->dh);
 
   #pragma omp single
   {
@@ -95,7 +93,7 @@ inline void Propagation_InjectSeismogram(propagation_t *p, int t)
       const size_t ridx = (size_t)rz * nxx + rx;
       const size_t sidx = (size_t)t * s->nrec + irec;
 
-      a->upre[ridx] += seis[sidx] * source_scale;
+      a->upre[ridx] += seis[sidx] * source_scale_seiswave;
     }
   }
 }

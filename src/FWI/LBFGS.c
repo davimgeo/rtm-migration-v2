@@ -19,7 +19,7 @@
 
 #define LBGFS_M 5
 
-#define MAX_ITERATIONS 20
+#define MAX_ITERATIONS 38
 #define MAX_LINE_SEARCH 5
 
 #define LOW 1.0f / (1500.0f * 1500.0f)
@@ -36,12 +36,7 @@ double FWI_GetPhi_LBFGS(fwi_t* f, double alpha)
   {
     float v = f->m_current[i] + alpha * f->direction[i];
 
-    if(v < LOW)
-      f->mk1[i] = LOW;
-    else if(v > HIGH)
-      f->mk1[i] = HIGH;
-    else
-      f->mk1[i] = v;
+    f->mk1[i] = v;
   }
   FWI_GetVelocityFromSlowness(f->mk1, f->vp_k1, m->nz, m->nx);
 
@@ -72,12 +67,7 @@ double FWI_GetPhiDerivative_LBFGS(fwi_t* f, double alpha)
   {
     float v = f->m_current[i] + alpha * f->direction[i];
 
-    if(v < LOW)
-      f->mk1[i] = LOW;
-    else if(v > HIGH)
-      f->mk1[i] = HIGH;
-    else
-      f->mk1[i] = v;
+    f->mk1[i] = v;
   }
   FWI_GetVelocityFromSlowness(f->mk1, f->vp_k1, m->nz, m->nx);
 
@@ -151,7 +141,7 @@ double zoom(double a_lo, double a_hi, fwi_t* f,
 
 double FWI_LineSearchV3(fwi_t* f, double phi_0, double gTp_0, int k)
 {
-  //if(k == 1) f->a_present = 1.0f;
+  if(k == 1) f->a_present = 1.0f;
 
   // 5 times the 1% of (max - min)
   const double a_max = 5.0f * f->a_present;
@@ -499,6 +489,7 @@ void FWI_Run_LBFGS(fwi_t* f)
 
   for(int k = 0; k < MAX_ITERATIONS; k++)
   {
+    f->FWI_ITERATION = k;
     printf("LBFGS iteration: %d\n", k);
 
     double gamma = FWI_GetInitialHessianScalar(f, k);

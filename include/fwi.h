@@ -35,7 +35,12 @@ typedef struct
   float* m_current;
   float* mk1;
   float* direction;
-  
+
+  // Parabolic 
+  float* m_current_0;
+  float* m_current_1;
+  float* m_current_2;
+
   float* dcalc;
   float* dcalc_1;
 } fwi_t;
@@ -47,8 +52,11 @@ double FWI_DeconLuoObjf(fwi_t* f, const float* dcalc);
 double FWI_CrossObjf(fwi_t* f, const float* dcalc);
 double FWI_GetPhi(fwi_t* f, double alpha);
 float FWI_GradientScale(const float* gradient, int size);
+void FWI_GetDirection(fwi_t* f, const float* nabla_chi, float grad_scale);
 void FWI_SaveCurrent(fwi_t* f, int it);
 void FWI_UpdateModel(fwi_t* f);
+void FWI_SetModel(fwi_t* f, float* vp);
+void FWI_Run_Parabolic(fwi_t* f);
 double FWI_GetGTP(fwi_t* f, const float* nabla_chi);
 double FWI_CrossObjf(fwi_t* f, const float* dcalc);
 double FWI_GetPhiDerivative(fwi_t* f, double alpha);
