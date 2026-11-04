@@ -6,7 +6,7 @@ AR          = ar
 CFLAGS      = -std=gnu11 -O3 -g -march=native -fopenmp -mavx2 -mfma
 CUDAFLAGS   = -Xcompiler -fopenmp --std=c++11 -O3
 
-INCLUDE     = -Iinclude -Isrc
+INCLUDE     = -Iinclude -Isrc -Itests
 
 PYTHON_INCLUDE = $(shell python3-config --includes)
 NUMPY_INCLUDE = $(shell python3 -c 'import numpy; print(numpy.get_include())')
@@ -17,7 +17,7 @@ LIBS        = -lm -lfftw3f
 
 TARGET      = run.out
 
-C_SRC       = $(shell find src -name "*.c") config/config.c main.c
+C_SRC       = $(shell find src -name "*.c") tests/moving_rickers.c tests/euclidian.c config/config.c main.c
 CU_SRC      = $(shell find src -name "*.cu")
 
 C_OBJ       = $(patsubst %.c,build/%.o,$(C_SRC))

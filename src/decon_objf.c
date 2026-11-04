@@ -30,10 +30,10 @@ float get_epsilonV2(float complex* U_o, int size)
     if (temp > max)
       max = temp;
   }
-  return 1e-2f * max;
+  return 1e-5f * max;
 }
 
-float* get_penaltyV3(int nt, float dt, float t0)
+float* get_penalty(int nt, float dt, float t0)
 {
   float* P = malloc(nt * sizeof(*P));
 
@@ -44,13 +44,13 @@ float* get_penaltyV3(int nt, float dt, float t0)
 
     int j = (i + nt - nt / 2) % nt;
 
-    P[j] = expf(- (tau/t0)*(tau/t0));
+    P[j] = expf(-(tau/t0)*(tau/t0));
   }
 
   return P;
 }
 
-float* get_penalty(int nt, float dt, float t0)
+float* get_penaltyV3(int nt, float dt, float t0)
 {
   float* P = malloc(nt * sizeof(*P));
 
@@ -93,7 +93,7 @@ float* get_d_1d(float* dcalc, float* dobs, float dt, int nt)
 
   float complex* d = malloc((size_t)nt * sizeof(float complex));
 
-  float epsilon = get_epsilon(C_u_o, fft_u_o, nt);
+  float epsilon = get_epsilonV2(fft_u_o, nt);
 
   for (int iw = 0; iw < nt; ++iw)
   {

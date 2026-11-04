@@ -271,3 +271,13 @@ def compare_diff(
   plt.tight_layout()
 
   plt.show()
+
+def plot_objective_functions_1d(l2, l1, cross, luo, awi, max_shift):
+
+  _, ax = plt.subplots(nrows=2, ncols=1, figsize=(15, 5))
+
+  ax[1].plot(l2, label="L2")
+  ax[1].plot(l1, label="L1")
+  ax[1].plot(cross, label="Crosscorrelation-based")
+  ax[1].plot(luo, label="Deconvolution-based")
+  ax[1].plot(awi, label="AWI")
