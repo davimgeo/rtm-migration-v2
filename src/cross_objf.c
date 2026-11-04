@@ -3,9 +3,26 @@
 #include <stdlib.h>
 
 #include "fft.h"
-#include "plot.h"
+//#include "plot.h"
 
 static int initialized = 0;
+
+float* get_penaltyGaussian(int nt, float dt, float t0)
+{
+  float* P = malloc(nt * sizeof(*P));
+
+  for (int i = 0; i < nt; ++i)
+  {
+    int lag_index = i - nt / 2;
+    float tau = lag_index * dt;
+
+    int j = (i + nt - nt / 2) % nt;
+
+    P[j] = expf((-tau/t0)*(tau/t0));
+  }
+
+  return P;
+}
 
 static float* get_penalty(float tau0, int nt, float dt)
 {
@@ -56,11 +73,11 @@ float* get_c_1d(const float* u_s, const float* u_o, int nt)
 }
 
 float get_cross_1d(
-    const float* u_s,
-    const float* u_o,
-    float dt,
-    int nt,
-    float tau0
+  const float* u_s,
+  const float* u_o,
+  float dt,
+  int nt,
+  float tau0
 )
 {
   float* P = get_penalty(tau0, nt, dt);
@@ -98,9 +115,9 @@ float* get_c_2d(
   float* trace_s = malloc(nt * sizeof(*trace_s));
   float* trace_o = malloc(nt * sizeof(*trace_o));
 
-  for (int irec = 0; irec < nrec; ++irec) 
+  for (int irec = 0; irec < nrec; ++irec)
   {
-    for (int t = 0; t < nt; ++t) 
+    for (int t = 0; t < nt; ++t)
     {
       int idx = t * nrec + irec;
 
@@ -110,7 +127,7 @@ float* get_c_2d(
 
     float* c_1d = get_c_1d(trace_s, trace_o, nt);
 
-    for (int itau = 0; itau < nt; ++itau) 
+    for (int itau = 0; itau < nt; ++itau)
     {
       int idx = itau * nrec + irec;
 
@@ -132,7 +149,7 @@ float get_cross_2d(
   float dt,
   int nt,
   int nrec,
-  float tau0 
+  float tau0
 )
 {
   float* P = get_penalty(tau0, nt, dt);
@@ -140,7 +157,7 @@ float get_cross_2d(
 
   float result = 0.0f;
 
-  for (int irec = 0; irec < nrec; ++irec) 
+  for (int irec = 0; irec < nrec; ++irec)
   {
     for (int itau = 0; itau < nt; ++itau)
     {
@@ -157,4 +174,3 @@ float get_cross_2d(
 
   return 0.5f * result;
 }
-

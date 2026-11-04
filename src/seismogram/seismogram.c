@@ -46,7 +46,7 @@ void Seismogram_Save(seismogram_t* s)
   snprintf(
     path,
     BUFFER,
-    "data/seismogram_%d_%dnrec.bin",
+    "data/seismogram_%dx%dnrec.bin",
     s->nt,
     s->nrec
   );

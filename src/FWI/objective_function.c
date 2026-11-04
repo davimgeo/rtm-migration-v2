@@ -11,6 +11,8 @@
 
 #include "fwi.h"
 
+//#include "plot.h"
+
 double FWI_DeconObjf(fwi_t* f, const float* dcalc)
 {
   propagation_t* p = f->rtm->p;
@@ -40,21 +42,23 @@ double FWI_DeconObjf(fwi_t* f, const float* dcalc)
     const float* u_s = dcalc + (size_t)ishot * shot_size;
     float* u_o = read2d(path, s->nt, s->nrec);
 
-    if(ishot == 42) 
+    //compare_diff(u_s, u_o, s->nt, s->nrec, "u_s", "u_o");
+
+    if(ishot == 25)
     {
-       char filename[256];
+      char filename[256];
 
-       snprintf(
-         filename,
-         sizeof(filename),
-         "%sdata/dcalc_%01d.bin",
-         f->export_path,
-         f->FWI_ITERATION + 1
-       );
+      snprintf(
+        filename,
+        sizeof(filename),
+        "%sdata/dcalc_%01d.bin",
+        f->export_path,
+        f->FWI_ITERATION + 1
+      );
 
-       write2d(filename, u_s, sizeof(float), s->nt, s->nrec);
+      write2d(filename, u_s, sizeof(float), s->nt, s->nrec);
 
-       printf("Saved dcalc in %s\n", filename);
+      printf("Saved dcalc in %s\n", filename);
     }
 
     float* w = get_d_2d(u_s, u_o, s->dt, s->nt, s->nrec);
@@ -62,20 +66,20 @@ double FWI_DeconObjf(fwi_t* f, const float* dcalc)
     for (int irec = 0; irec < s->nrec; ++irec)
     {
       double pw = 0.0;
-      double wTw = 0.0;
+      double wtw = 0.0;
 
       for (int itau = 0; itau < s->nt; ++itau)
       {
         int idx = itau * s->nrec + irec;
 
-        double wi = w[idx];
-        double Pi = P[itau];
+        double w1 = w[idx];
+        double P1 = P[itau];
 
-        pw += Pi * Pi * wi * wi;
-        wTw += wi * wi;
+        pw += P1 * P1 * w1 * w1;
+        wtw += w1 * w1;
       }
 
-      if (wTw > 0.0) f_awi += 0.5 * pw / wTw;
+      if (wtw > 0.0) f_awi += 0.5 * pw / wtw;
     }
 
     free(w);
@@ -83,81 +87,6 @@ double FWI_DeconObjf(fwi_t* f, const float* dcalc)
   }
 
   free(P);
-
-  return 0.5f * f_awi * (double)s->dt;
-}
-
-double FWI_DeconObjf2(fwi_t* f, const float* dcalc)
-{
-  propagation_t* p = f->rtm->p;
-  seismogram_t* s = p->seismogram;
-  geometry_t* g = p->geometry;
-
-  double f_awi = 0.0;
-
-  const size_t shot_size = (size_t)s->nt * s->nrec;
-
-  for (int ishot = 0; ishot < g->nsrc; ++ishot)
-  {
-    char path[256];
-
-    snprintf(
-      path,
-      sizeof(path),
-      "%s/seismogram_%dx%d_shot%d.bin",
-      f->DOBS_PATH,
-      s->nt,
-      s->nrec,
-      ishot
-    );
-
-    const float* u_s = dcalc + (size_t)ishot * shot_size;
-    float* u_o = read2d(path, s->nt, s->nrec);
-
-    float* P = get_penalty2D(u_s, u_o, s->dt, s->nt, s->nrec);
-
-    if(ishot == 42) 
-    {
-       char filename[256];
-
-       snprintf(
-         filename,
-         sizeof(filename),
-         "%sdata/dcalc_%01d.bin",
-         f->export_path,
-         f->FWI_ITERATION + 1
-       );
-
-       write2d(filename, u_s, sizeof(float), s->nt, s->nrec);
-
-       printf("Saved dcalc in %s\n", filename);
-    }
-
-    float* w = get_d_2d(u_s, u_o, s->dt, s->nt, s->nrec);
-
-    for (int irec = 0; irec < s->nrec; ++irec)
-    {
-      double pw = 0.0;
-      double wTw = 0.0;
-
-      for (int itau = 0; itau < s->nt; ++itau)
-      {
-        int idx = itau * s->nrec + irec;
-
-        double wi = w[idx];
-        double Pi = P[idx];
-
-        pw += Pi * Pi * wi * wi;
-        wTw += wi * wi;
-      }
-
-      if (wTw > 0.0) f_awi += 0.5 * pw / wTw;
-    }
-
-    free(w);
-    free(u_o);
-    free(P);
-  }
 
   return 0.5f * f_awi * (double)s->dt;
 }
@@ -191,6 +120,23 @@ double FWI_DeconLuoObjf(fwi_t* f, const float* dcalc)
     const float* u_s = dcalc + (size_t)ishot * shot_size;
 
     float* u_o = read2d(path, s->nt, s->nrec);
+
+    if(ishot == 25)
+    {
+      char filename[256];
+
+      snprintf(
+        filename,
+        sizeof(filename),
+        "%sdata/dcalc_%01d.bin",
+        f->export_path,
+        f->FWI_ITERATION + 1
+      );
+
+      write2d(filename, u_s, sizeof(float), s->nt, s->nrec);
+
+      printf("Saved dcalc in %s\n", filename);
+    }
 
     float* d = get_d_2d(u_s, u_o, s->dt, s->nt, s->nrec);
 
@@ -229,7 +175,7 @@ double FWI_CrossObjf(fwi_t* f, const float* dcalc)
 
   const size_t shot_size = (size_t)s->nt * s->nrec;
 
-  float* P = get_penalty(s->nt, s->dt, f->t0);
+  float* P = get_penaltyGaussian(s->nt, s->dt, f->t0);
 
   for (int ishot = 0; ishot < g->nsrc; ++ishot)
   {
@@ -304,20 +250,20 @@ double FWI_L2Norm(fwi_t* f, const float* dcalc)
 
     float* u_o = read2d(path, s->nt, s->nrec);
 
-    if(ishot == 42) 
+    if(ishot == 25)
     {
-       char filename[256];
+      char filename[256];
 
-       snprintf(
-         filename,
-         sizeof(filename),
-         "%sdata/dcalc_%01d.bin",
-         f->export_path,
-         f->FWI_ITERATION + 1
-       );
+      snprintf(
+        filename,
+        sizeof(filename),
+        "%sdata/dcalc_%01d.bin",
+        f->export_path,
+        f->FWI_ITERATION + 1
+      );
 
-       write2d(filename, u_s, sizeof(float), s->nt, s->nrec);
-       printf("Saved dcalc in %s\n", filename);
+      write2d(filename, u_s, sizeof(float), s->nt, s->nrec);
+      printf("Saved dcalc in %s\n", filename);
     }
 
     for (int irec = 0; irec < s->nrec; ++irec)

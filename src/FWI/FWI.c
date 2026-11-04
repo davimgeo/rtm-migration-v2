@@ -12,8 +12,10 @@
 
 #include "fwi.h"
 
-#define HIGH 1.0f / (1500.0f * 1500.0f)
-#define LOW 1.0f / (4500.0f * 4500.0f)
+//#include "plot.h"
+
+#define LOW 1.0f / (1500.0f * 1500.0f)
+#define HIGH 1.0f / (4500.0f * 4500.0f)
 
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
@@ -21,10 +23,14 @@
 #define C1 1e-4f
 #define C2 0.9f
 
-#define LBGFS_M 5
+#define LBFGS_M 5
 
-#define MAX_ITERATIONS 78
+#define MAX_ITERATIONS 200
 #define MAX_LINE_SEARCH 10
+
+//#include "plot.h"
+
+static int initialized = 0;
 
 static void FWI_GetSlownessFromVelocity(
   const float* velocity,
@@ -49,27 +55,33 @@ fwi_t* FWI_Init(fwi_t* f, rtm_t* rtm, fwi_specs_t* specs)
 
   size_t len = strlen(specs->objective_function_flag);
 
-  if(len >= sizeof(objective))
-    return NULL;
+  if(len >= sizeof(objective)) return NULL;
 
-  for(size_t i = 0; i <= len; ++i)
+  for(size_t i = 0; i < len; ++i)
     objective[i] = toupper((unsigned char)specs->objective_function_flag[i]);
+  objective[len] = '\0';
 
   printf("Ricker Max Frequency: %g\n", rtm->p->wavelet->fmax);
-  printf("DOBS_PATH: %s\n", f->DOBS_PATH);
-  printf("EXPORT_PATH: %s\n", f->export_path);
+  printf("DOBS PATH: %s\n", f->DOBS_PATH);
+  printf("EXPORT PATH: %s\n", f->export_path);
 
   if(strcmp(objective, "DECON") == 0)
   {
     f->objective_function = RTM_DECON_ADJOINT_SOURCE;
     printf("Using Deconvolution Objective Function\n");
-    printf("T0 = %gs\n", f->t0);
+    printf("T0 = %g\n", f->t0);
+  }
+  else if(strcmp(objective, "AWI") == 0)
+  {
+    f->objective_function = RTM_AWI_ADJOINT_SOURCE;
+    printf("Using AWI Objective Function\n");
+    printf("T0 = %g\n", f->t0);
   }
   else if(strcmp(objective, "CROSS") == 0)
   {
     f->objective_function = RTM_CROSS_ADJOINT_SOURCE;
     printf("Using Cross-correlation Objective Function\n");
-    printf("T0 = %gs\n", f->t0);
+    printf("T0 = %g\n", f->t0);
   }
   else if(strcmp(objective, "L2") == 0)
   {
@@ -78,16 +90,16 @@ fwi_t* FWI_Init(fwi_t* f, rtm_t* rtm, fwi_specs_t* specs)
   }
 
   seismogram_t* s = rtm->p->seismogram;
-  model_t* m = rtm->p->model;
+  model_t* n = rtm->p->model;
   geometry_t* g = rtm->p->geometry;
 
-  const int nz = m->nz;
-  const int nx = m->nx;
+  const int nz = n->nz;
+  const int nx = n->nx;
 
   const size_t model_size = (size_t)nx * nz;
 
-  f->s = malloc(LBGFS_M * model_size * sizeof(float));
-  f->y = malloc(LBGFS_M * model_size * sizeof(float));
+  f->s = callocf(LBFGS_M * model_size * sizeof(float));
+  f->y = callocf(LBFGS_M * model_size * sizeof(float));
 
   f->gradient_current = malloc(model_size * sizeof(float));
   f->gradient_next = malloc(model_size * sizeof(float));
@@ -100,7 +112,7 @@ fwi_t* FWI_Init(fwi_t* f, rtm_t* rtm, fwi_specs_t* specs)
 
   f->direction = malloc(model_size * sizeof(float));
 
-  memcpy(f->vp_current, m->vp, model_size * sizeof(float));
+  memcpy(f->vp_current, n->vp, model_size * sizeof(float));
 
   FWI_GetSlownessFromVelocity(f->vp_current, f->m_current, nz, nx);
 
@@ -155,50 +167,92 @@ static float FWI_GetInitialAlpha(const float* model, int nz, int nx)
       min = model[i];
   }
 
-  return 0.05f * (max - min);
+  return 0.01f * (max - min);
 }
 
 void FWI_SetModel(fwi_t* f, float* vp)
 {
-  propagation_t* p = f->rtm->p;
-  acoustic_state_t* a = p->physics_data;
-  model_t* m = p->model;
+  propagation_t * p = f->rtm->p;
+  acoustic_state_t * a = p->physics_data;
+  model_t * n = p->model;
 
-  Model_Set(m, vp);
-  Model_Extent(m);
+  Model_Set(n, vp);
+  Model_Extent(n);
 
   const float dt2 = p->dt * p->dt;
 
   for (size_t i = 0; i < p->shape; ++i)
-    a->vel_arg[i] = dt2 * m->vp[i] * m->vp[i];
+    a->vel_arg[i] = dt2 * n->vp[i] * n->vp[i];
 }
 
 float* FWI_GetGradient(fwi_t* f, float* vp)
 {
-  propagation_t* p = f->rtm->p;
-  model_t* m = p->model;
+  propagation_t * p = f->rtm->p;
+  model_t * n = p->model;
 
   FWI_SetModel(f, vp);
 
   RTMv2_Run(f->rtm, f->DOBS_PATH, f->objective_function, f->t0);
 
-  const size_t model_size = (size_t)m->nz * m->nx;
+  const size_t model_size = (size_t)n->nz * n->nx;
 
   float* nabla_chi = malloc(model_size * sizeof(float));
 
-  for (int i = 0; i < m->nz; ++i)
+  for (int i = 0; i < n->nz; ++i)
   {
-    for (int j = 0; j < m->nx; ++j)
+    for (int j = 0; j < n->nx; ++j)
     {
-      size_t idx_im = (size_t)(i + m->nb) * m->nxx + (j + m->nb);
-      size_t idx_nabla = (size_t)i * m->nx + j;
+      size_t idx_in = (size_t)(i + n->nb) * n->nxx + (j + n->nb);
+      size_t idx_nabla = (size_t)i * n->nx + j;
 
       if (i < 20)
         nabla_chi[idx_nabla] = 0.0f;
       else
-        nabla_chi[idx_nabla] = f->rtm->image[idx_im];
+        nabla_chi[idx_nabla] = -f->rtm->image[idx_in];
     }
   }
+
+  plot2d(nabla_chi, n->nz, n->nx);
+
+  const double idh = 1.0f / p->dh;
+  const double lambda = 5.0 * 1e-8;
+
+  const double eps = 1e-3;
+
+  for(int i = 20; i < n->nz; ++i)
+  {
+    for(int j = 0; j < n->nx; ++j)
+    {
+      int idx_in = (i + n->nb) * n->nxx + (j + n->nb);
+      int idx_nabla = i * n->nx + j;
+
+      double v = n->vp[idx_in];
+
+      double vp_z = n->vp[idx_in + n->nxx];
+
+      double dz = (vp_z - v) * idh;
+      double q_plus = dz / sqrt(dz * dz + eps * eps);
+
+      double q_minus = 0.0;
+      if(i > 20)
+      {
+        double vm = n->vp[idx_in - n->nxx];
+
+        double dz_m = (v - vm) * idh;
+        q_minus = dz_m / sqrt(dz_m * dz_m + eps * eps);
+      }
+
+      double grad_tv_val = (q_minus - q_plus) * idh;
+
+      double grad_tv = -0.5 * v * v * v * grad_tv_val;
+
+      double grad_data = -f->rtm->image[idx_in];
+
+      nabla_chi[idx_nabla] = (float)(grad_data + lambda * grad_tv);
+    }
+  }
+
+  plot2d(nabla_chi, n->nz, n->nx);
 
   return nabla_chi;
 }
@@ -294,77 +348,19 @@ float* FWI_GetDcalc(fwi_t* f, float* vp)
 
 void FWI_GetDirection(fwi_t* f, const float* nabla_chi, float grad_scale)
 {
-  model_t* m = f->rtm->p->model;
+  model_t* n = f->rtm->p->model;
 
-  const size_t model_size = (size_t)m->nz * m->nx;
+  const size_t model_size = (size_t)n->nz * n->nx;
 
   for (size_t i = 0; i < model_size; ++i)
     f->direction[i] = -nabla_chi[i] / grad_scale;
 }
 
-static void FWI_GetDirectionConditioned(fwi_t* f, const float* nabla_chi, float grad_scale)
-{
-  rtm_t* r = f->rtm;
-  model_t* m = r->p->model;
-
-  const int nxx = m->nxx;
-  const int nzz = m->nzz;
-
-  const size_t size = (size_t)nxx * nzz;
-
-  const float idh2 = 1.0f / (r->p->dh * r->p->dh);
-
-  float* normalized = allocf(size * sizeof(float));
-
-  for(size_t idx = 0; idx < size; ++idx)
-    normalized[idx] = r->image[idx] / r->dem[idx];
-
-  memset(r->image, 0, size * sizeof(float));
-
-  // apply laplacian
-  for(int i = m->nb + 20; i < m->nb + m->nz - 1; ++i)
-  {
-    for(int j = m->nb; j < m->nb + m->nx; ++j)
-    {
-      const size_t idx = (size_t)i * nxx + j;
-  
-     r->image[idx] = (
-       normalized[idx - nxx]
-       - 2.0f * normalized[idx]
-        + normalized[idx + nxx]
-      ) * idh2;
-    }
-  }
-
-  float gmax = 0.0f;
-  for(size_t idx = 0; idx < size; ++idx)
-    gmax = fmaxf(gmax, fabsf(r->image[idx]));
-
-  for(size_t idx = 0; idx < size; ++idx)
-    r->image[idx] /= gmax;
-
-  for (int i = 0; i < m->nz; ++i)
-  {
-    for (int j = 0; j < m->nx; ++j)
-    {
-      size_t idx_im = (size_t)(i + m->nb) * m->nxx + (j + m->nb);
-      size_t idx_nabla = (size_t)i * m->nx + j;
-
-      if (i < 20)
-        f->direction[idx_nabla] = 0.0f;
-      else
-        f->direction[idx_nabla] = r->image[idx_im];
-    }
-  }
-
-  free(normalized);
-}
-
 double FWI_GetGTP(fwi_t* f, const float* nabla_chi)
 {
-  model_t* m = f->rtm->p->model;
+  model_t* n = f->rtm->p->model;
 
-  const size_t model_size = (size_t)m->nz * m->nx;
+  const size_t model_size = (size_t)n->nz * n->nx;
 
   double gTp = 0.0;
 
@@ -376,44 +372,68 @@ double FWI_GetGTP(fwi_t* f, const float* nabla_chi)
 
 void FWI_SaveCurrent(fwi_t* f, int it)
 {
-  model_t* m = f->rtm->p->model;
+  model_t* n = f->rtm->p->model;
 
   char filename[256];
 
-  snprintf(filename, sizeof(filename), "%sm_%01d.bin", f->export_path, it + 1);
+  snprintf(filename, sizeof(filename), "%s/m_%01d.bin", f->export_path, it + 1);
 
-  write2d(filename, f->vp_current, sizeof(float), m->nz, m->nx);
+  write2d(filename, f->vp_current, sizeof(float), n->nz, n->nx);
   printf("Saved Current model at: %s\n", filename);
+}
+
+void project2(fwi_t* f, double alpha)
+{
+  propagation_t * p = f->rtm->p;
+  model_t * n = p->model;
+
+  const size_t model_size = (size_t)n->nz * n->nx;
+
+  double threshold = 1e-10;
+
+  for (size_t i = 0; i < model_size; ++i)
+  {
+    float v = f->m_current[i] + alpha * f->direction[i];
+
+    if(v > LOW)
+      f->mk1[i] = LOW - threshold;
+    else if(v < HIGH)
+      f->mk1[i] = HIGH + threshold;
+  }
 }
 
 double FWI_GetPhi(fwi_t* f, double alpha)
 {
   propagation_t* p = f->rtm->p;
-  model_t* m = p->model;
+  model_t* n = p->model;
 
-  const size_t model_size = (size_t)m->nz * m->nx;
+  const size_t model_size = (size_t)n->nz * n->nx;
 
- for (size_t i = 0; i < model_size; ++i)
+  for (size_t i = 0; i < model_size; ++i)
   {
     float v = f->m_current[i] + alpha * f->direction[i];
 
-    f->mk1[i] = fmax(LOW, fmin(HIGH, v));
+    f->mk1[i] = v;
   }
-  FWI_GetVelocityFromSlowness(f->mk1, f->vp_k1, m->nz, m->nx);
-  //plot2d(f->vp_k1, m->nz, m->nx);
 
-  float* dcalc_1 = FWI_GetDcalc(f, f->vp_k1);
+  project2(f, alpha);
 
-  double phi_alpha;
+  FWI_GetVelocityFromSlowness(f->mk1, f->vp_k1, n->nz, n->nx);
+
+  float* dcalc = FWI_GetDcalc(f, f->vp_k1);
+
+  double phi_alpha = 0.0;
   if (f->objective_function & RTM_L2_ADJOINT_SOURCE)
-    phi_alpha = FWI_L2Norm(f, dcalc_1);
+    phi_alpha = FWI_L2Norm(f, dcalc);
   else if (f->objective_function & RTM_DECON_ADJOINT_SOURCE)
-    phi_alpha = FWI_DeconObjf(f, dcalc_1);
-    //phi_alpha = FWI_DeconLuoObjf(f, dcalc_1);
+    phi_alpha = FWI_DeconLuoObjf(f, dcalc);
+  else if (f->objective_function & RTM_AWI_ADJOINT_SOURCE)
+    phi_alpha = FWI_DeconObjf(f, dcalc);
   else if (f->objective_function & RTM_CROSS_ADJOINT_SOURCE)
-    phi_alpha = FWI_CrossObjf(f, dcalc_1);
+    // is for maximization (test)
+    phi_alpha = FWI_CrossObjf(f, dcalc);
 
-  free(dcalc_1);
+  free(dcalc);
 
   return phi_alpha;
 }
@@ -421,20 +441,23 @@ double FWI_GetPhi(fwi_t* f, double alpha)
 double FWI_GetPhiDerivative(fwi_t* f, double alpha)
 {
   propagation_t* p = f->rtm->p;
-  model_t* m = p->model;
+  model_t* n = p->model;
 
-  const size_t model_size = (size_t)m->nz * m->nx;
+  const size_t model_size = (size_t)n->nz * n->nx;
 
- for (size_t i = 0; i < model_size; ++i)
+  for (size_t i = 0; i < model_size; ++i)
   {
     float v = f->m_current[i] + alpha * f->direction[i];
 
-    f->mk1[i] = fmax(LOW, fmin(HIGH, v));
+    f->mk1[i] = v;
   }
-  FWI_GetVelocityFromSlowness(f->mk1, f->vp_k1, m->nz, m->nx);
+
+  project2(f, alpha);
+
+  FWI_GetVelocityFromSlowness(f->mk1, f->vp_k1, n->nz, n->nx);
 
   float* gradient = FWI_GetGradient(f, f->vp_k1);
-  // saves ∇X(mk + ak*pk) = ∇X_k+1 
+  // saves gX(m + alpha*p) -> gK+1
   memcpy(f->gradient_next, gradient, model_size * sizeof(float));
   const double phi_derivative = FWI_GetGTP(f, gradient);
 
@@ -445,9 +468,9 @@ double FWI_GetPhiDerivative(fwi_t* f, double alpha)
 
 void FWI_UpdateModel(fwi_t* f)
 {
-  model_t*m = f->rtm->p->model;
+  model_t* n = f->rtm->p->model;
 
-  //compare_diff(f->vp_current, f->vp_k1, m->nz, m->nx, "Old Model", "Inverted Model");
+  //compare_diff(f->vp_current, f->vp_k1, n->nz, n->nx, "Old Model", "Inverted Model");
 
   SWAP(f->m_current, f->mk1, float*);
   SWAP(f->vp_current, f->vp_k1, float*);
@@ -461,28 +484,27 @@ static double FWI_LineSearch_Backtracking(fwi_t* f, double chi_0, double gTp_0)
 
   seismogram_t* s = p->seismogram;
   geometry_t* g = p->geometry;
-  model_t* m = p->model;
+  model_t* n = p->model;
 
-  const size_t model_size = (size_t)m->nz * m->nx;
+  const size_t model_size = (size_t)n->nz * n->nx;
 
   printf("gTp_0: %.15e\n", gTp_0);
-  printf("phi_0: %.15e\n", chi_0);
+  printf("chi_0: %.15e\n", chi_0);
 
   double alpha = (double)f->a_present;
 
-  for (int ils = 0; ils < MAX_LINE_SEARCH; ++ils)
+  for (int its = 0; its < MAX_LINE_SEARCH; ++its)
   {
-
-    printf("\nLine Search Iteration: %d | Alpha: %.15e\n", ils, alpha);
+    printf("\nLine Search Iteration: %d | Alpha: %.15e\n", its, alpha);
 
     const double phi_alpha = FWI_GetPhi(f, alpha);
 
     const double armijo_rhs = chi_0 + C1 * alpha * gTp_0;
 
-    printf("+--------------+-------------------------+-------------------------+--------+\n");
+    printf("+-------------------------------------------------------------------------+\n");
     printf("| %-12s | %-23s | %-23s | %-6s |\n",
            "Condition", "Left Side", "Right Side", "Result");
-    printf("+--------------+-------------------------+-------------------------+--------+\n");
+    printf("+-------------------------------------------------------------------------+\n");
     printf("| %-12s | %23.15e | %23.15e | %-6s |\n",
            "Armijo", phi_alpha, armijo_rhs, phi_alpha <= armijo_rhs ? "PASS" : "FAIL");
 
@@ -501,17 +523,73 @@ static double FWI_LineSearch_Backtracking(fwi_t* f, double chi_0, double gTp_0)
   return -1.0;
 }
 
+void FWI_Run_Zoom(fwi_t* f)
+{
+  printf("\nStarting FWI with Zoom!\n\n");
+
+  rtm_t* r = f->rtm;
+  propagation_t* p = r->p;
+  model_t* n = p->model;
+
+  const size_t model_size = (size_t)n->nz * n->nx;
+
+  float* gradient = FWI_GetGradient(f, f->vp_current);
+  write2d("nabla_chi_141x681.bin", gradient, sizeof(float), n->nz, n->nx);
+  //float* gradient = read2d("nabla_chi_141x681.bin", n->nz, n->nx);
+  memcpy(f->gradient_current, gradient, model_size * sizeof(float));
+
+  float grad_scale = FWI_GradientScale(f->gradient_current, model_size);
+
+  printf("chi_0: %.15e\n", r->chi_0);
+
+  for(int k = 0; k < MAX_ITERATIONS; ++k)
+  {
+    f->FWI_ITERATION = k;
+
+    printf("Iteration: %d\n", k);
+
+    double phi_0 = r->chi_0;
+
+    FWI_GetDirection(f, f->gradient_current, grad_scale);
+    double gTp_0 = FWI_GetGTP(f, f->gradient_current);
+    if(!isfinite(gTp_0) || gTp_0 >= 0.01)
+    {
+      printf("ERROR: Invalid direction\n");
+      printf("gTp_0: %.15e\n", gTp_0);
+      break;
+    }
+
+    f->a_present = FWI_LineSearchV3(f, phi_0, gTp_0, k);
+    if(f->a_present <= 0)
+    {
+      printf("Line Search Failed\n");
+      break;
+    }
+
+    printf("alpha: %.15e\n", f->a_present);
+
+    FWI_UpdateModel(f);
+    FWI_SaveCurrent(f, k);
+
+    SWAP(f->gradient_current, f->gradient_next, float*);
+
+    free(gradient);
+  }
+}
+
 void FWI_Run(fwi_t* f)
 {
+  printf("\nStarting FWI with Backtracking Min!\n\n");
+
   rtm_t* r = f->rtm;
   propagation_t* p = r->p;
 
   seismogram_t* s = p->seismogram;
   geometry_t* g = p->geometry;
-  model_t* m = p->model;
+  model_t* n = p->model;
 
   const size_t data_size = (size_t)s->nt * s->nrec * g->nsrc;
-  const size_t model_size = (size_t)m->nz * m->nx;
+  const size_t model_size = (size_t)n->nz * n->nx;
 
   for (int it = 0; it < MAX_ITERATIONS; ++it)
   {
@@ -520,16 +598,15 @@ void FWI_Run(fwi_t* f)
     printf("\nIteration %d\n", it);
 
     float* nabla_chi = FWI_GetGradient(f, f->vp_current);
-    write2d("nabla_chi_141x681.bin", nabla_chi, sizeof(float), m->nz, m->nx);
+    //write2d("nabla_chi_141x681.bin", nabla_chi, sizeof(float), n->nz, n->nx);
     double chi_0 = r->chi_0;
 
     float grad_scale = FWI_GradientScale(nabla_chi, model_size);
-    //FWI_GetDirectionConditioned(f, nabla_chi, grad_scale);
     FWI_GetDirection(f, nabla_chi, grad_scale);
     const double gTp_0 = FWI_GetGTP(f, nabla_chi);
-  
+
     f->a_present = FWI_LineSearch_Backtracking(f, chi_0, gTp_0);
-    if(f->a_present < 0)
+    if(f->a_present <= 0)
     {
       printf("Negative alpha\n");
       break;

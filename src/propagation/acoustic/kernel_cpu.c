@@ -19,7 +19,7 @@
 
 #define BLOCK_Z 16
 
-inline void get_damp(propagation_t* p)
+static inline void get_damp(propagation_t* p)
 {
   acoustic_state_t *a = p->physics_data;
 

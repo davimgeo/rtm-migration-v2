@@ -70,8 +70,8 @@ static void read_receivers(geometry_t* geom, const char* PATH)
 
   for (int i = 0; i < geom->nrec; i++)
   {
-    geom->rec.x[i] = result[i * DATA_COL + 1];
-    geom->rec.z[i] = result[i * DATA_COL + 2];
+    geom->rec.x[i] = result[i * DATA_COL + 1] / 25.0f;
+    geom->rec.z[i] = result[i * DATA_COL + 2] / 25.0f;
   }
 
   free(result);
@@ -104,8 +104,8 @@ static void read_sources(geometry_t* geom, const char* PATH)
 
   for (int i = 0; i < geom->nsrc; i++)
   {
-    geom->src.x[i] = result[i * DATA_COL + 1];
-    geom->src.z[i] = result[i * DATA_COL + 2];
+    geom->src.x[i] = result[i * DATA_COL + 1] / 25.0f;
+    geom->src.z[i] = result[i * DATA_COL + 2] / 25.0f;
   }
 
   free(result);

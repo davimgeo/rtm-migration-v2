@@ -56,8 +56,8 @@ SpecsContext* Specs_Init(SpecsContext* specs)
 
     .fwi = 
     {
-      .objective_function_flag = "Decon",
-      .dobs_path = "data/FWI/dobs_12s_10hz_ng/",
+      .objective_function_flag = "AWI",
+      .dobs_path = "data/FWI/dobs_12s_10hz_ng",
       .export_path = "data/FWI/AWI_Test/",
       .t0 = 0.6f,
     }

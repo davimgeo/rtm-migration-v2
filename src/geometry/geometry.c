@@ -2,7 +2,7 @@
 
 #include "geometry.h"
 
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 2048
 
 geometry_t* Geometry_InitCreate(geometry_t* g, geometry_specs_t* cfg)
 {
@@ -11,10 +11,10 @@ geometry_t* Geometry_InitCreate(geometry_t* g, geometry_specs_t* cfg)
   g->dh = cfg->dh;
 
   g->line_length = cfg->line_length;
-  g->src_depth   = cfg->src_depth;
-  g->rec_depth   = cfg->rec_depth;
-  g->offset_rec  = cfg->offset_rec;
-  g->offset_src  = cfg->offset_src;
+  g->src_depth = cfg->src_depth;
+  g->rec_depth = cfg->rec_depth;
+  g->offset_rec = cfg->offset_rec;
+  g->offset_src = cfg->offset_src;
 
   g->nrec = 0;
   g->nsrc = 0;
@@ -30,7 +30,7 @@ geometry_t* Geometry_InitCreate(geometry_t* g, geometry_specs_t* cfg)
 
 static void create_receivers(geometry_t* geom)
 {
-  for (int i = 0; i < geom->nrec; i++) 
+  for (int i = 0; i < geom->nrec; i++)
   {
     geom->rec.x[i] = i * geom->offset_rec;
     geom->rec.z[i] = geom->rec_depth;
@@ -47,7 +47,7 @@ void Geometry_SetReceiver(geometry_t* geom, int rx, int rz)
 
 static void create_sources(geometry_t* geom)
 {
-  for (int i = 0; i < geom->nsrc; i++) 
+  for (int i = 0; i < geom->nsrc; i++)
   {
     geom->src.x[i] = i * geom->offset_src;
     geom->src.z[i] = geom->src_depth;
@@ -74,10 +74,10 @@ void Geometry_Create(geometry_t *geom, unsigned flags)
 
   if(flags & GEOMETRY_VERBOSE)
   {
-    for (int i = 0; i < geom->nsrc; i++) 
+    for (int i = 0; i < geom->nsrc; i++)
       printf("sx: %g, sz: %g\n", geom->src.x[i], geom->src.z[i]);
 
-    for (int i = 0; i < geom->nrec; i++) 
+    for (int i = 0; i < geom->nrec; i++)
       printf("rx: %g, rz: %g\n", geom->rec.x[i], geom->rec.z[i]);
   }
 }
@@ -94,4 +94,3 @@ void Geometry_Destroy(geometry_t* geom)
 
   free(geom);
 }
-

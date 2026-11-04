@@ -5,42 +5,37 @@
 #include "fft.h"
 #include "internal.h"
 
-#include "plot.h"
+//#include "plot.h"
 
 static int initialized = 0;
 
-float get_epsilonV2(float complex*arr1, float complex*arr2, int size)
+float get_epsilon(float complex*arr1, float complex*arr2, int size)
 {
   float max = 0.0f;
-  for(int i = 0; i < size; i++) 
+  for(int i = 0; i < size; i++)
   {
     float temp = cabsf(arr1[i] * arr2[i]);
     if (temp > max) max = temp;
   }
-  return 0.05f * max;
+  return 0.10f * max;
 }
 
-float get_epsilon(const float complex* U_o, int size)
+float get_epsilonV2(float complex* U_o, int size)
 {
   float max = 0.0f;
-      
-  for(int i = 0; i < size; ++i)
+  for(int i = 0; i < size; i++)
   {
     float temp = cabsf(U_o[i]);
 
-    if(temp > max)
+    if (temp > max)
       max = temp;
   }
-
   return 1e-2f * max;
 }
 
-// just testing, remove later
-float* get_penaltyV2(int nt, float dt, float t0)
+float* get_penaltyV3(int nt, float dt, float t0)
 {
-  float* P = malloc(nt * sizeof(float));
-
-  float sigma = 0.05f * (nt*dt);
+  float* P = malloc(nt * sizeof(*P));
 
   for (int i = 0; i < nt; ++i)
   {
@@ -49,74 +44,12 @@ float* get_penaltyV2(int nt, float dt, float t0)
 
     int j = (i + nt - nt / 2) % nt;
 
-    float x = tau / sigma;
-
-    P[j] = expf(-x * x);
+    P[j] = expf(- (tau/t0)*(tau/t0));
   }
 
   return P;
 }
 
-float* get_penalty2D(
-  const float* dcalc,
-  const float* dobs,
-  float dt,
-  int nt,
-  int nrec
-)
-{
-  float* P = callocf(nt * nrec * sizeof(float));
-
-  for(int irec = 0; irec < nrec; ++irec)
-  {
-    float max_o = 0.0f;
-    float max_s = 0.0f;
-
-    int idx_o = 0;
-    int idx_s = 0;
-
-    for(int t = 0; t < nt; ++t)
-    {
-      int idx = t * nrec + irec;
-
-      float temp_o = fabsf(dobs[idx]);
-      float temp_s = fabsf(dcalc[idx]);
-
-      if(temp_o > max_o)
-      {
-        max_o = temp_o;
-        idx_o = t;
-      }
-
-      if(temp_s > max_s)
-      {
-        max_s = temp_s;
-        idx_s = t;
-      }
-    }
-
-    float sigma = fabsf((float)(idx_o - idx_s)) * dt;
-
-    sigma = fmaxf(sigma, 0.25f);
-    if(sigma > 0.25f) printf("sigma: %.3e s\n", sigma);
-
-    for(int i = 0; i < nt; ++i)
-    {
-      int lag_index = i - nt / 2;
-      float tau = lag_index * dt;
-
-      int j = (i + nt - nt / 2) % nt;
-
-      float x = tau / sigma;
-
-      P[j * nrec + irec] = expf(-x * x);
-    }
-  }
-
-  return P;
-}
-
-// working
 float* get_penalty(int nt, float dt, float t0)
 {
   float* P = malloc(nt * sizeof(*P));
@@ -143,8 +76,7 @@ float* get_penaltyV2(int nt, float dt, float t0)
 
   for (int i = 0; i < nt; ++i)
   {
-    int lag_index = (i <= nt / 2) ? i : i - nt;
-
+    int lag_index = (i < nt / 2) ? i : i - nt;
     float tau = lag_index * dt;
 
     P[i] = (fabsf(tau) <= t0) ? tau : 0.0f;
@@ -161,7 +93,7 @@ float* get_d_1d(float* dcalc, float* dobs, float dt, int nt)
 
   float complex* d = malloc((size_t)nt * sizeof(float complex));
 
-  float epsilon = get_epsilon(fft_u_o, nt);
+  float epsilon = get_epsilon(C_u_o, fft_u_o, nt);
 
   for (int iw = 0; iw < nt; ++iw)
   {
@@ -198,11 +130,11 @@ float get_decon_1d(float *dcalc, float *dobs, float dt, int nt, float t0)
     initialized = 1;
   }
 
-  for (int tau = 0; tau < nt; ++tau) 
+  for (int tau = 0; tau < nt; ++tau)
   {
     float pc = P[tau] * d[tau];
 
-    w      += d[tau] * d[tau];
+    w += d[tau] * d[tau];
     result += pc * pc;
   }
 
@@ -225,9 +157,9 @@ float* get_d_2d(
   float* trace_s = malloc(nt * sizeof(*trace_s));
   float* trace_o = malloc(nt * sizeof(*trace_o));
 
-  for (int irec = 0; irec < nrec; ++irec) 
+  for (int irec = 0; irec < nrec; ++irec)
   {
-    for (int t = 0; t < nt; ++t) 
+    for (int t = 0; t < nt; ++t)
     {
       int idx = t * nrec + irec;
 
@@ -237,7 +169,7 @@ float* get_d_2d(
 
     float* d_1d = get_d_1d(trace_s, trace_o, dt, nt);
 
-    for (int itau = 0; itau < nt; ++itau) 
+    for (int itau = 0; itau < nt; ++itau)
     {
       int idx = itau * nrec + irec;
 
@@ -286,14 +218,14 @@ float get_decon_2d(
       float pd = P[itau] * d[idx];
 
       result += pd * pd;
-      w      += d[idx] * d[idx];
+      w += d[idx] * d[idx];
     }
 
     if (w > 0.0f) total += 0.5f * result / w;
   }
+
   free(P);
   free(d);
 
   return total / nrec;
 }
-

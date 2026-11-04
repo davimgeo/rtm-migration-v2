@@ -13,12 +13,6 @@ float* get_d_2d(
   int nt,
   int nrec
 );
-//float get_epsilon(float complex* arr1, float complex*arr2, int size);
-float get_epsilon(const float complex* U_o, int size);
-float* get_penalty2D(
-  const float* dcalc,
-  const float* dobs,
-  float dt,
-  int nt,
-  int nrec
-);
+
+float get_epsilon(float complex* arr1, float complex*arr2, int size);
+//float get_epsilon(float complex* U_o, int size);

@@ -2,7 +2,7 @@
 
 #include "rtm.h"
 
-typedef struct 
+typedef struct
 {
   char* objective_function_flag;
   char* dobs_path;
@@ -36,13 +36,8 @@ typedef struct
   float* mk1;
   float* direction;
 
-  // Parabolic 
-  float* m_current_0;
-  float* m_current_1;
-  float* m_current_2;
-
   float* dcalc;
-  float* dcalc_1;
+  float* dcalc_l;
 } fwi_t;
 
 fwi_t* FWI_Init(fwi_t* f, rtm_t* rtm, fwi_specs_t* specs);
@@ -51,12 +46,13 @@ double FWI_L2Norm(fwi_t* f, const float* dcalc);
 double FWI_DeconLuoObjf(fwi_t* f, const float* dcalc);
 double FWI_CrossObjf(fwi_t* f, const float* dcalc);
 double FWI_GetPhi(fwi_t* f, double alpha);
-float FWI_GradientScale(const float* gradient, int size);
+double FWI_GetPhi_LBFGS(fwi_t* f, double alpha);
 void FWI_GetDirection(fwi_t* f, const float* nabla_chi, float grad_scale);
+void FWI_SetModel(fwi_t* f, float* vp);
+float FWI_GradientScale(const float* gradient, int size);
 void FWI_SaveCurrent(fwi_t* f, int it);
 void FWI_UpdateModel(fwi_t* f);
-void FWI_SetModel(fwi_t* f, float* vp);
-void FWI_Run_Parabolic(fwi_t* f);
+void FWI_Run_Zoom(fwi_t* f);
 double FWI_GetGTP(fwi_t* f, const float* nabla_chi);
 double FWI_CrossObjf(fwi_t* f, const float* dcalc);
 double FWI_GetPhiDerivative(fwi_t* f, double alpha);
