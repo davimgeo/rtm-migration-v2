@@ -3,7 +3,8 @@
 #include <complex.h>
 
 float* get_penalty(int nt, float dt, float t0);
-float get_decon_1d(float *dcalc, float *dobs, float dt, int nt, float t0);
+float get_awi_1d(float *dcalc, float *dobs, float dt, int nt, float t0);
+float get_luo_1d(float *dcalc, float *dobs, float dt, int nt, float t0);
 float* get_d_1d(float* dcalc, float* dobs, float dt, int nt);
 float get_decon_2d(float *dcalc, float *dobs, float dt, int nt, int nrec, float t0);
 float* get_d_2d(

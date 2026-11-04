@@ -685,3 +685,106 @@ cleanup:
 
   return status;
 }
+
+int plot_objective_functions_1d(
+  float* l2,
+  float* l1,
+  float* cross,
+  float* luo,
+  float* awi,
+  int result_size,
+  float max_shift,
+  int nt,
+  float fmax,
+  float phase
+)
+{
+    int status = -1;
+
+    PyObject *py_l2 = NULL;
+    PyObject *py_l1 = NULL;
+    PyObject *py_cross = NULL;
+    PyObject *py_luo = NULL;
+    PyObject *py_awi = NULL;
+
+    PyObject *py_max_shift = NULL;
+    PyObject *py_nt = NULL;
+    PyObject *py_fmax = NULL;
+    PyObject *py_phase = NULL;
+
+    PyObject *args = NULL;
+
+    if (plot_python_init() != 0)
+        goto cleanup;
+
+    if (result_size <= 0 || nt <= 0)
+        goto cleanup;
+
+    npy_intp dims[1] = {result_size};
+
+    py_l2 = PyArray_SimpleNewFromData(
+        1, dims, NPY_FLOAT32, l2
+    );
+    py_l1 = PyArray_SimpleNewFromData(
+        1, dims, NPY_FLOAT32, l1
+    );
+    py_cross = PyArray_SimpleNewFromData(
+        1, dims, NPY_FLOAT32, cross
+    );
+    py_luo = PyArray_SimpleNewFromData(
+        1, dims, NPY_FLOAT32, luo
+    );
+    py_awi = PyArray_SimpleNewFromData(
+        1, dims, NPY_FLOAT32, awi
+    );
+
+    py_max_shift = PyFloat_FromDouble(max_shift);
+    py_nt = PyLong_FromLong(nt);
+    py_fmax = PyFloat_FromDouble(fmax);
+    py_phase = PyFloat_FromDouble(phase);
+
+    if (!py_l2 || !py_l1 || !py_cross ||
+        !py_luo || !py_awi ||
+        !py_max_shift || !py_nt ||
+        !py_fmax || !py_phase)
+        goto cleanup;
+
+    args = PyTuple_Pack(
+        9,
+        py_l2,
+        py_l1,
+        py_cross,
+        py_luo,
+        py_awi,
+        py_max_shift,
+        py_nt,
+        py_fmax,
+        py_phase
+    );
+
+    if (err_py(args) != 0)
+        goto cleanup;
+
+    status = plot_python_call(
+        "plot_objective_functions_1d",
+        args
+    );
+
+cleanup:
+    Py_XDECREF(args);
+
+    Py_XDECREF(py_l2);
+    Py_XDECREF(py_l1);
+    Py_XDECREF(py_cross);
+    Py_XDECREF(py_luo);
+    Py_XDECREF(py_awi);
+
+    Py_XDECREF(py_max_shift);
+    Py_XDECREF(py_nt);
+    Py_XDECREF(py_fmax);
+    Py_XDECREF(py_phase);
+
+    return status;
+}
+
+

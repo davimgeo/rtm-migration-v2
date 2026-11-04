@@ -114,7 +114,34 @@ float* get_d_1d(float* dcalc, float* dobs, float dt, int nt)
   return result;
 }
 
-float get_decon_1d(float *dcalc, float *dobs, float dt, int nt, float t0)
+float get_luo_1d(float *dcalc, float *dobs, float dt, int nt, float t0)
+{
+  float result = 0.0f;
+
+  float* d = get_d_1d(dcalc, dobs, dt, nt);
+  float* P = get_penalty(nt, dt, t0);
+
+  if(!initialized)
+  {
+    //plot1d(P, nt);
+    //plot1d(d, nt);
+    initialized = 1;
+  }
+
+  for (int tau = 0; tau < nt; ++tau)
+  {
+    float pc = P[tau] * d[tau];
+
+    result += pc * pc;
+  }
+
+  free(d);
+  free(P);
+
+  return 0.5f * result;
+}
+
+float get_awi_1d(float *dcalc, float *dobs, float dt, int nt, float t0)
 {
   float result = 0.0f;
 

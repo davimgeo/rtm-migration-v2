@@ -37,3 +37,16 @@ int plot1d_3(
   const char* title2,
   const char* title3
 );
+
+int plot_objective_functions_1d(
+  float* l2,
+  float* l1,
+  float* cross,
+  float* luo,
+  float* awi,
+  int result_size,
+  float max_shift,
+  int nt,
+  float fmax,
+  float phase
+);

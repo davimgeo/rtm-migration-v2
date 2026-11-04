@@ -272,12 +272,35 @@ def compare_diff(
 
   plt.show()
 
-def plot_objective_functions_1d(l2, l1, cross, luo, awi, max_shift):
+def get_ricker(nt, fmax, phase, dt=0.001):
+  fc = fmax / (3.0 * np.sqrt(np.pi))
+
+  t = np.arange(nt) * dt - phase
+
+  arg = np.pi * (np.pi * fc * t) ** 2.0
+
+  wavelet = (1.0 - 2.0 * arg) * np.exp(-arg)
+
+  return wavelet
+
+def plot_objective_functions_1d(l2, l1, cross, luo, awi, max_shift, nt, fmax, phase):
+
+  dobs = get_ricker(nt, fmax, phase)
+  dcalc = get_ricker(nt, fmax, phase - max_shift)
 
   _, ax = plt.subplots(nrows=2, ncols=1, figsize=(15, 5))
+
+  ax[0].plot(dobs, label="Observed Wavelet")
+  ax[0].plot(dcalc, '--' ,label=f"Shifted Wavelet ({max_shift:.2f}s)")
 
   ax[1].plot(l2, label="L2")
   ax[1].plot(l1, label="L1")
   ax[1].plot(cross, label="Crosscorrelation-based")
   ax[1].plot(luo, label="Deconvolution-based")
   ax[1].plot(awi, label="AWI")
+
+  for ax in ax:
+    ax.legend(loc="upper right")
+    ax.grid(True)
+
+  plt.show()

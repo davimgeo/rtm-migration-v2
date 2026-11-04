@@ -34,15 +34,17 @@ int main()
   float* cross = moving_rickers_cross(ricker, nt, result_size, fmax, dt, t0, phase_reference);
   float* l1 = moving_rickers_l1(ricker, nt, result_size, fmax, dt, phase_reference);
   float* l2 = moving_rickers_l2(ricker, nt, result_size, fmax, dt, phase_reference);
-  float* decon = moving_rickers_decon(ricker, nt, result_size, fmax, dt, t0, phase_reference);
+  float* luo = moving_rickers_luo(ricker, nt, result_size, fmax, dt, t0, phase_reference);
+  float* awi = moving_rickers_awi(ricker, nt, result_size, fmax, dt, t0, phase_reference);
 
-  plot1d(decon, result_size);
+  plot_objective_functions_1d(l2, l1, cross, luo, awi, result_size, t0, nt, fmax, phase_reference);
 
   free(ricker);
   free(cross);
   free(l1);
   free(l2);
-  free(decon);
+  free(luo);
+  free(awi);
 
   PROFILE_END();
 }

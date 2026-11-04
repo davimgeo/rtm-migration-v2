@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <math.h>
 
 #include "euclidian.h"
@@ -40,8 +41,6 @@ float* get_ricker(int nt, float fmax, float dt, float phase)
     wavelet[i] = (1.0f - 2.0f * arg) * expf(-arg);
   }
 
-  normalize(wavelet, nt);
-
   return wavelet;
 }
 
@@ -71,6 +70,8 @@ float* moving_rickers_l1(
     free(u_s);
   }
 
+  normalize(result, result_size);
+
   return result;
 }
 
@@ -99,6 +100,8 @@ float* moving_rickers_l2(
 
     free(u_s);
   }
+
+  normalize(result, result_size);
 
   return result;
 }
@@ -130,10 +133,12 @@ float* moving_rickers_cross(
     free(u_s);
   }
 
+  normalize(result, result_size);
+
   return result;
 }
 
-float* moving_rickers_decon(
+float* moving_rickers_luo(
   float* u_o,
   int nt,
   int result_size,
@@ -153,12 +158,46 @@ float* moving_rickers_decon(
   {
     float* u_s = get_ricker(nt, fmax, dt, phase);
 
-    result[i] = -get_decon_1d(u_s, u_o, dt, nt, t0);
+    result[i] = -get_luo_1d(u_s, u_o, dt, nt, t0);
 
     phase += ratio;
 
     free(u_s);
   }
+
+  normalize(result, result_size);
+
+  return result;
+}
+
+float* moving_rickers_awi(
+  float* u_o,
+  int nt,
+  int result_size,
+  float fmax,
+  float dt,
+  float t0,
+  float phase_reference
+)
+{
+  float* result = (float*)malloc(result_size * sizeof(float));
+
+  // [pr - START_LAG, pr + START_LAG]
+  float phase = phase_reference - START_LAG;
+  float ratio = 2.0f * START_LAG / result_size;
+
+  for (int i = 0; i < result_size; i++)
+  {
+    float* u_s = get_ricker(nt, fmax, dt, phase);
+
+    result[i] = -get_awi_1d(u_s, u_o, dt, nt, t0);
+
+    phase += ratio;
+
+    free(u_s);
+  }
+
+  normalize(result, result_size);
 
   return result;
 }

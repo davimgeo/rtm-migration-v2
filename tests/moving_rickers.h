@@ -30,7 +30,17 @@ float* moving_rickers_cross(
   float phase_reference
 );
 
-float* moving_rickers_decon(
+float* moving_rickers_luo(
+  float* u_o,
+  int nt,
+  int result_size,
+  float fmax,
+  float dt,
+  float t0,
+  float phase_reference
+);
+
+float* moving_rickers_awi(
   float* u_o,
   int nt,
   int result_size,
