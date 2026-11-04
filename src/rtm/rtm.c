@@ -550,10 +550,8 @@ void RTM_Decon_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int isho
   //plot2d(dcalc, s->nt, s->nrec);
   //plot_column(dcalc, 40, s->nt, s->nrec);
 
-  float* P = get_penalty(s->nt, s->dt, 10);
+  float* P = get_penalty(s->nt, s->dt, t0);
   float* w = get_d_2d(dcalc, dobs, s->dt, s->nt, s->nrec);
-
-  write2d("wiener.bin", w, sizeof(float), s->nt, s->nrec);
 
   float* trace_o = malloc(s->nt * sizeof(*trace_o));
   //float* test = malloc(s->nt * s->nrec * sizeof(*trace_o));
@@ -593,12 +591,6 @@ void RTM_Decon_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int isho
       weighted_d[itau] = (float)(((P[itau] * P[itau] - 2.0 * f_awi) / wtw) * w[idx]);
 
       max_weighted = fmax(max_weighted, fabs((double)weighted_d[itau]));
-    }
-
-    if (!isfinite(wtw) || !isfinite(max_weighted))
-    {
-      fprintf(stderr, "Invalid AWI values: shot=%d rec=%d\n", ishot, irec);
-      abort();
     }
 
     float complex* fft_weighted_d = get_fft_1d(weighted_d, s->nt);
@@ -752,7 +744,7 @@ static void RTM_ShowModelingStatus(rtm_t* r)
 {
   //printf("\033[1;1H\033[2J"); // SYSTEM CLEAR
   float progress = (float)r->current_step / r->p->geometry->nsrc;
-  printf("Progress: %.1f%%\r", 100.0f * progress);
+  printf("Progress: %.1f%%\n", 100.0f * progress);
   r->current_step++;
 }
 
@@ -855,7 +847,7 @@ void RTM_Run(rtm_t* r, unsigned int flags)
   propagation_t* p = r->p;
   acoustic_state_t* a = p->physics_data;
   geometry_t* g = p->geometry;
-  model_t* n = p->model;
+  model_t* m = p->model;
 
   float* wavelet_2nd_derivative = Wavelet_SecondDerivative(p->wavelet);
 
@@ -863,7 +855,7 @@ void RTM_Run(rtm_t* r, unsigned int flags)
   {
     RTM_ResetFields(r);
 
-    const int sidx = RTM_GetSourceIndex(g, n, isrc);
+    const int sidx = RTM_GetSourceIndex(g, m, isrc);
 
     if (flags & RTM_REMOVEDIRECTWAVE_OFFSET)
       RTM_RemoveDirectWave_Offset(r, isrc);
@@ -903,7 +895,7 @@ void RTMv2_Run(rtm_t* r, const char* DOBS_PATH, unsigned int flags, float t0)
   propagation_t* p = r->p;
   acoustic_state_t* a = p->physics_data;
   geometry_t* g = p->geometry;
-  model_t* n = p->model;
+  model_t* m = p->model;
   seismogram_t* s = p->seismogram;
 
   const float* wavelet_2nd_derivative = Wavelet_SecondDerivative(p->wavelet);
@@ -918,7 +910,7 @@ void RTMv2_Run(rtm_t* r, const char* DOBS_PATH, unsigned int flags, float t0)
   {
     RTM_ResetFields(r);
 
-    const int sidx = RTM_GetSourceIndex(g, n, isrc);
+    const int sidx = RTM_GetSourceIndex(g, m, isrc);
 
     if (flags & RTM_L2_ADJOINT_SOURCE)
       RTM_GetResidual(r, DOBS_PATH, sidx, isrc);
@@ -951,7 +943,37 @@ void RTMv2_Run(rtm_t* r, const char* DOBS_PATH, unsigned int flags, float t0)
 
     FWI_ImageCondition(r);
     RTM_ShowModelingStatus(r);
+
+    memset(r->adjoint_source, 0, (size_t)s->nt * s->nrec * sizeof(float));
   }
+
+  r->chi_0 *= 0.5f * (double)p->dt;
+  
+  const float idh = 1.0f / p->dh;
+
+  double chi_tv = 0.0f;
+
+  const double eps = 1e-3;
+
+  for (int i = 20; i < m->nz - 1; ++i)
+  {
+    for (int j = 0; j < m->nx; ++j)
+    {
+      int idx = i * m->nx + j;
+      int idx_next = idx + m->nx;
+
+      double v0 = m->vp[idx];
+      double v1 = m->vp[idx_next];
+
+      double dz = (v1 - v0) * idh;
+
+      chi_tv += sqrt(dz * dz + eps * eps);
+    }
+  }
+
+  printf("%.15e\n", chi_tv);
+
+  r->chi_0 += 5.0 * 1e-8 * chi_tv;
 }
 
 void RTM_Destroy(rtm_t* r)

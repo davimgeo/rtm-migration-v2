@@ -2,8 +2,6 @@
 
 #include "internal.h"
 
-#include "plot.h"
-
 #include "acoustic_c.h"
 #include "propagation.h"
 
@@ -127,7 +125,7 @@ inline void Propagation_GetSeismogram(propagation_t* p, float* seismogram, int t
   const float* restrict upre = a->upre;
   float* restrict seis = seismogram;
 
-  #pragma omp single
+  #pragma omp for schedule(static) 
   for (int irec = 0; irec < nrec; ++irec)
   {
     const int rx = g->rec.x[irec] + nb;
@@ -139,7 +137,7 @@ inline void Propagation_GetSeismogram(propagation_t* p, float* seismogram, int t
   }
 }
 
-static void Propagation_SaveSeismogram(float* seismogram, int nt, int nrec, int nshot)
+void Propagation_SaveSeismogram(float* seismogram, int nt, int nrec, int nshot)
 {
   char path[256];
 
@@ -150,7 +148,7 @@ static void Propagation_SaveSeismogram(float* seismogram, int nt, int nrec, int 
   write2d(path, seismogram, sizeof(float), nt, nrec);
 }
 
-static void Propagation_ShowModelingStatus(propagation_t* p, int ishot)
+void Propagation_ShowModelingStatus(propagation_t* p, int ishot)
 {
   printf("\e[1;1H\e[2J"); // SYSTEM CLEAR
   float progress = (float)p->current_step / p->geometry->nsrc;
@@ -158,7 +156,7 @@ static void Propagation_ShowModelingStatus(propagation_t* p, int ishot)
   p->current_step++;
 }
 
-void Propagation_RunAcoustic(propagation_t *p, unsigned flags)
+void Propagation_RunAcoustic_CPU(propagation_t *p, unsigned flags)
 {
   acoustic_state_t *a = p->physics_data;
   geometry_t *g = p->geometry;
@@ -193,5 +191,3 @@ void Propagation_RunAcoustic(propagation_t *p, unsigned flags)
       Propagation_ShowModelingStatus(p, shot);
   }
 }
-
-

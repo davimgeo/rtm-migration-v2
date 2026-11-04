@@ -12,6 +12,18 @@ typedef struct acoustic_state
   float* vel_arg_homo;
 } acoustic_state_t;
 
-void Propagation_InitAcoustic(propagation_t* p);
-void Propagation_RunAcoustic(propagation_t* p, unsigned flags);
+#ifdef __cplusplus
+extern "C" 
+{
+#endif
 
+void Propagation_RunAcoustic(propagation_t *p, unsigned flags);
+void Propagation_SaveSeismogram(float* seismogram, int nt, int nrec, int nshot);
+void Propagation_ShowModelingStatus(propagation_t* p, int ishot);
+
+#ifdef __cplusplus
+}
+#endif
+
+void Propagation_InitAcoustic(propagation_t* p);
+void Propagation_RunAcoustic_CPU(propagation_t *p, unsigned flags);

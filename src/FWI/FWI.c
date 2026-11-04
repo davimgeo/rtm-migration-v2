@@ -212,8 +212,6 @@ float* FWI_GetGradient(fwi_t* f, float* vp)
     }
   }
 
-  plot2d(nabla_chi, n->nz, n->nx);
-
   const double idh = 1.0f / p->dh;
   const double lambda = 5.0 * 1e-8;
 
@@ -251,8 +249,6 @@ float* FWI_GetGradient(fwi_t* f, float* vp)
       nabla_chi[idx_nabla] = (float)(grad_data + lambda * grad_tv);
     }
   }
-
-  plot2d(nabla_chi, n->nz, n->nx);
 
   return nabla_chi;
 }

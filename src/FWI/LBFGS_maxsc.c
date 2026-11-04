@@ -58,8 +58,6 @@ double FWI_GetPhi_LBFGS(fwi_t* f, double alpha)
 
   FWI_GetVelocityFromSlowness(f->mk1, f->vp_k1, n->nz, n->nx);
 
-  write2d("test.bin", f->vp_k1, sizeof(float), n->nz, n->nx);
-
   float* dcalc_l = FWI_GetDcalc(f, f->vp_k1);
 
   double phi_alpha;
@@ -197,7 +195,7 @@ double FWI_LineSearchV3(fwi_t* f, double phi_0, double gTp_0, int k)
 
   double phi_past = phi_0;
 
-  printf("\nAlgoritmo 3.2 - Line Search\n");
+  printf("\nAlgorithm 3.2 - Line Search\n");
   printf("FWI Iteration: %d\n", k);
   printf("phi(0) : %.15e\n", phi_0);
   printf("phi'(0) : %.15e\n", gTp_0);

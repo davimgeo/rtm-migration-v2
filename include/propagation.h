@@ -37,7 +37,6 @@ void Propagation_Destroy(propagation_t *p);
 void Propagation_Run(propagation_t *p, unsigned flags);
 
 void Propagation_VelocityUpdate(propagation_t *p, const float* vel_args);
-void Propagation_VelocityUpdateGPU(propagation_t *p, const float* vel_arg);
 
 void Propagation_GetDamp(propagation_t *p);
 

@@ -227,7 +227,7 @@ def plot2d(arr: np.ndarray) -> None:
 
   fig, ax = plt.subplots(figsize=(10, 8))
 
-  img = ax.imshow(arr, aspect="auto", cmap="jet", 
+  img = ax.imshow(arr, aspect="auto", cmap="Greys", 
                   vmin=scale_min, vmax=scale_max)
 
   #img = ax.imshow(arr, aspect="auto", cmap="jet")
