@@ -1,163 +1,273 @@
-#include <cuda.h>
+#include <cuda_runtime.h>
+#include <cstddef>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <cmath>
+#include <utility>
 
-#include "rtm_c.h"
+extern "C" 
+{
+#include "internal.h"
+#include "rtm.h"
+#include "decon_objf.h"
+#include "fft.h"
 #include "propagation/acoustic/acoustic_c.h"
+}
 
-#define FDM1 0.001785714285f 
+#define CUDA_CHECK(call)                                                     \
+  do {                                                                       \
+    cudaError_t err_ = (call);                                                \
+    if (err_ != cudaSuccess) {                                                \
+      std::fprintf(stderr, "CUDA error at %s:%d: %s -> %s\n",                \
+                   __FILE__, __LINE__, #call, cudaGetErrorString(err_));      \
+      std::exit(EXIT_FAILURE);                                                \
+    }                                                                        \
+  } while (0)
+
+#define FDM1 0.001785714285f
 #define FDM2 0.025396825396f
 #define FDM3 0.200000000000f
 #define FDM4 1.600000000000f
 #define FDM5 2.847222222222f
 
-void reset_fields(rtm_t* r)
-{
-  acoustic_state_t* a = (acoustic_state_t*)r->p->physics_data;
-  seismogram_t* s = r->p->seismogram;
+#define THREADS 256
 
-  const size_t size = (size_t)r->p->model->nxx * r->p->model->nzz;
-
-  const size_t seis_size = (size_t)s->nt * s->nrec;
-
-  memset(s->seismogram, 0, seis_size * sizeof(float));
-
-  memset(a->upas, 0, size * sizeof(float));
-  memset(a->upre, 0, size * sizeof(float));
-
-  memset(r->num, 0, size * sizeof(float));
-  //memset(r->dem, 0, size * sizeof(float));
-
-  //memset(r->adjoint_source, 0, (size_t)s->nt * s->nrec * sizeof(float));
-
-  r->snap_id = 0;
-}
-
-__global__ void inject_source(
-  float* upas,
-  const float *ricker,
-  int source_idx,
-  float source_scale,
-  int t
+__global__ void forward_kernel(
+  float* __restrict__ upas,
+  const float* __restrict__ upre,
+  const float* __restrict__ vel_arg,
+  float lap_arg,
+  int nzz,
+  int nxx
 )
 {
-  if (blockIdx.x == 0 && threadIdx.x == 0)
-    upas[source_idx] += ricker[t] * source_scale;
+    const size_t idx = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (idx >= (size_t)nzz * nxx) return;
+
+    const int i = (int)(idx / nxx);
+    const int j = (int)(idx % nxx);
+
+    if (i > 3 && i < nzz - 4 && j > 3 && j < nxx - 4)
+    {
+      const float* r0 = upre + (size_t)(i - 4) * nxx;
+      const float* r1 = upre + (size_t)(i - 3) * nxx;
+      const float* r2 = upre + (size_t)(i - 2) * nxx;
+      const float* r3 = upre + (size_t)(i - 1) * nxx;
+      const float* r4 = upre + (size_t)i       * nxx;
+      const float* r5 = upre + (size_t)(i + 1) * nxx;
+      const float* r6 = upre + (size_t)(i + 2) * nxx;
+      const float* r7 = upre + (size_t)(i + 3) * nxx;
+      const float* r8 = upre + (size_t)(i + 4) * nxx;
+
+      const float d2z =
+          -FDM1 * (r0[j] + r8[j])
+          +FDM2 * (r1[j] + r7[j])
+          -FDM3 * (r2[j] + r6[j])
+          +FDM4 * (r3[j] + r5[j])
+          -FDM5 * r4[j];
+
+      const float d2x =
+          -FDM1 * (r4[j - 4] + r4[j + 4])
+          +FDM2 * (r4[j - 3] + r4[j + 3])
+          -FDM3 * (r4[j - 2] + r4[j + 2])
+          +FDM4 * (r4[j - 1] + r4[j + 1])
+          -FDM5 * r4[j];
+
+      upas[idx] = vel_arg[idx] * ((d2x + d2z) * lap_arg) + 2.0f * r4[j] - upas[idx];
+  }
 }
 
 __global__ void get_damp(
   float* __restrict__ upas,
   float* __restrict__ upre,
-  float* __restrict__ damp_x,
-  float* __restrict__ damp_z,
+  const float* __restrict__ damp_x,
+  const float* __restrict__ damp_z,
   int nzz,
   int nxx
 )
 {
-  int index = blockIdx.x * blockDim.x + threadIdx.x;
+  const size_t idx = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
 
-  int j = index % nxx;
-  int i = index / nxx;
+  if (idx >= (size_t)nzz * nxx) return;
+
+  const int i = (int)(idx / nxx);
+  const int j = (int)(idx % nxx);
 
   if (i > 3 && i < nzz - 4 && j > 3 && j < nxx - 4)
   {
-    float* previous = upre + (size_t)i * nxx;
-
-    float* current = upas + (size_t)i * nxx;
-
     const float damp = damp_x[j] * damp_z[i];
-
-    previous[j] *= damp;
-    current[j] *= damp;
+    upas[idx] *= damp;
+    upre[idx] *= damp;
   }
 }
 
-__global__ void forward_kernel(
-  float* __restrict__ upas, float* __restrict__ upre,
-  float* __restrict__ vel_arg,
-  float* __restrict__ ricker, float lap_arg, int nzz,
-  int nxx, int t
+__global__ void inject_source(
+  float* upre,
+  const float* second_derivative_ricker,
+  size_t source_idx,
+  float source_scale,
+  int t
 )
 {
-  int index = blockIdx.x * blockDim.x + threadIdx.x;
+  if (blockIdx.x == 0 && threadIdx.x == 0)
+    upre[source_idx] += second_derivative_ricker[t] * source_scale;
+}
 
-  int j = index % nxx;
-  int i = index / nxx;
+__global__ void inject_adjoint_source(
+  const float* __restrict__ adjoint_source,
+  float* upre,
+  const float* __restrict__ rec_x,
+  const float* __restrict__ rec_z,
+  int nxx,
+  int nzz,
+  int nrec,
+  int nb,
+  float adjoint_scale,
+  int t
+)
+{
+  const int irec = (int)(blockIdx.x * blockDim.x + threadIdx.x);
+  if (irec >= nrec) return;
 
-  if (i > 3 && i < nzz - 4 && j > 3 && j < nxx - 4)
+  const int rx = (int)rec_x[irec] + nb;
+  const int rz = (int)rec_z[irec] + nb;
+
+  if (rx >= 0 && rx < nxx && rz >= 0 && rz < nzz)
   {
-    const float* r0 = upre + (size_t)(i - 4) * nxx;
-    const float* r1 = upre + (size_t)(i - 3) * nxx;
-    const float* r2 = upre + (size_t)(i - 2) * nxx;
-    const float* r3 = upre + (size_t)(i - 1) * nxx;
-    const float* r4 = upre + (size_t)i       * nxx;
-    const float* r5 = upre + (size_t)(i + 1) * nxx;
-    const float* r6 = upre + (size_t)(i + 2) * nxx;
-    const float* r7 = upre + (size_t)(i + 3) * nxx;
-    const float* r8 = upre + (size_t)(i + 4) * nxx;
+    const size_t ridx = (size_t)rz * nxx + rx;
+    const size_t sidx = (size_t)t * nrec + irec;
 
-    float*  out = upas + (size_t)i * nxx;
-
-    const float* vel = vel_arg + (size_t)i * nxx;
-
-    const float d2u_dx2 =
-        -FDM1 * (r0[j] + r8[j]) +
-         FDM2 * (r1[j] + r7[j]) -
-         FDM3 * (r2[j] + r6[j]) +
-         FDM4 * (r3[j] + r5[j]) -
-         FDM5 * r4[j];
-
-    const float d2u_dz2 =
-        -FDM1 * (r4[j - 4] + r4[j + 4]) +
-         FDM2 * (r4[j - 3] + r4[j + 3]) -
-         FDM3 * (r4[j - 2] + r4[j + 2]) +
-         FDM4 * (r4[j - 1] + r4[j + 1]) -
-         FDM5 * r4[j];
-
-    const float lap = (d2u_dx2 + d2u_dz2) * lap_arg;
-
-    out[j] = vel[j] * lap + 2.0f * r4[j] - out[j];
+    atomicAdd(upre + ridx, adjoint_source[sidx] * adjoint_scale);
   }
 }
 
-void RTM_Decon_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int ishot, float t0)
+__global__ void accumulate_cross_correlation(
+  const float* __restrict__ src_snapshot,
+  const float* __restrict__ receiver_wavefield,
+  float* __restrict__ num,
+  float* __restrict__ dem,
+  size_t size
+)
 {
-  propagation_t *p = r->p;
-  seismogram_t *s = p->seismogram;
-  acoustic_state_t *a = p->physics_data;
+  const size_t idx = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
 
-  #pragma omp parallel
+  if(idx < size)
+  {
+    const float src = src_snapshot[idx];
+
+    num[idx] += src * receiver_wavefield[idx];
+    dem[idx] += src * src;
+  }
+}
+
+__global__ void image_condition(
+    float* __restrict__ image,
+    const float* __restrict__ num,
+    size_t size,
+    float snap_ratio
+)
+{
+  const size_t idx = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
+
+  if (idx < size) image[idx] += snap_ratio * num[idx];
+}
+
+__global__ void get_seismogram(
+    const float* __restrict__ upre,
+    float* __restrict__ seismogram,
+    const float* __restrict__ rec_x,
+    const float* __restrict__ rec_z,
+    int nxx, int nzz, int nb, int nrec, int t
+)
+{
+    const int irec = (int)(blockIdx.x * blockDim.x + threadIdx.x);
+    if (irec >= nrec) return;
+
+    const int rx = (int)rec_x[irec] + nb;
+    const int rz = (int)rec_z[irec] + nb;
+    if (rx < 0 || rx >= nxx || rz < 0 || rz >= nzz) return;
+
+    const size_t r_idx = (size_t)t * nrec + irec;
+    seismogram[r_idx] = upre[(size_t)rz * nxx + rx];
+}
+
+void awi_adjoint_source(
+  rtm_t* r,
+  const char* DOBS_PATH,
+  size_t isrc,
+  int ishot,
+  float t0,
+  float* d_upas,
+  float* d_upre,
+  const float* d_vel_arg,
+  float* d_wavelet,
+  const float* d_damp_x,
+  const float* d_damp_z,
+  const float* d_rec_x,
+  const float* d_rec_z,
+  float* d_adjoint_source
+)
+{
+  propagation_t* p = r->p;
+  seismogram_t* s = p->seismogram;
+  model_t* m = p->model;
+
+  const int nxx = m->nxx;
+  const int nzz = m->nzz;
+  const int nrec = s->nrec;
+  const size_t wave_size = (size_t)nxx * nzz;
+  const size_t wave_bytes = wave_size * sizeof(float);
+  const size_t seis_bytes = (size_t)s->nt * nrec * sizeof(float);
+  const size_t wavelet_bytes = (size_t)p->nt * sizeof(float);
+  const float lap_arg = 1.0f / (p->dh * p->dh);
+  const float source_scale = (p->dt * p->dt) * lap_arg;
+
+  const int blocks = (int)((wave_size + THREADS - 1) / THREADS);
+  const int rec_blocks = (nrec + THREADS - 1) / THREADS;
+
+  CUDA_CHECK(cudaMemcpy(d_wavelet, p->wavelet->wavelet, wavelet_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemset(d_upas, 0, wave_bytes));
+  CUDA_CHECK(cudaMemset(d_upre, 0, wave_bytes));
+  CUDA_CHECK(cudaMemset(d_adjoint_source, 0, seis_bytes));
+
+  float* upas = d_upas;
+  float* upre = d_upre;
+
   for (int t = 1; t < p->nt - 1; ++t)
   {
-    Propagation_VelocityUpdate(p, a->vel_arg);
-    Propagation_GetSeismogram(p, s->seismogram, t);
-    Propagation_InjectSource(p, isrc, t);
+    forward_kernel<<<blocks, THREADS>>>(upas, upre, d_vel_arg, lap_arg, nzz, nxx);
+    CUDA_CHECK(cudaGetLastError());
+
+    get_damp<<<blocks, THREADS>>>(upas, upre, d_damp_x, d_damp_z, nzz, nxx);
+    CUDA_CHECK(cudaGetLastError());
+
+    std::swap(upre, upas);
+
+    get_seismogram<<<rec_blocks, THREADS>>>(upre, d_adjoint_source, d_rec_x, d_rec_z, nxx, nzz, m->nb, nrec, t);
+    CUDA_CHECK(cudaGetLastError());
+
+    inject_source<<<1, 1>>>(upre, d_wavelet, isrc, source_scale, t);
+    CUDA_CHECK(cudaGetLastError());
   }
+
+  CUDA_CHECK(cudaMemcpy(s->seismogram, d_adjoint_source, seis_bytes, cudaMemcpyDeviceToHost));
 
   char PATH[256];
 
-  snprintf(
-    PATH,
-    sizeof(PATH),
-    "%s/seismogram_%dx%d_shot%d.bin",
-    DOBS_PATH,
-    s->nt,
-    s->nrec,
-    ishot
-  );
+  std::snprintf(PATH, sizeof(PATH), "%s/seismogram_%dx%d_shot%d.bin", DOBS_PATH, s->nt, s->nrec, ishot);
 
   float* dobs = read2d(PATH, s->nt, s->nrec);
   float* dcalc = s->seismogram;
 
-  //plot2d(dcalc, s->nt, s->nrec);
-  //plot_column(dcalc, 40, s->nt, s->nrec);
-
   float* P = get_penalty(s->nt, s->dt, t0);
   float* w = get_d_2d(dcalc, dobs, s->dt, s->nt, s->nrec);
 
-  float* trace_o = malloc(s->nt * sizeof(*trace_o));
-  //float* test = malloc(s->nt * s->nrec * sizeof(*trace_o));
-  float* weighted_d = calloc(s->nt, sizeof(*weighted_d));
+  float* trace_o = (float*)std::malloc((size_t)s->nt * sizeof(float));
+  float* weighted_d = (float*)std::calloc((size_t)s->nt, sizeof(float));
 
-  float complex* adj_freq = malloc(s->nt * sizeof(*adj_freq));
+  float _Complex* adj_freq = (float _Complex*)std::malloc((size_t)s->nt * sizeof(float _Complex));
 
   double max_weighted = 0.0;
 
@@ -165,50 +275,40 @@ void RTM_Decon_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int isho
   {
     double pw = 0.0;
     double wtw = 0.0;
-
     for (int itau = 0; itau < s->nt; ++itau)
     {
-      int idx = itau * s->nrec + irec;
-
-      double w1 = w[idx];
-      double P1 = P[itau];
-
+      const size_t idx = (size_t)itau * s->nrec + irec;
+      const double w1 = w[idx];
+      const double P1 = P[itau];
       pw += P1 * P1 * w1 * w1;
-      //test[idx] = P1 * P1 * w1 * w1;
       wtw += w1 * w1;
     }
 
     if (wtw == 0.0) continue;
 
-    double f_awi = 0.5 * pw / wtw;
-
+    const double f_awi = 0.5 * pw / wtw;
     r->chi_0 += f_awi;
 
     for (int itau = 0; itau < s->nt; ++itau)
     {
-      int idx = itau * s->nrec + irec;
-
+      const size_t idx = (size_t)itau * s->nrec + irec;
       weighted_d[itau] = (float)(((P[itau] * P[itau] - 2.0 * f_awi) / wtw) * w[idx]);
-
-      max_weighted = fmax(max_weighted, fabs((double)weighted_d[itau]));
+      max_weighted = std::fmax(max_weighted, std::fabs((double)weighted_d[itau]));
     }
 
-    float complex* fft_weighted_d = get_fft_1d(weighted_d, s->nt);
+    float _Complex* fft_weighted_d = get_fft_1d(weighted_d, s->nt);
 
     for (int t = 0; t < s->nt; ++t)
-      trace_o[t] = dobs[t * s->nrec + irec];
+        trace_o[t] = dobs[(size_t)t * s->nrec + irec];
 
-    float complex* fft_u_o = get_fft_1d(trace_o, s->nt);
-    float complex* C_u_o = conjugate1d(fft_u_o, s->nt);
-
-    float eps = get_epsilon(fft_u_o, s->nt);
+    float _Complex* fft_u_o = get_fft_1d(trace_o, s->nt);
+    float _Complex* C_u_o = conjugate1d(fft_u_o, s->nt);
+    const float eps = get_epsilon(fft_u_o, s->nt);
 
     for (int iw = 0; iw < s->nt; ++iw)
     {
-      // we was using creatf for some reason
-      float complex denominator = C_u_o[iw] * fft_u_o[iw] + eps;
-
-      float complex A = fft_u_o[iw] / denominator;
+      const float _Complex denominator = C_u_o[iw] * fft_u_o[iw] + eps;
+      const float _Complex A = fft_u_o[iw] / denominator; 
 
       adj_freq[iw] = A * fft_weighted_d[iw];
     }
@@ -216,207 +316,211 @@ void RTM_Decon_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int isho
     float* adj_time = get_ifft_1d(adj_freq, s->nt);
 
     for (int t = 0; t < s->nt; ++t)
-    {
-      r->adjoint_source[t * s->nrec + irec] = -adj_time[t];
-    }
+      r->adjoint_source[(size_t)t * s->nrec + irec] = -adj_time[t];
 
-#if 0
-    // apply window
-    for (int irec = 0; irec < s->nrec; ++irec)
-    {
-      int rx = g->rec.x[irec] + a->nb;
-      int rz = g->rec.z[irec] + a->nb;
-
-      float dx = (float)(sx - rx);
-      float dz = (float)(sz - rz);
-
-      float offset = sqrtf(dx*dx + dz*dz) * p->dh;
-
-      float t0 = (offset / 1500.0f) + epsilon;
-      int t0_idx = (int)(t0 / p->dt);
-
-      float t1 = t0 + window;
-      int t1_idx = (int)(t1 / p->dt);
-
-      float weight = 1.0f;
-
-      if (t <= t0_idx)
-        weight = 0.0f;
-      else if (t >= t1_idx)
-        weight = (float)(t1_idx - t) / (float)(t1_idx - t0_idx);
-
-      r->adjoint_source[t * s->nrec + irec] *= -adj_time[t] * weight;
-    }
-#endif
-
-    //write2d("adjoint_source.bin", r->adjoint_source, sizeof(float), s->nt, s->nrec);
-
-    free(adj_time);
-    free(fft_weighted_d);
-    free(fft_u_o);
-    free(C_u_o);
+    std::free(adj_time);
+    std::free(fft_weighted_d);
+    std::free(fft_u_o);
+    std::free(C_u_o);
   }
 
-  //shift_time(test, s->nt, s->nrec);
-  //write2d("test.bin", test, sizeof(float), s->nt, s->nrec);
-  //plot2d(test, s->nt, s->nrec);
-  //plot_column(test, 140, s->nt, s->nrec);
-  //if(ishot == 25) plot2d(r->adjoint_source, s->nt, s->nrec);
-  //plot2d(r->adjoint_source, s->nt, s->nrec);
-  //
+  (void)max_weighted; // preserved diagnostic from your CPU routine
 
-  free(adj_freq);
-  free(weighted_d);
-  free(trace_o);
-  free(w);
-  free(P);
-  free(dobs);
+  CUDA_CHECK(cudaMemcpy(d_adjoint_source, r->adjoint_source, seis_bytes, cudaMemcpyHostToDevice));
+
+  std::free(adj_freq);
+  std::free(weighted_d);
+  std::free(trace_o);
+  std::free(w);
+  std::free(P);
+  std::free(dobs);
 }
 
-__global__ void get_source_snapshots(rtm_t* r, int t)
+static void reset_cpu_adjoint_fields(rtm_t* r, size_t wave_bytes, size_t seis_bytes)
 {
-  int index = blockIdx.x * blockDim.x + threadIdx.x;
+  acoustic_state_t* a = (acoustic_state_t*)r->p->physics_data;
+  seismogram_t* s = r->p->seismogram;
 
-  if ((t % r->snap_ratio) == 0)
-  {
-    propagation_t* p = r->p;
-    acoustic_state_t* a = p->physics_data;
-
-    const size_t size = (size_t)p->model->nxx * p->model->nzz;
-
-    const size_t offset = (size_t)r->snap_id * size;
-
-    memcpy(r->snaps + offset, a->upre, size * sizeof(float));
-
-    r->snap_id++;
-  }
+  std::memset(a->upas, 0, wave_bytes);
+  std::memset(a->upre, 0, wave_bytes);
+  std::memset(s->seismogram, 0, seis_bytes);
+  std::memset(r->adjoint_source, 0, seis_bytes);
 }
 
 extern "C" void RTMv2_Run_GPU(rtm_t* r, const char* DOBS_PATH, unsigned int flags, float t0)
 {
   propagation_t* p = r->p;
-  acoustic_state_t *a = (acoustic_state_t*)p->physics_data;
-  geometry_t *g = p->geometry;
-  seismogram_t *s = p->seismogram;
-  model_t *m = p->model;
-
-  const float source_scale = (p->dt * p->dt) / (p->dh * p->dh);
-  const float lap_arg = 1.0f / (p->dh * p->dh);
+  acoustic_state_t* a = (acoustic_state_t*)p->physics_data;
+  geometry_t* g = p->geometry;
+  seismogram_t* s = p->seismogram;
+  model_t* m = p->model;
 
   const int nxx = m->nxx;
   const int nzz = m->nzz;
   const int nrec = s->nrec;
+  const size_t size = (size_t)nxx * nzz;
+  const int snap_ratio = r->snap_ratio;
+  const size_t nsnaps = ((size_t)p->nt - 1) / (size_t)snap_ratio + 1;
 
-  const float* wavelet_2nd_derivative = Wavelet_SecondDerivative(p->wavelet);
-
-  const size_t wave_bytes = (size_t)nxx * nzz * sizeof(float);
-  const size_t damp_x_bytes = (size_t)nxx * sizeof(float);
-  const size_t damp_z_bytes = (size_t)nzz * sizeof(float);
-  const size_t ricker_bytes = (size_t)p->wavelet->nt * sizeof(float);
+  const size_t wave_bytes = size * sizeof(float);
   const size_t seis_bytes = (size_t)s->nt * nrec * sizeof(float);
   const size_t rec_bytes = (size_t)nrec * sizeof(float);
+  const size_t snapshots_bytes = nsnaps * wave_bytes;
 
-  float *d_upas = nullptr;
-  float *d_upre = nullptr;
-  float *d_vel_arg = nullptr;
-  float *d_ricker = nullptr;
-  float *d_2nd_ricker = nullptr;
-  float *d_damp_x = nullptr;
-  float *d_damp_z = nullptr;
-  float *d_seis = nullptr;
-  float *d_rec_x = nullptr;
-  float *d_rec_z = nullptr;
+  const float lap_arg = 1.0f / (p->dh * p->dh);
+  const float source_scale = (p->dt * p->dt) * lap_arg;
+  const float adjoint_scale = lap_arg;
 
-  cudaMalloc((void**)&d_upas, wave_bytes);
-  cudaMalloc((void**)&d_upre, wave_bytes);
-  cudaMalloc((void**)&d_vel_arg, wave_bytes);
-  cudaMalloc((void**)&d_ricker, ricker_bytes);
-  cudaMalloc((void**)&d_2nd_ricker, ricker_bytes);
-  cudaMalloc((void**)&d_damp_x, damp_x_bytes);
-  cudaMalloc((void**)&d_damp_z, damp_z_bytes);
-  cudaMalloc((void**)&d_seis, seis_bytes);
-  cudaMalloc((void**)&d_rec_x, rec_bytes);
-  cudaMalloc((void**)&d_rec_z, rec_bytes);
+  const int blocks = (int)((size + THREADS - 1) / THREADS);
+  const int rec_blocks = (nrec + THREADS - 1) / THREADS;
 
-  cudaMemcpy(d_vel_arg, a->vel_arg, wave_bytes, cudaMemcpyHostToDevice);
-  cudaMemcpy(d_ricker, p->wavelet->wavelet, ricker_bytes, cudaMemcpyHostToDevice);
-  cudaMemcpy(d_2nd_ricker, wavelet_2nd_derivative, ricker_bytes, cudaMemcpyHostToDevice);
-  cudaMemcpy(d_damp_x, p->damp->x, damp_x_bytes, cudaMemcpyHostToDevice);
-  cudaMemcpy(d_damp_z, p->damp->z, damp_z_bytes, cudaMemcpyHostToDevice);
+  float *d_upas = nullptr, *d_upre = nullptr;
+  float *d_vel_arg = nullptr, *d_second_ricker = nullptr;
+  float *d_damp_x = nullptr, *d_damp_z = nullptr;
+  float *d_rec_x = nullptr, *d_rec_z = nullptr;
+  float *d_adjoint_source = nullptr;
+  float *d_snaps = nullptr, *d_num = nullptr;
+  float *d_dem = nullptr, *d_image = nullptr;
 
-  cudaMemcpy(d_rec_x, g->rec.x, rec_bytes, cudaMemcpyHostToDevice);
-  cudaMemcpy(d_rec_z, g->rec.z, rec_bytes, cudaMemcpyHostToDevice);
+  float* wavelet_2nd_derivative = Wavelet_SecondDerivative(p->wavelet);
 
+  CUDA_CHECK(cudaMalloc((void**)&d_upas, wave_bytes));
+  CUDA_CHECK(cudaMalloc((void**)&d_upre, wave_bytes));
+  CUDA_CHECK(cudaMalloc((void**)&d_vel_arg, wave_bytes));
+  CUDA_CHECK(cudaMalloc((void**)&d_second_ricker, (size_t)p->nt * sizeof(float)));
+  CUDA_CHECK(cudaMalloc((void**)&d_damp_x, (size_t)nxx * sizeof(float)));
+  CUDA_CHECK(cudaMalloc((void**)&d_damp_z, (size_t)nzz * sizeof(float)));
+  CUDA_CHECK(cudaMalloc((void**)&d_rec_x, rec_bytes));
+  CUDA_CHECK(cudaMalloc((void**)&d_rec_z, rec_bytes));
+  CUDA_CHECK(cudaMalloc((void**)&d_adjoint_source, seis_bytes));
+  CUDA_CHECK(cudaMalloc((void**)&d_snaps, snapshots_bytes));
+  CUDA_CHECK(cudaMalloc((void**)&d_num, wave_bytes));
+  CUDA_CHECK(cudaMalloc((void**)&d_dem, wave_bytes));
+  CUDA_CHECK(cudaMalloc((void**)&d_image, wave_bytes));
 
-  const int threads = 256;
-  const int blocks = (nxx * nzz + threads - 1) / threads;
-  const int rec_blocks = (nrec + threads - 1) / threads;
+  CUDA_CHECK(cudaMemcpy(d_vel_arg, a->vel_arg, wave_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(d_second_ricker, wavelet_2nd_derivative, (size_t)p->nt * sizeof(float), cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(d_damp_x, p->damp->x, (size_t)nxx * sizeof(float), cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(d_damp_z, p->damp->z, (size_t)nzz * sizeof(float), cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(d_rec_x, g->rec.x, rec_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(d_rec_z, g->rec.z, rec_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemset(d_image, 0, wave_bytes)); 
+  CUDA_CHECK(cudaMemset(d_dem, 0, wave_bytes)); 
 
-  for (int shot = 0; shot < g->nsrc; ++shot)
+  int d_snap_id = 0;
+  r->chi_0 = 0.0;
+
+  for (int shot = 0; shot < g->nsrc; shot++) 
   {
-    const int sx = g->src.x[shot];
-    const int sz = g->src.z[shot];
+    const int sx = (int)g->src.x[shot];
+    const int sz = (int)g->src.z[shot];
 
-    const int sidx = (sz + m->nb) * nxx + (sx + m->nb);
+    const size_t sidx = (size_t)(sz + m->nb) * nxx + (sx + m->nb);
 
-    RTM_Decon_AdjointSource(r, DOBS_PATH, sidx, shot, t0);
+    reset_cpu_adjoint_fields(r, wave_bytes, seis_bytes);
 
-    cudaMemset(d_upas, 0, wave_bytes);
-    cudaMemset(d_upre, 0, wave_bytes);
-    cudaMemset(d_seis, 0, seis_bytes);
+    awi_adjoint_source(
+        r, DOBS_PATH, sidx, shot, t0,
+        d_upas, d_upre, d_vel_arg, d_second_ricker,
+        d_damp_x, d_damp_z, d_rec_x, d_rec_z, d_adjoint_source
+    );
 
-    for (int t = 0; t < p->nt; ++t)
+    CUDA_CHECK(cudaMemcpy(d_second_ricker, wavelet_2nd_derivative, (size_t)p->nt * sizeof(float), cudaMemcpyHostToDevice));
+
+    CUDA_CHECK(cudaMemset(d_num, 0, wave_bytes));
+    CUDA_CHECK(cudaMemset(d_upas, 0, wave_bytes));
+    CUDA_CHECK(cudaMemset(d_upre, 0, wave_bytes));
+
+    for (int t = 0; t < p->nt; ++t) 
     {
-      forward_kernel<<<blocks, threads>>>(
-        d_upas, d_upre, d_vel_arg,
-        d_ricker, lap_arg, nzz, nxx, t
-      );
-      get_damp<<<blocks, threads>>>(
-        d_upas, d_upre,
-        d_damp_x, d_damp_z, nzz, nxx
-      );
-      inject_source<<<1, 1>>>(d_upas, d_2nd_ricker, sidx, source_scale, t);
-
-      // rtm get snapshot<<<>>>
+      forward_kernel<<<blocks, THREADS>>>(d_upas, d_upre, d_vel_arg, lap_arg, nzz, nxx);
+      CUDA_CHECK(cudaGetLastError());
+      get_damp<<<blocks, THREADS>>>(d_upas, d_upre, d_damp_x, d_damp_z, nzz, nxx);
+      CUDA_CHECK(cudaGetLastError());
 
       std::swap(d_upre, d_upas);
+
+      inject_source<<<1, 1>>>(d_upre, d_second_ricker, sidx, source_scale, t);
+      CUDA_CHECK(cudaGetLastError());
+
+      if (t % snap_ratio == 0) 
+      {
+        if ((size_t)d_snap_id >= nsnaps) {
+          std::fprintf(stderr, "RTM GPU: snapshot overflow\n");
+          std::exit(EXIT_FAILURE);
+        }
+        CUDA_CHECK(cudaMemcpyAsync(d_snaps + (size_t)d_snap_id * size,
+                                   d_upre, wave_bytes, cudaMemcpyDeviceToDevice));
+        ++d_snap_id;
+      }
     }
 
-    cudaDeviceSynchronize();
+    if ((size_t)d_snap_id != nsnaps) {
+      std::fprintf(stderr, "RTM GPU: wrong number of forward snapshots\n");
+      std::exit(EXIT_FAILURE);
+    }
 
-    cudaMemset(d_upas, 0, wave_bytes);
-    cudaMemset(d_upre, 0, wave_bytes);
+    CUDA_CHECK(cudaMemset(d_upas, 0, wave_bytes));
+    CUDA_CHECK(cudaMemset(d_upre, 0, wave_bytes));
 
-    for (int t = p->nt - 1; t <= 0; ++t)
+    for (int t = p->nt - 1; t >= 0; t--) 
     {
-      forward_kernel<<<blocks, threads>>>(
-        d_upas, d_upre, d_vel_arg,
-        d_ricker, lap_arg, nzz, nxx, t
-      );
-
-      get_damp<<<blocks, threads>>>(
-        d_upas, d_upre,
-        d_damp_x, d_damp_z, nzz, nxx
-      );
-
-      inject_source<<<1, 1>>>(d_upas, d_ricker, sidx, source_scale, t);
-
-      // rtm get snapshot<<<>>>
+      forward_kernel<<<blocks, THREADS>>>(d_upas, d_upre, d_vel_arg, lap_arg, nzz, nxx);
+      CUDA_CHECK(cudaGetLastError());
+      get_damp<<<blocks, THREADS>>>(d_upas, d_upre, d_damp_x, d_damp_z, nzz, nxx);
+      CUDA_CHECK(cudaGetLastError());
 
       std::swap(d_upre, d_upas);
+
+      inject_adjoint_source<<<rec_blocks, THREADS>>>(
+          d_adjoint_source, d_upre, d_rec_x, d_rec_z,
+          nxx, nzz, nrec, m->nb, adjoint_scale, t
+      );
+      CUDA_CHECK(cudaGetLastError());
+
+      if (t % snap_ratio == 0) 
+      {
+        if (d_snap_id <= 0) {
+          std::fprintf(stderr, "RTM GPU: snapshot underflow\n");
+          std::exit(EXIT_FAILURE);
+        }
+        --d_snap_id;
+
+        const float* src = d_snaps + (size_t)d_snap_id * size;
+
+        accumulate_cross_correlation<<<blocks, THREADS>>>(src, d_upre, d_num, d_dem, size);
+        CUDA_CHECK(cudaGetLastError());
+      }
     }
 
-    cudaDeviceSynchronize();
+    if (d_snap_id != 0) {
+      std::fprintf(stderr, "RTM GPU: backward did not consume all snapshots\n");
+      std::exit(EXIT_FAILURE);
+    }
+
+    image_condition<<<blocks, THREADS>>>(d_image, d_num, size, (float)snap_ratio);
+    CUDA_CHECK(cudaGetLastError());
+    CUDA_CHECK(cudaDeviceSynchronize());
   }
 
-  cudaFree(d_upas);
-  cudaFree(d_upre);
-  cudaFree(d_vel_arg);
-  cudaFree(d_ricker);
-  cudaFree(d_damp_x);
-  cudaFree(d_damp_z);
-  cudaFree(d_seis);
-  cudaFree(d_rec_x);
-  cudaFree(d_rec_z);
+  CUDA_CHECK(cudaMemcpy(r->image, d_image, wave_bytes, cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaMemcpy(r->dem, d_dem, wave_bytes, cudaMemcpyDeviceToHost));
 
+  r->chi_0 *= 0.5 * (double)p->dt;
+
+  CUDA_CHECK(cudaFree(d_upas));
+  CUDA_CHECK(cudaFree(d_upre));
+  CUDA_CHECK(cudaFree(d_vel_arg));
+  CUDA_CHECK(cudaFree(d_second_ricker));
+  CUDA_CHECK(cudaFree(d_damp_x));
+  CUDA_CHECK(cudaFree(d_damp_z));
+  CUDA_CHECK(cudaFree(d_rec_x));
+  CUDA_CHECK(cudaFree(d_rec_z));
+  CUDA_CHECK(cudaFree(d_adjoint_source));
+  CUDA_CHECK(cudaFree(d_snaps));
+  CUDA_CHECK(cudaFree(d_num));
+  CUDA_CHECK(cudaFree(d_dem));
+  CUDA_CHECK(cudaFree(d_image));
+
+  free(wavelet_2nd_derivative);
 }

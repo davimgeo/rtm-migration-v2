@@ -55,7 +55,7 @@ int main()
   //RTMv2_Run(rtm, "data/FWI/dobs/dobs_12s_10hz_ng/", RTM_AWI_ADJOINT_SOURCE, specs->fwi.t0);
 
   fwi_t* fwi = FWI_Init(fwi, rtm, &specs->fwi);
-  FWI_Run(fwi);
+  FWI_Run_LBFGS(fwi);
 
   PROFILE_END();
 

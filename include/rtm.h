@@ -36,4 +36,5 @@ typedef struct
 rtm_t* RTM_Init(rtm_t* r, propagation_t* p);
 void RTM_Run(rtm_t* r, unsigned flags);
 void RTMv2_Run(rtm_t* r, const char* DOBS_PATH, unsigned int flags, float t0);
+void RTMv2_Run_GPU(rtm_t* r, const char* DOBS_PATH, unsigned int flags, float t0);
 void RTM_Destroy(rtm_t* r);

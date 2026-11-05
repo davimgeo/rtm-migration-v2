@@ -194,7 +194,7 @@ float* FWI_GetGradient(fwi_t* f, float* vp)
 
   FWI_SetModel(f, vp);
 
-  RTMv2_Run(f->rtm, f->DOBS_PATH, f->objective_function, f->t0);
+  RTMv2_Run_GPU(f->rtm, f->DOBS_PATH, f->objective_function, f->t0);
 
   const size_t model_size = (size_t)n->nz * n->nx;
 

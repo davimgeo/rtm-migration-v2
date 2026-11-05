@@ -16,4 +16,4 @@ float* get_d_2d(
 );
 
 //float get_epsilon(float complex* arr1, float complex*arr2, int size);
-float get_epsilon(float complex* U_o, int size);
+float get_epsilon(float _Complex* U_o, int size);

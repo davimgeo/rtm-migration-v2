@@ -1,11 +1,6 @@
 #ifndef INTERNAL_H
 #define INTERNAL_H
 
-// make a flag inside ifndef to check
-// if user has GNUPLOT
-// flag decided inside makefile
-// put macros here
-
 #include <time.h>
 #include <complex.h>
 #include <stdlib.h>
@@ -69,5 +64,5 @@ char *upper(const char *str);
 void print1D(float *arr, int size);
 void print2D(float *arr, int ROW, int COLUMN);
 
-float complex* conjugate1d(const float complex* A, int size);
+float _Complex* conjugate1d(const float _Complex* A, int size);
 #endif

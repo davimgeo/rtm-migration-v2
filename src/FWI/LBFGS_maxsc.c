@@ -576,7 +576,7 @@ void FWI_Run_LBFGS(fwi_t* f)
   const size_t model_size = (size_t)m->nz * m->nx;
 
   float* gradient = FWI_GetGradient(f, f->vp_current);
-  write2d("nabla_chi_141x681.bin", gradient, sizeof(float), m->nz, m->nx);
+  write2d("nabla_chi_141x681_gpu.bin", gradient, sizeof(float), m->nz, m->nx);
   //float* gradient = read2d("nabla_chi_141x681.bin", m->nz, m->nx);
   memcpy(f->gradient_current, gradient, model_size * sizeof(float));
 
