@@ -407,8 +407,8 @@ extern "C" void RTMv2_Run_GPU(rtm_t* r, const char* DOBS_PATH, unsigned int flag
   CUDA_CHECK(cudaMemset(d_image, 0, wave_bytes)); 
   CUDA_CHECK(cudaMemset(d_dem, 0, wave_bytes)); 
 
-  int d_snap_id = 0;
-  r->chi_0 = 0.0;
+  int d_snap_id = 0; r->chi_0 = 0.0;
+  int current_step = 1;
 
   for (int shot = 0; shot < g->nsrc; shot++) 
   {
@@ -501,6 +501,10 @@ extern "C" void RTMv2_Run_GPU(rtm_t* r, const char* DOBS_PATH, unsigned int flag
     image_condition<<<blocks, THREADS>>>(d_image, d_num, size, (float)snap_ratio);
     CUDA_CHECK(cudaGetLastError());
     CUDA_CHECK(cudaDeviceSynchronize());
+
+    float progress = (float)current_step / r->p->geometry->nsrc;
+    printf("Progress: %.1f%%\n", 100.0f * progress);
+    current_step++;
   }
 
   CUDA_CHECK(cudaMemcpy(r->image, d_image, wave_bytes, cudaMemcpyDeviceToHost));

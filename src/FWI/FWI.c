@@ -207,10 +207,10 @@ float* FWI_GetGradient(fwi_t* f, float* vp)
       size_t idx_in = (size_t)(i + n->nb) * n->nxx + (j + n->nb);
       size_t idx_nabla = (size_t)i * n->nx + j;
 
-      if (i < 20)
-        nabla_chi[idx_nabla] = 0.0f;
-      else
-        nabla_chi[idx_nabla] = -f->rtm->image[idx_in];
+      //if (i < 20)
+       // nabla_chi[idx_nabla] = 0.0f;
+      //else
+      nabla_chi[idx_nabla] = -f->rtm->image[idx_in];
     }
   }
 
