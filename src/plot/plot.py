@@ -285,22 +285,47 @@ def get_ricker(nt, fmax, phase, dt=0.001):
 
 def plot_objective_functions_1d(l2, l1, cross, luo, awi, max_shift, nt, fmax, phase):
 
+  #dobs1 = get_ricker(nt, fmax, 8.0)
+  #dobs2 = get_ricker(nt, fmax, 2.0)
+  #dobs = dobs1 + dobs2
+
   dobs = get_ricker(nt, fmax, phase)
   dcalc = get_ricker(nt, fmax, phase - max_shift)
+
+  #dcalc1 = get_ricker(nt, fmax, 8.0)
+  #dcalc2 = get_ricker(nt, fmax, phase - max_shift)
+  #dcalc = dcalc1 + dcalc2
 
   _, ax = plt.subplots(nrows=2, ncols=1, figsize=(15, 5))
 
   ax[0].plot(dobs, label="Observed Wavelet")
   ax[0].plot(dcalc, '--' ,label=f"Shifted Wavelet ({max_shift:.2f}s)")
 
+  labels = np.linspace(0, len(dobs) - 1, 7)
+
+  ax[0].set_xticklabels([f"{(x * 0.001):.2f}" for x in labels])
+  ax[0].set_xlabel("Time [s]", fontsize=13)
+
   ax[1].plot(l2, label="L2")
-  ax[1].plot(l1, label="L1")
+  #ax[1].plot(l1, label="L1")
   ax[1].plot(cross, label="Crosscorrelation-based")
   ax[1].plot(luo, label="Deconvolution-based")
   ax[1].plot(awi, label="AWI")
+
+  result_size = len(l2)
+
+  ticks = np.linspace(0, result_size, 7)
+  labels = np.linspace(-max_shift, max_shift, 7)
+
+  ax[1].set_xticks(ticks)
+  ax[1].set_xticklabels([f"{x:.2f}" for x in labels])
+  ax[1].set_xlim(0, result_size)
+
+  ax[1].set_xlabel("Shift [s]", fontsize=13)
 
   for ax in ax:
     ax.legend(loc="upper right")
     ax.grid(True)
 
+  plt.tight_layout()
   plt.show()

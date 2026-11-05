@@ -9,7 +9,7 @@
 
 static int initialized = 0;
 
-float get_epsilon(float complex*arr1, float complex*arr2, int size)
+float get_epsilonV2(float complex*arr1, float complex*arr2, int size)
 {
   float max = 0.0f;
   for(int i = 0; i < size; i++)
@@ -20,7 +20,7 @@ float get_epsilon(float complex*arr1, float complex*arr2, int size)
   return 0.10f * max;
 }
 
-float get_epsilonV2(float complex* U_o, int size)
+float get_epsilon(float complex* U_o, int size)
 {
   float max = 0.0f;
   for(int i = 0; i < size; i++)
@@ -30,10 +30,10 @@ float get_epsilonV2(float complex* U_o, int size)
     if (temp > max)
       max = temp;
   }
-  return 1e-5f * max;
+  return 1e-2f * max;
 }
 
-float* get_penalty(int nt, float dt, float t0)
+float* get_penaltyV3(int nt, float dt, float t0)
 {
   float* P = malloc(nt * sizeof(*P));
 
@@ -50,7 +50,7 @@ float* get_penalty(int nt, float dt, float t0)
   return P;
 }
 
-float* get_penaltyV3(int nt, float dt, float t0)
+float* get_penalty(int nt, float dt, float t0)
 {
   float* P = malloc(nt * sizeof(*P));
 
@@ -93,7 +93,7 @@ float* get_d_1d(float* dcalc, float* dobs, float dt, int nt)
 
   float complex* d = malloc((size_t)nt * sizeof(float complex));
 
-  float epsilon = get_epsilonV2(fft_u_o, nt);
+  float epsilon = get_epsilon(fft_u_o, nt);
 
   for (int iw = 0; iw < nt; ++iw)
   {
@@ -123,7 +123,8 @@ float get_luo_1d(float *dcalc, float *dobs, float dt, int nt, float t0)
 
   if(!initialized)
   {
-    //plot1d(P, nt);
+    //float* shifted = fftshift(P, nt);
+    //plot1d(shifted, nt);
     //plot1d(d, nt);
     initialized = 1;
   }

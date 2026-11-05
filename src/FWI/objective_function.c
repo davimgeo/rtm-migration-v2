@@ -175,7 +175,7 @@ double FWI_CrossObjf(fwi_t* f, const float* dcalc)
 
   const size_t shot_size = (size_t)s->nt * s->nrec;
 
-  float* P = get_penaltyGaussian(s->nt, s->dt, f->t0);
+  float* P = get_penalty(s->nt, s->dt, f->t0);
 
   for (int ishot = 0; ishot < g->nsrc; ++ishot)
   {

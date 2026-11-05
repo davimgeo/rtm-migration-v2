@@ -19,11 +19,31 @@
 
 #define LBGFS_M 5
 
-#define MAX_ITERATIONS 38
-#define MAX_LINE_SEARCH 5
+#define MAX_ITERATIONS 78
+#define MAX_LINE_SEARCH 10
 
 #define LOW 1.0f / (1500.0f * 1500.0f)
 #define HIGH 1.0f / (4500.0f * 4500.0f)
+
+void project(fwi_t* f, double alpha)
+{
+  propagation_t* p = f->rtm->p;
+  model_t* n = p->model;
+
+  const size_t model_size = (size_t)n->nz * n->nx;
+
+  double threshold = 1e-10;
+
+  for (size_t i = 0; i < model_size; ++i)
+  {
+    float v = f->m_current[i] + alpha * f->direction[i];
+
+    if (v > LOW)
+      f->mk1[i] = LOW - threshold;
+    else if (v < HIGH)
+      f->mk1[i] = HIGH + threshold;
+  }
+}
 
 double FWI_GetPhi_LBFGS(fwi_t* f, double alpha)
 {
@@ -38,6 +58,9 @@ double FWI_GetPhi_LBFGS(fwi_t* f, double alpha)
 
     f->mk1[i] = v;
   }
+
+  project(f, alpha);
+
   FWI_GetVelocityFromSlowness(f->mk1, f->vp_k1, m->nz, m->nx);
 
   float* dcalc_1 = FWI_GetDcalc(f, f->vp_k1);
@@ -45,9 +68,11 @@ double FWI_GetPhi_LBFGS(fwi_t* f, double alpha)
   double phi_alpha;
   if (f->objective_function & RTM_L2_ADJOINT_SOURCE)
     phi_alpha = FWI_L2Norm(f, dcalc_1);
-  else if (f->objective_function & RTM_DECON_ADJOINT_SOURCE)
+  else if (f->objective_function & RTM_AWI_ADJOINT_SOURCE)
+    // added - here because of rickers test
     phi_alpha = FWI_DeconObjf(f, dcalc_1);
-    //phi_alpha = FWI_DeconLuoObjf(f, dcalc_1);
+  else if (f->objective_function & RTM_DECON_ADJOINT_SOURCE)
+    phi_alpha = FWI_DeconLuoObjf(f, dcalc_1);
   else if (f->objective_function & RTM_CROSS_ADJOINT_SOURCE)
     phi_alpha = FWI_CrossObjf(f, dcalc_1);
 
@@ -69,6 +94,9 @@ double FWI_GetPhiDerivative_LBFGS(fwi_t* f, double alpha)
 
     f->mk1[i] = v;
   }
+
+  project(f, alpha);
+
   FWI_GetVelocityFromSlowness(f->mk1, f->vp_k1, m->nz, m->nx);
 
   float* gradient = FWI_GetGradient(f, f->vp_k1);
@@ -184,7 +212,7 @@ double FWI_LineSearchV3(fwi_t* f, double phi_0, double gTp_0, int k)
     const double armijo = phi_0 + C1 * a_current * gTp_0;
     const double wolfe = -C2 * gTp_0;
 
-    const double phi_ai = FWI_GetPhi(f, a_current);
+    const double phi_ai = FWI_GetPhi_LBFGS(f, a_current);
 
     printf("\nIteration: %d | Alpha: %.15e\n", i, a_current);
 
@@ -207,7 +235,7 @@ double FWI_LineSearchV3(fwi_t* f, double phi_0, double gTp_0, int k)
       return zoom(a_past, a_current, f, phi_0, gTp_0, phi_past);
     }
 
-    const double phi_ai_derivative = FWI_GetPhiDerivative(f, a_current);
+    const double phi_ai_derivative = FWI_GetPhiDerivative_LBFGS(f, a_current);
 
     printf("| %-12s | %23.15e | %23.15e | %-6s |\n",
            "Strong Wolfe", fabs(phi_ai_derivative), wolfe,
@@ -481,7 +509,7 @@ void FWI_Run_LBFGS(fwi_t* f)
   const size_t model_size = (size_t)m->nz * m->nx;
 
   float* gradient = FWI_GetGradient(f, f->vp_current);
-  write2d("nabla_chi_141x681.bin", gradient, sizeof(float), m->nz, m->nx);
+  //write2d("nabla_chi_141x681.bin", gradient, sizeof(float), m->nz, m->nx);
   //float* gradient = read2d("nabla_chi_141x681.bin", m->nz, m->nx);
   memcpy(f->gradient_current, gradient, model_size * sizeof(float));
 

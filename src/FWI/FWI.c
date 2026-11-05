@@ -14,8 +14,8 @@
 
 //#include "plot.h"
 
-#define LOW 1.0f / (1500.0f * 1500.0f)
-#define HIGH 1.0f / (4500.0f * 4500.0f)
+#define LOW 1.0f / (1000.0f * 1000.0f)
+#define HIGH 1.0f / (2500.0f * 2500.0f)
 
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
@@ -26,7 +26,7 @@
 #define LBFGS_M 5
 
 #define MAX_ITERATIONS 200
-#define MAX_LINE_SEARCH 10
+#define MAX_LINE_SEARCH 12
 
 //#include "plot.h"
 
@@ -118,6 +118,8 @@ fwi_t* FWI_Init(fwi_t* f, rtm_t* rtm, fwi_specs_t* specs)
 
   f->a_present = FWI_GetInitialAlpha(f->m_current, nz, nx);
 
+  printf("a0 = %.15e\n", f->a_present);
+
   return f;
 }
 
@@ -167,7 +169,7 @@ static float FWI_GetInitialAlpha(const float* model, int nz, int nx)
       min = model[i];
   }
 
-  return 0.01f * (max - min);
+  return 0.10f * (max);
 }
 
 void FWI_SetModel(fwi_t* f, float* vp)
@@ -209,44 +211,6 @@ float* FWI_GetGradient(fwi_t* f, float* vp)
         nabla_chi[idx_nabla] = 0.0f;
       else
         nabla_chi[idx_nabla] = -f->rtm->image[idx_in];
-    }
-  }
-
-  const double idh = 1.0f / p->dh;
-  const double lambda = 5.0 * 1e-8;
-
-  const double eps = 1e-3;
-
-  for(int i = 20; i < n->nz; ++i)
-  {
-    for(int j = 0; j < n->nx; ++j)
-    {
-      int idx_in = (i + n->nb) * n->nxx + (j + n->nb);
-      int idx_nabla = i * n->nx + j;
-
-      double v = n->vp[idx_in];
-
-      double vp_z = n->vp[idx_in + n->nxx];
-
-      double dz = (vp_z - v) * idh;
-      double q_plus = dz / sqrt(dz * dz + eps * eps);
-
-      double q_minus = 0.0;
-      if(i > 20)
-      {
-        double vm = n->vp[idx_in - n->nxx];
-
-        double dz_m = (v - vm) * idh;
-        q_minus = dz_m / sqrt(dz_m * dz_m + eps * eps);
-      }
-
-      double grad_tv_val = (q_minus - q_plus) * idh;
-
-      double grad_tv = -0.5 * v * v * v * grad_tv_val;
-
-      double grad_data = -f->rtm->image[idx_in];
-
-      nabla_chi[idx_nabla] = (float)(grad_data + lambda * grad_tv);
     }
   }
 

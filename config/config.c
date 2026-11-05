@@ -12,44 +12,44 @@ SpecsContext* Specs_Init(SpecsContext* specs)
     {
       .dt = 1e-3f,
       .fmax = 10.0f,
-      .nt = 12001,
-      .tlag = 0.30f,
+      .nt = 4001,
+      .tlag = 0.36f,
     },
 
     .geometry =
     {
-      .line_length = 681,
+      .line_length = 100,
 
-      .src_depth = 8,
+      .src_depth = 10,
       .rec_depth = 2,
 
-      .offset_rec = 2,
-      .offset_src = 16
+      .offset_rec = 1,
+      .offset_src = 2
     },
 
     .model =
     {
-      .nx = 681,
-      .nz = 141,
+      .nx = 101,
+      .nz = 101,
       .nb = 100,
 
-      .interfaces_size = 1,
+      .interfaces_size = 0,
 
-      .interfaces = {50},
-      .values = {1500.0f, 2000.0f}
+      .interfaces = {},
+      .values = {1300.0f}
     },
 
     .seismogram =
     {
-      .nt = 12001,
-      .dt = 1e-3f
+      .nt = 4001,
+      .dt = 3e-4f
     },
 
     .propagation =
     {
-      .nt = 12001,
-      .dt = 1e-3f,
-      .dh = 25,
+      .nt = 4001,
+      .dt = 3e-4f,
+      .dh = 10,
 
       .factor = 0.0015f
     },
@@ -57,7 +57,7 @@ SpecsContext* Specs_Init(SpecsContext* specs)
     .fwi = 
     {
       .objective_function_flag = "AWI",
-      .dobs_path = "data/FWI/dobs_12s_10hz_ng",
+      .dobs_path = "data/dobs/",
       .export_path = "data/FWI/AWI_Test/",
       .t0 = 0.6f,
     }

@@ -21,8 +21,8 @@
 #define MAX_ITERATIONS 200
 #define MAX_LINE_SEARCH 20
 
-#define LOW 1.0f / (1500.0f * 1500.0f)
-#define HIGH 1.0f / (4500.0f * 4500.0f)
+#define LOW 1.0f / (1000.0f * 1000.0f)
+#define HIGH 1.0f / (2500.0f * 2500.0f)
 
 void project(fwi_t* f, double alpha)
 {
@@ -71,32 +71,6 @@ double FWI_GetPhi_LBFGS(fwi_t* f, double alpha)
     phi_alpha = FWI_CrossObjf(f, dcalc_l);
 
   free(dcalc_l);
-
-  const float idh = 1.0f / p->dh;
-
-  double chi_tv = 0.0f;
-
-  const double eps = 1e-3;
-
-  for (int i = 20; i < n->nz - 1; ++i)
-  {
-    for (int j = 0; j < n->nx; ++j)
-    {
-      int idx = i * n->nx + j;
-      int idx_next = idx + n->nx;
-
-      double v0 = f->vp_k1[idx];
-      double v1 = f->vp_k1[idx_next];
-
-      double dz = (v1 - v0) * idh;
-
-      chi_tv += sqrt(dz * dz + eps * eps);
-    }
-  }
-
-  printf("%.15e\n", chi_tv);
-
-  phi_alpha += 5.0 * 1e-8 * chi_tv;
 
   return phi_alpha;
 }
@@ -162,8 +136,8 @@ double zoom(double a_lo, double a_hi, fwi_t* f, double phi_0, double gTp_0, doub
       const double phi_derivative_aj = FWI_GetPhiDerivative_LBFGS(f, a_j);
 
       printf("| %-12s | %23.15e | %23.15e | %-6s |\n",
-             "Zoom Strong Wolfe", fabsf(phi_derivative_aj), wolfe,
-             fabsf(phi_derivative_aj) <= wolfe ? "PASS" : "FAIL");
+             "Zoom Strong Wolfe", fabs(phi_derivative_aj), wolfe,
+             fabs(phi_derivative_aj) <= wolfe ? "PASS" : "FAIL");
       printf("+-------------------------------------------------------------------------+\n");
 
       if (fabs(phi_derivative_aj) <= wolfe)
@@ -252,8 +226,8 @@ double FWI_LineSearchV3(fwi_t* f, double phi_0, double gTp_0, int k)
     const double phi_ai_derivative = FWI_GetPhiDerivative_LBFGS(f, a_current);
 
     printf("| %-12s | %23.15e | %23.15e | %-6s |\n",
-           "Strong Wolfe", fabsf(phi_ai_derivative), wolfe,
-           fabsf(phi_ai_derivative) <= wolfe ? "PASS" : "FAIL");
+           "Strong Wolfe", fabs(phi_ai_derivative), wolfe,
+           fabs(phi_ai_derivative) <= wolfe ? "PASS" : "FAIL");
     printf("+-------------------------------------------------------------------------+\n");
 
     printf("phi'(alpha) = %.15e\n", phi_ai_derivative);

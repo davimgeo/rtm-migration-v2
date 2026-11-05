@@ -17,9 +17,9 @@ model_t* Model_Init(model_t *m, model_specs_t* specs)
   m->nzz = specs->nz + 2*specs->nb;
   m->nb = specs->nb;
 
-  m->vp  = allocf(m->nx * m->nz);
-  m->vs  = allocf(m->nx * m->nz);
-  m->rho = allocf(m->nx * m->nz);
+  m->vp  = allocf(m->nxx * m->nzz);
+  m->vs  = allocf(m->nxx * m->nzz);
+  m->rho = allocf(m->nxx * m->nzz);
 
   m->parallel_model = alloc_struct(MAX_INTERFACES, m->parallel_model);
   m->parallel_model->interfaces_size = specs->interfaces_size;
@@ -47,7 +47,7 @@ void Model_Create(model_t *m)
 {
   parallel_t *pm = m->parallel_model;
 
-  m->vp = allocf(m->nx * m->nz);
+  m->vp = allocf(m->nxx * m->nzz);
 
   int layer = 0;
 

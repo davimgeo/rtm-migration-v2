@@ -380,7 +380,7 @@ void RTM_DeconLuo_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int i
     float complex* C_u_o = conjugate1d(fft_u_o, s->nt);
     float complex* fft_d = get_fft_1d(trace_c, s->nt);
 
-    float eps = get_epsilon(C_u_o, fft_u_o, s->nt);
+    float eps = get_epsilon(fft_u_o, s->nt);
 
     for (int iw = 0; iw < s->nt; ++iw)
     {
@@ -449,7 +449,7 @@ void RTM_Cross_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int isho
   float* dobs = read2d(PATH, s->nt, s->nrec);
   float* dcalc = s->seismogram;
 
-  float* P = get_penaltyGaussian(s->nt, s->dt, t0);
+  float* P = get_penalty(s->nt, s->dt, t0);
   float* c = get_c_2d(dcalc, dobs, s->nt, s->nrec);
   //shift_time(c, s->nt, s->nrec);
 
@@ -601,7 +601,7 @@ void RTM_Decon_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int isho
     float complex* fft_u_o = get_fft_1d(trace_o, s->nt);
     float complex* C_u_o = conjugate1d(fft_u_o, s->nt);
 
-    float eps = get_epsilon(C_u_o, fft_u_o, s->nt);
+    float eps = get_epsilon(fft_u_o, s->nt);
 
     for (int iw = 0; iw < s->nt; ++iw)
     {
@@ -948,32 +948,6 @@ void RTMv2_Run(rtm_t* r, const char* DOBS_PATH, unsigned int flags, float t0)
   }
 
   r->chi_0 *= 0.5f * (double)p->dt;
-  
-  const float idh = 1.0f / p->dh;
-
-  double chi_tv = 0.0f;
-
-  const double eps = 1e-3;
-
-  for (int i = 20; i < m->nz - 1; ++i)
-  {
-    for (int j = 0; j < m->nx; ++j)
-    {
-      int idx = i * m->nx + j;
-      int idx_next = idx + m->nx;
-
-      double v0 = m->vp[idx];
-      double v1 = m->vp[idx_next];
-
-      double dz = (v1 - v0) * idh;
-
-      chi_tv += sqrt(dz * dz + eps * eps);
-    }
-  }
-
-  printf("%.15e\n", chi_tv);
-
-  r->chi_0 += 5.0 * 1e-8 * chi_tv;
 }
 
 void RTM_Destroy(rtm_t* r)

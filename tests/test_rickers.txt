@@ -1,6 +1,7 @@
 #include "internal.h"
-#include "moving_rickers.h"
 #include "plot.h"
+
+#include "moving_rickers.h"
 
 int main()
 {
@@ -12,37 +13,47 @@ int main()
   float fmax = 10.0f;
   float dt = 1e-3f;
 
+  float phase_reference = (nt * dt) * 0.5f;
+  //float phase_reference = 2.0f;
+
   float t0 = 1.5f;
 
   #if 0
-  float* ricker1 = get_ricker(nt, fmax, dt, 0.6f);
-  float* ricker2 = get_ricker(nt, fmax, dt, 0.2f);
+    float* ricker1 = get_ricker(nt, fmax, dt, 2.0f);
+    float* ricker2 = get_ricker(nt, fmax, dt, 8.0f);
 
-  float* ricker = (float*)malloc(nt * sizeof(float));
-  for(int t = 0; t < nt; t++) 
-    ricker[t] = ricker1[t] + ricker2[t];
+    float* ricker = (float*)malloc(nt * sizeof(float));
+    for(int t = 0; t < nt; t++) 
+      ricker[t] = ricker1[t] + ricker2[t];
 
+    float* cross = moving_rickers_cross_multi_arrival(ricker, nt, result_size, fmax, dt, t0, phase_reference);
+    float* l1 = moving_rickers_l1_multi_arrival(ricker, nt, result_size, fmax, dt, phase_reference);
+    float* l2 = moving_rickers_l2_multi_arrival(ricker, nt, result_size, fmax, dt, phase_reference);
+    float* luo = moving_rickers_luo_multi_arrival(ricker, nt, result_size, fmax, dt, t0, phase_reference);
+    float* awi = moving_rickers_awi_multi_arrival(ricker, nt, result_size, fmax, dt, t0, phase_reference);
   #else
- 
-  float* ricker = get_ricker(nt, fmax, dt, (nt * dt) * 0.5f);
+    float* ricker = get_ricker(nt, fmax, dt, phase_reference);
 
+    float* cross = moving_rickers_cross(ricker, nt, result_size, fmax, dt, t0, phase_reference);
+    float* l1 = moving_rickers_l1(ricker, nt, result_size, fmax, dt, phase_reference);
+    float* l2 = moving_rickers_l2(ricker, nt, result_size, fmax, dt, phase_reference);
+    float* luo = moving_rickers_luo(ricker, nt, result_size, fmax, dt, t0, phase_reference);
+    float* awi = moving_rickers_awi(ricker, nt, result_size, fmax, dt, t0, phase_reference);
   #endif
 
-  float* cross = moving_rickers_cross(ricker, nt, result_size, fmax, dt, t0);
-  float* l1 = moving_rickers_l1(ricker, nt, result_size, fmax, dt);
-  float* l2 = moving_rickers_l2(ricker, nt, result_size, fmax, dt);
-  float* decon = moving_rickers_decon(ricker, nt, result_size, fmax, dt, t0);
-
-  plot1d(decon, result_size);
+  plot_objective_functions_1d(l2, l1, cross, luo, awi, result_size, t0, nt, fmax, phase_reference);
 
   free(ricker);
   free(cross);
   free(l1);
   free(l2);
-  free(decon);
+  free(luo);
+  free(awi);
 
   PROFILE_END();
 }
+
+
 
 
 
