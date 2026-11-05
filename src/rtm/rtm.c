@@ -30,8 +30,8 @@ rtm_t* RTM_Init(rtm_t* r, propagation_t* p)
 
   r->nsnaps = (int)(p->nt / r->snap_ratio) + 1;
 
-  r->num = allocf(size);
-  r->dem = allocf(size);
+  r->num = callocf(size);
+  r->dem = callocf(size);
 
   r->snaps = callocf(size * r->nsnaps);
 
@@ -58,6 +58,7 @@ static void RTM_ResetFields(rtm_t* r)
   memset(a->upas, 0, size * sizeof(float));
   memset(a->upre, 0, size * sizeof(float));
 
+  memset(r->num, 0, size * sizeof(float));
   //memset(r->dem, 0, size * sizeof(float));
 
   //memset(r->adjoint_source, 0, (size_t)s->nt * s->nrec * sizeof(float));
@@ -573,7 +574,7 @@ void RTM_Decon_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int isho
       double w1 = w[idx];
       double P1 = P[itau];
 
-      pw += P1 * P1 * w1;
+      pw += P1 * P1 * w1 * w1;
       //test[idx] = P1 * P1 * w1 * w1;
       wtw += w1 * w1;
     }
