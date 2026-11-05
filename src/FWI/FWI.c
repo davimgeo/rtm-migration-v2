@@ -210,6 +210,7 @@ float* FWI_GetGradient(fwi_t* f, float* vp)
       //if (i < 20)
        // nabla_chi[idx_nabla] = 0.0f;
       //else
+      // removed the - just for the test
       nabla_chi[idx_nabla] = -f->rtm->image[idx_in];
     }
   }

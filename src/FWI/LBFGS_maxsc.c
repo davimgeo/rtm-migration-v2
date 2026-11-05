@@ -116,7 +116,7 @@ double zoom(double a_lo, double a_hi, fwi_t* f, double phi_0, double gTp_0, doub
     double armijo = phi_0 + C1 * a_j * gTp_0;
     double wolfe = C2 * gTp_0;
 
-    if (phi_a_j > armijo || (phi_a_j >= phi_lo))
+    if (phi_a_j < armijo || (phi_a_j <= phi_lo))
     {
       a_hi = a_j;
       printf("\nZoom Iteration: %d | Alpha: %.15e\n", j, a_j);
@@ -126,10 +126,10 @@ double zoom(double a_lo, double a_hi, fwi_t* f, double phi_0, double gTp_0, doub
       printf("+-------------------------------------------------------------------------+\n");
       printf("| %-12s | %23.15e | %23.15e | %-6s |\n",
              "Zoom Armijo", phi_a_j, armijo,
-             phi_a_j <= armijo ? "PASS" : "FAIL");
+             phi_a_j >= armijo ? "PASS" : "FAIL");
       printf("| %-12s | %23.15e | %23.15e | %-6s |\n",
              "Greater", phi_a_j, phi_lo,
-             phi_a_j <= phi_lo ? "PASS" : "FAIL");
+             phi_a_j >= phi_lo ? "PASS" : "FAIL");
     }
     else
     {
@@ -146,7 +146,7 @@ double zoom(double a_lo, double a_hi, fwi_t* f, double phi_0, double gTp_0, doub
         return a_j;
       }
 
-      if (phi_derivative_aj * (a_hi - a_lo) >= 0.0)
+      if (phi_derivative_aj * (a_hi - a_lo) <= 0.0)
         a_hi = a_lo;
 
       a_lo = a_j;
@@ -209,9 +209,9 @@ double FWI_LineSearchV3(fwi_t* f, double phi_0, double gTp_0, int k)
            "Condition", "Left Side", "Right Side", "Result");
     printf("+-------------------------------------------------------------------------+\n");
     printf("| %-12s | %23.15e | %23.15e | %-6s |\n",
-           "Armijo", phi_ai, armijo, phi_ai <= armijo ? "PASS" : "FAIL");
+           "Armijo", phi_ai, armijo, phi_ai >= armijo ? "PASS" : "FAIL");
 
-    if (phi_ai > armijo || (phi_ai >= phi_past && i > 0))
+    if (phi_ai < armijo || (phi_ai <= phi_past && i > 0))
     {
       printf("| %-12s | %23s | %23s | %-6s |\n",
              "Strong Wolfe", "-", "-", "SKIP");
@@ -239,7 +239,7 @@ double FWI_LineSearchV3(fwi_t* f, double phi_0, double gTp_0, int k)
       return a_current;
     }
 
-    if (phi_ai_derivative >= 0.0)
+    if (phi_ai_derivative <= 0.0)
     {
       printf("Action: ZOOM\n");
       printf("Interval: [%.15e, %.15e]\n", a_current, a_past);
@@ -433,16 +433,16 @@ void FWI_GetDirection_LBFGS(fwi_t* f, float gamma, float* gradient, int k)
     const float grad_scale = FWI_GradientScale(q, n_size);
 
     //float* q_cost = FWI_GradientIllumination(f, q);
-    //float* q_cost2 = FWI_GaussianSmooth(f, q);
+    float* q_cost2 = FWI_GaussianSmooth(f, q);
 
     for (size_t i = 0; i < n_size; ++i)
       //f->direction[i] = gradient[i] / grad_scale;
       //maximizing
-      f->direction[i] = q[i] / grad_scale;
+      f->direction[i] = q_cost2[i] / grad_scale;
 
     //write2d("smooth_illum.bin", q_cost, sizeof(float), n->nz, n->nx);
 
-    //free(q_cost);
+    free(q_cost2);
   }
   else
   {
@@ -470,14 +470,14 @@ void FWI_GetDirection_LBFGS(fwi_t* f, float gamma, float* gradient, int k)
     }
 
     //float* q_cost = FWI_GradientIllumination(f, q);
-    //float* q_cost2 = FWI_GaussianSmooth(f, q);
+    float* q_cost2 = FWI_GaussianSmooth(f, q);
 
     for (size_t j = 0; j < n_size; ++j)
-      r[j] = gamma * q[j];
+      r[j] = gamma * q_cost2[j];
 
     //write2d("smooth_illum.bin", q_cost, sizeof(float), n->nz, n->nx);
 
-    //free(q_cost);
+    free(q_cost2);
 
     for (int i = k - h; i < k; ++i)
     {
@@ -524,15 +524,13 @@ int FWI_UpdateCurvaturePair(fwi_t* f, int k)
   const size_t buffer_size = LBFGS_M * model_size;
   const size_t offset = (size_t)((k % LBFGS_M) * model_size);
 
-  double smax = 0.0;
-  double ymax = 0.0;
   double sy = 0.0;
   double yy = 0.0;
 
   for (size_t j = 0; j < model_size; ++j)
   {
     const float s = f->mk1[j] - f->m_current[j];
-    const float y = f->gradient_next[j] - f->gradient_current[j];
+    const float y = f->gradient_current[j] - f->gradient_next[j];
 
     if (!isfinite(s) || !isfinite(y))
     {
@@ -583,6 +581,8 @@ void FWI_Run_LBFGS(fwi_t* f)
     double phi_0 = r->chi_0;
 
     FWI_GetDirection_LBFGS(f, gamma, f->gradient_current, k);
+    plot2d(f->gradient_current, 101, 101);
+    plot2d(f->direction, 101, 101);
     double gTp_0 = FWI_GetGTP(f, f->gradient_current);
     printf("gTp_0: %.15e\n", gTp_0);
     if(!isfinite(gamma) || !isfinite(gTp_0) || gamma <= 0.0 || gTp_0 <= 0.0f)

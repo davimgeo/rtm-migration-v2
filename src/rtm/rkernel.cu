@@ -163,10 +163,10 @@ __global__ void accumulate_cross_correlation(
 }
 
 __global__ void image_condition(
-    float* __restrict__ image,
-    const float* __restrict__ num,
-    size_t size,
-    float snap_ratio
+  float* __restrict__ image,
+  const float* __restrict__ num,
+  size_t size,
+  float snap_ratio
 )
 {
   const size_t idx = (size_t)blockIdx.x * blockDim.x + threadIdx.x;

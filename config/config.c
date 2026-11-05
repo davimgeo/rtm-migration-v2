@@ -20,7 +20,7 @@ SpecsContext* Specs_Init(SpecsContext* specs)
     {
       .line_length = 100,
 
-      .src_depth = 10,
+      .src_depth = 8,
       .rec_depth = 2,
 
       .offset_rec = 1,
@@ -42,13 +42,13 @@ SpecsContext* Specs_Init(SpecsContext* specs)
     .seismogram =
     {
       .nt = 4001,
-      .dt = 3e-4f
+      .dt = 1e-3f
     },
 
     .propagation =
     {
       .nt = 4001,
-      .dt = 3e-4f,
+      .dt = 1e-3f,
       .dh = 10,
 
       .factor = 0.0015f
@@ -59,7 +59,7 @@ SpecsContext* Specs_Init(SpecsContext* specs)
       .objective_function_flag = "AWI",
       .dobs_path = "data/dobs",
       .export_path = "data/FWI/AWI_Test/",
-      .t0 = 0.60f,
+      .t0 = 0.20f,
     }
   };
 

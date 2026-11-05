@@ -22,8 +22,8 @@
 #define MAX_ITERATIONS 78
 #define MAX_LINE_SEARCH 10
 
-#define LOW 1.0f / (1500.0f * 1500.0f)
-#define HIGH 1.0f / (4500.0f * 4500.0f)
+#define LOW 1.0f / (1000.0f * 1000.0f)
+#define HIGH 1.0f / (2500.0f * 2500.0f)
 
 void project(fwi_t* f, double alpha)
 {

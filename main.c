@@ -41,6 +41,9 @@ int main()
       PROPAGATION_ACOUSTIC);
   //Propagation_Run(prop, PROPAGATION_SAVE_SEISMOGRAM);
 
+  //float* dobs = read2d("data/dobs/seismogram_10001x101_shot0.bin", seis->nt, seis->nrec);
+  //plot2d(dobs, seis->nt, seis->nrec);
+
   rtm_t* rtm = RTM_Init(rtm, prop);
   //RTMv2_Run(rtm, "data/FWI/dobs/dobs_12s_10hz_ng/", RTM_AWI_ADJOINT_SOURCE, specs->fwi.t0);
 
