@@ -42,8 +42,6 @@ double FWI_DeconObjf(fwi_t* f, const float* dcalc)
     const float* u_s = dcalc + (size_t)ishot * shot_size;
     float* u_o = read2d(path, s->nt, s->nrec);
 
-    //compare_diff(u_s, u_o, s->nt, s->nrec, "u_s", "u_o");
-
     if(ishot == 25)
     {
       char filename[256];
@@ -88,7 +86,7 @@ double FWI_DeconObjf(fwi_t* f, const float* dcalc)
 
   free(P);
 
-  return 0.5f * f_awi * (double)s->dt;
+  return f_awi;
 }
 
 double FWI_DeconLuoObjf(fwi_t* f, const float* dcalc)

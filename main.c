@@ -31,14 +31,6 @@ int main()
 
   seismogram_t* seis = Seismogram_Init(seis, &specs->seismogram, geom->nrec, 0);
 
-  //float* dobs = read2d("data/dobs/seismogram_4001x101_shot0.bin", seis->nt, seis->nrec);
-  //plot2d(dobs, seis->nt, seis->nrec);
-  
-  float* nabla_cpu = read2d("nabla_chi_141x681_cpu.bin", 101, 101);
-  float* nabla_gpu = read2d("nabla_chi_141x681_gpu.bin", 101, 101);
-
-  compare_diff(nabla_cpu, nabla_gpu, 101, 101, "cpu", "gpu");
-
   propagation_t* prop = Propagation_Init(
       prop,
       &specs->propagation,

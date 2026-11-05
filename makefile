@@ -6,6 +6,9 @@ AR          = ar
 CFLAGS      = -std=gnu11 -O3 -g -march=native -fopenmp -mavx2 -mfma
 CUDAFLAGS   = -Xcompiler -fopenmp --std=c++11 -O3
 
+CFLAGS += -ffp-contract=off
+CUDAFLAGS += --fmad=false
+
 INCLUDE     = -Iinclude -Isrc -Itests
 
 PYTHON_INCLUDE = $(shell python3-config --includes)

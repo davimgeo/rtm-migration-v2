@@ -529,9 +529,6 @@ int FWI_UpdateCurvaturePair(fwi_t* f, int k)
   double sy = 0.0;
   double yy = 0.0;
 
-  size_t nonzero_s = 0;
-  size_t nonzero_y = 0;
-
   for (size_t j = 0; j < model_size; ++j)
   {
     const float s = f->mk1[j] - f->m_current[j];
@@ -542,10 +539,6 @@ int FWI_UpdateCurvaturePair(fwi_t* f, int k)
       printf("Invalid curvature pair at k = %d, j = %zu\n", k, j);
       printf("\nLBFGS Curvature Pair - Iteration %d\n", k);
       printf("Slot : %d\n", k % LBFGS_M);
-      printf("Nonzero s : %zu / %zu\n", nonzero_s, model_size);
-      printf("Nonzero y : %zu / %zu\n", nonzero_y, model_size);
-      printf("max|s| : %.15e\n", smax);
-      printf("max|y| : %.15e\n", ymax);
       printf("sTy : %.15e\n", sy);
       printf("yTy : %.15e\n", yy);
 
@@ -554,9 +547,6 @@ int FWI_UpdateCurvaturePair(fwi_t* f, int k)
 
     f->s[offset + j] = s;
     f->y[offset + j] = y;
-
-    smax = fmax(smax, fabs((double)s));
-    ymax = fmax(ymax, fabs((double)y));
 
     sy += (double)s * y;
     yy += (double)y * y;
@@ -576,8 +566,7 @@ void FWI_Run_LBFGS(fwi_t* f)
   const size_t model_size = (size_t)m->nz * m->nx;
 
   float* gradient = FWI_GetGradient(f, f->vp_current);
-  write2d("nabla_chi_141x681_gpu.bin", gradient, sizeof(float), m->nz, m->nx);
-  //float* gradient = read2d("nabla_chi_141x681.bin", m->nz, m->nx);
+  //write2d("nabla_chi_141x681_cpu.bin", gradient, sizeof(float), m->nz, m->nx);
   memcpy(f->gradient_current, gradient, model_size * sizeof(float));
 
   printf("phi_0: %.15e\n", r->chi_0);
@@ -594,7 +583,6 @@ void FWI_Run_LBFGS(fwi_t* f)
     double phi_0 = r->chi_0;
 
     FWI_GetDirection_LBFGS(f, gamma, f->gradient_current, k);
-    //plot2d(f->direction, m->nz, m->nx);
     double gTp_0 = FWI_GetGTP(f, f->gradient_current);
     printf("gTp_0: %.15e\n", gTp_0);
     if(!isfinite(gamma) || !isfinite(gTp_0) || gamma <= 0.0 || gTp_0 <= 0.0f)

@@ -948,7 +948,10 @@ void RTMv2_Run(rtm_t* r, const char* DOBS_PATH, unsigned int flags, float t0)
     memset(r->adjoint_source, 0, (size_t)s->nt * s->nrec * sizeof(float));
   }
 
-  r->chi_0 *= 0.5f * (double)p->dt;
+    if (flags & RTM_L2_ADJOINT_SOURCE)
+      r->chi_0 *= 0.5f * (double)p->dt;
+
+  //r->chi_0 *= 0.5f * (double)p->dt;
 }
 
 void RTM_Destroy(rtm_t* r)

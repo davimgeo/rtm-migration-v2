@@ -59,7 +59,7 @@ SpecsContext* Specs_Init(SpecsContext* specs)
       .objective_function_flag = "AWI",
       .dobs_path = "data/dobs",
       .export_path = "data/FWI/AWI_Test/",
-      .t0 = 0.6f,
+      .t0 = 0.60f,
     }
   };
 

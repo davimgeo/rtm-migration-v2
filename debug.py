@@ -51,15 +51,15 @@ def plot_model_and_real(model, perc=99) -> None:
 
 def animate_iterations(
   iterations,
-  shot=42,
+  shot=25,
   reference_trace=90,
-  nt=12001,
-  nrec=341,
+  nt=4001,
+  nrec=101,
   dt=0.001,
-  nz=141,
-  nx=681,
+  nz=101,
+  nx=101,
   tmin=1000,
-  tmax=6500,
+  tmax=3000,
   receiver_spacing=50,
   interval=1000,
   save_path=None
@@ -72,7 +72,7 @@ def animate_iterations(
 
   dobs = load(
     DOBS_PATH +
-    f"seismogram_12001x341_shot{shot}.bin",
+    f"seismogram_4001x101_shot{shot}.bin",
     nt, nrec
   )
 
@@ -366,10 +366,10 @@ def plot_agc(
   return dobs_agc, dcalc_agc
 
 PATH = "data/FWI/AWI_Test/"
-DOBS_PATH = "data/FWI/dobs_12s_10hz_ng/"
+DOBS_PATH = "data/dobs/"
 
 MIN_ITERATION = 1
-MAX_ITERATION = 21
+MAX_ITERATION = 1
 
 #ani = animate_traces(
 #  iteration=1,

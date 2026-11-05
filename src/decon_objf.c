@@ -33,7 +33,7 @@ float get_epsilon(float complex* U_o, int size)
   return 1e-2f * max;
 }
 
-float* get_penaltyV3(int nt, float dt, float t0)
+float* get_penalty(int nt, float dt, float t0)
 {
   float* P = malloc(nt * sizeof(*P));
 
@@ -50,7 +50,7 @@ float* get_penaltyV3(int nt, float dt, float t0)
   return P;
 }
 
-float* get_penalty(int nt, float dt, float t0)
+float* get_penaltyV3(int nt, float dt, float t0)
 {
   float* P = malloc(nt * sizeof(*P));
 

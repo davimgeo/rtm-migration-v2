@@ -324,8 +324,6 @@ void awi_adjoint_source(
     std::free(C_u_o);
   }
 
-  (void)max_weighted; // preserved diagnostic from your CPU routine
-
   CUDA_CHECK(cudaMemcpy(d_adjoint_source, r->adjoint_source, seis_bytes, cudaMemcpyHostToDevice));
 
   std::free(adj_freq);
@@ -445,19 +443,9 @@ extern "C" void RTMv2_Run_GPU(rtm_t* r, const char* DOBS_PATH, unsigned int flag
 
       if (t % snap_ratio == 0) 
       {
-        if ((size_t)d_snap_id >= nsnaps) {
-          std::fprintf(stderr, "RTM GPU: snapshot overflow\n");
-          std::exit(EXIT_FAILURE);
-        }
-        CUDA_CHECK(cudaMemcpyAsync(d_snaps + (size_t)d_snap_id * size,
-                                   d_upre, wave_bytes, cudaMemcpyDeviceToDevice));
+        CUDA_CHECK(cudaMemcpyAsync(d_snaps + (size_t)d_snap_id * size, d_upre, wave_bytes, cudaMemcpyDeviceToDevice));
         ++d_snap_id;
       }
-    }
-
-    if ((size_t)d_snap_id != nsnaps) {
-      std::fprintf(stderr, "RTM GPU: wrong number of forward snapshots\n");
-      std::exit(EXIT_FAILURE);
     }
 
     CUDA_CHECK(cudaMemset(d_upas, 0, wave_bytes));
@@ -480,10 +468,6 @@ extern "C" void RTMv2_Run_GPU(rtm_t* r, const char* DOBS_PATH, unsigned int flag
 
       if (t % snap_ratio == 0) 
       {
-        if (d_snap_id <= 0) {
-          std::fprintf(stderr, "RTM GPU: snapshot underflow\n");
-          std::exit(EXIT_FAILURE);
-        }
         --d_snap_id;
 
         const float* src = d_snaps + (size_t)d_snap_id * size;
@@ -491,11 +475,6 @@ extern "C" void RTMv2_Run_GPU(rtm_t* r, const char* DOBS_PATH, unsigned int flag
         accumulate_cross_correlation<<<blocks, THREADS>>>(src, d_upre, d_num, d_dem, size);
         CUDA_CHECK(cudaGetLastError());
       }
-    }
-
-    if (d_snap_id != 0) {
-      std::fprintf(stderr, "RTM GPU: backward did not consume all snapshots\n");
-      std::exit(EXIT_FAILURE);
     }
 
     image_condition<<<blocks, THREADS>>>(d_image, d_num, size, (float)snap_ratio);
@@ -510,7 +489,7 @@ extern "C" void RTMv2_Run_GPU(rtm_t* r, const char* DOBS_PATH, unsigned int flag
   CUDA_CHECK(cudaMemcpy(r->image, d_image, wave_bytes, cudaMemcpyDeviceToHost));
   CUDA_CHECK(cudaMemcpy(r->dem, d_dem, wave_bytes, cudaMemcpyDeviceToHost));
 
-  r->chi_0 *= 0.5 * (double)p->dt;
+  //r->chi_0 *= 0.5 * (double)p->dt;
 
   CUDA_CHECK(cudaFree(d_upas));
   CUDA_CHECK(cudaFree(d_upre));
