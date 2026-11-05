@@ -171,7 +171,7 @@ __global__ void image_condition(
 {
   const size_t idx = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
 
-  if (idx < size) image[idx] += snap_ratio * num[idx];
+  if (idx < size) image[idx] += 169.0f * snap_ratio * num[idx];
 }
 
 __global__ void get_seismogram(

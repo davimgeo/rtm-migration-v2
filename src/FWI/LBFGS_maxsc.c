@@ -21,27 +21,64 @@
 #define MAX_ITERATIONS 200
 #define MAX_LINE_SEARCH 20
 
-#define LOW 1.0f / (1000.0f * 1000.0f)
-#define HIGH 1.0f / (2500.0f * 2500.0f)
+#define M_MIN (1.0f / (2500.0f * 2500.0f))
+#define M_MAX (1.0f / (1000.0f * 1000.0f))
 
 void project(fwi_t* f, double alpha)
 {
-  propagation_t* p = f->rtm->p;
-  model_t* n = p->model;
+  model_t* n = f->rtm->p->model;
 
   const size_t model_size = (size_t)n->nz * n->nx;
 
-  double threshold = 1e-10;
-
   for (size_t i = 0; i < model_size; ++i)
   {
-    float v = f->m_current[i] + alpha * f->direction[i];
+    double m = (double)f->m_current[i] + alpha * (double)f->direction[i];
 
-    if (v > LOW)
-      f->mk1[i] = LOW - threshold;
-    else if (v < HIGH)
-      f->mk1[i] = HIGH + threshold;
+    if (m < M_MIN)
+        m = M_MIN;
+    else if (m > M_MAX)
+        m = M_MAX;
+
+    f->mk1[i] = (float)m;
   }
+}
+
+double FWI_GetProjectedGTP(
+    fwi_t* f,
+    const float* gradient,
+    double alpha
+)
+{
+    model_t* n = f->rtm->p->model;
+
+    const size_t model_size = (size_t)n->nz * n->nx;
+
+    double gTp = 0.0;
+
+    for (size_t i = 0; i < model_size; ++i)
+    {
+        const double p = (double)f->direction[i];
+
+        const double m_trial =
+            (double)f->m_current[i] + alpha * p;
+
+        // Outside the feasible interval:
+        // projection is locally constant.
+        if (m_trial < (double)M_MIN ||
+            m_trial > (double)M_MAX)
+            continue;
+
+        // At a bound, an outward direction is blocked.
+        if (m_trial <= (double)M_MIN && p < 0.0)
+            continue;
+
+        if (m_trial >= (double)M_MAX && p > 0.0)
+            continue;
+
+        gTp += (double)gradient[i] * p;
+    }
+
+    return gTp;
 }
 
 double FWI_GetPhi_LBFGS(fwi_t* f, double alpha)
@@ -93,7 +130,25 @@ double FWI_GetPhiDerivative_LBFGS(fwi_t* f, double alpha)
   // saves gK(mK + ak*pk) -> gK K+1
   memcpy(f->gradient_next, gradient, model_size * sizeof(float));
 
-  const double phi_derivative = FWI_GetGTP(f, gradient);
+  //const double phi_derivative = FWI_GetGTP(f, gradient);
+
+  double phi_derivative = 0.0;
+
+  const double m_min = 1.0 / (2500.0 * 2500.0);
+  const double m_max = 1.0 / (1000.0 * 1000.0);
+
+  for (size_t i = 0; i < model_size; ++i)
+  {
+      const double m_trial =
+          (double)f->m_current[i]
+          + alpha * (double)f->direction[i];
+
+      if (m_trial > m_min && m_trial < m_max)
+      {
+          phi_derivative +=
+              (double)gradient[i] * f->direction[i];
+      }
+  }
 
   free(gradient);
 
@@ -432,52 +487,54 @@ void FWI_GetDirection_LBFGS(fwi_t* f, float gamma, float* gradient, int k)
   {
     const float grad_scale = FWI_GradientScale(q, n_size);
 
-    //float* q_cost = FWI_GradientIllumination(f, q);
-    float* q_cost2 = FWI_GaussianSmooth(f, q);
+    float* q_cost = FWI_GradientIllumination(f, q);
+    //float* q_cost2 = FWI_GaussianSmooth(f, q);
 
     for (size_t i = 0; i < n_size; ++i)
       //f->direction[i] = gradient[i] / grad_scale;
       //maximizing
-      f->direction[i] = q_cost2[i] / grad_scale;
+      f->direction[i] = q_cost[i] / grad_scale;
 
-    //write2d("smooth_illum.bin", q_cost, sizeof(float), n->nz, n->nx);
-
-    free(q_cost2);
+    free(q_cost);
   }
   else
   {
     for (int i = k - 1; i >= k - h; i--)
     {
-      double yTs = 0.0;
-      double yTq = 0.0;
+        double yTs = 0.0;
+        double sTq = 0.0;
 
-      int offset = (i % LBFGS_M) * n_size;
+        const size_t offset = (size_t)(i % LBFGS_M) * n_size;
 
-      for (int j = 0; j < n_size; ++j)
-      {
-        int idx = offset + j;
+        for (size_t j = 0; j < n_size; ++j)
+        {
+          const size_t idx = offset + j;
 
-        yTs += (double)f->y[idx] * f->s[idx];
-        yTq += (double)f->y[idx] * q[j];
-      }
+          yTs += (double)f->y[idx] * f->s[idx];
+          sTq += (double)f->s[idx] * q[j];
+        }
 
-      int slot = i % LBFGS_M;
+        const int slot = i % LBFGS_M;
 
-      alpha[slot] = yTq / yTs;
+        if (!isfinite(yTs) || yTs <= 0.0)
+        {
+          fprintf(stderr, "Invalid L-BFGS curvature at k=%d\n", k);
+          abort();
+        }
 
-      for (int j = 0; j < n_size; ++j)
-        q[j] -= alpha[slot] * f->y[offset + j];
+        alpha[slot] = sTq / yTs;
+
+        for (size_t j = 0; j < n_size; ++j)
+            q[j] -= alpha[slot] * f->y[offset + j];
     }
 
-    //float* q_cost = FWI_GradientIllumination(f, q);
-    float* q_cost2 = FWI_GaussianSmooth(f, q);
+    float* q_cost = FWI_GradientIllumination(f, q);
+    //float* q_cost2 = FWI_GaussianSmooth(f, q);
 
     for (size_t j = 0; j < n_size; ++j)
-      r[j] = gamma * q_cost2[j];
+      r[j] = gamma * q_cost[j];
 
-    //write2d("smooth_illum.bin", q_cost, sizeof(float), n->nz, n->nx);
-
-    free(q_cost2);
+    free(q_cost);
 
     for (int i = k - h; i < k; ++i)
     {
@@ -553,6 +610,33 @@ int FWI_UpdateCurvaturePair(fwi_t* f, int k)
   return 0;
 }
 
+double FWI_GetAlphaLimit(fwi_t* f, double max_relative_change)
+{
+    model_t* n = f->rtm->p->model;
+
+    const size_t model_size = (size_t)n->nz * n->nx;
+
+    double alpha_max = INFINITY;
+
+    for (size_t i = 0; i < model_size; ++i)
+    {
+        const double m = (double)f->m_current[i];
+        const double p = fabs((double)f->direction[i]);
+
+        if (!isfinite(m) || m <= 0.0 || !isfinite(p))
+            return 0.0;
+
+        if (p > 0.0)
+        {
+            const double limit = max_relative_change * m / p;
+
+            if (limit < alpha_max)
+                alpha_max = limit;
+        }
+    }
+
+    return alpha_max;
+}
 void FWI_Run_LBFGS(fwi_t* f)
 {
   printf("\nStarting LBFGS Maximization Seiscope!\n\n");
@@ -570,42 +654,46 @@ void FWI_Run_LBFGS(fwi_t* f)
   printf("phi_0: %.15e\n", r->chi_0);
 
   for(int k = 0; k < MAX_ITERATIONS; k++)
-  {
-    f->FWI_ITERATION = k;
-
-    printf("LBFGS iteration: %d\n", k);
-
-    double gamma = FWI_GetInitialHessianScalar(f, k);
-    printf("gamma: %.15e\n", gamma);
-
-    double phi_0 = r->chi_0;
-
-    FWI_GetDirection_LBFGS(f, gamma, f->gradient_current, k);
-    plot2d(f->gradient_current, 101, 101);
-    plot2d(f->direction, 101, 101);
-    double gTp_0 = FWI_GetGTP(f, f->gradient_current);
-    printf("gTp_0: %.15e\n", gTp_0);
-    if(!isfinite(gamma) || !isfinite(gTp_0) || gamma <= 0.0 || gTp_0 <= 0.0f)
     {
-      printf("ERROR: Invalid LBFGS direction\n");
-      break;
-    }
+      f->FWI_ITERATION = k;
 
-    if(k == 1) f->a_present = 1.0f;
-    f->a_present = FWI_LineSearchV3(f, phi_0, gTp_0, k);
-    if(f->a_present < 0)
-    {
-      printf("Line Search Failed\n");
-      break;
-    }
-    printf("alpha: %.15e\n", f->a_present);
+      printf("LBFGS iteration: %d\n", k);
 
-    FWI_UpdateCurvaturePair(f, k);
+      double gamma = FWI_GetInitialHessianScalar(f, k);
+      printf("gamma: %.15e\n", gamma);
 
-    FWI_UpdateModel(f);
-    FWI_SaveCurrent(f, k);
+      double phi_0 = r->chi_0;
 
-    SWAP(f->gradient_current, f->gradient_next, float*);
+      FWI_GetDirection_LBFGS(f, gamma, f->gradient_current, k);
+      //double gTp_0 = FWI_GetGTP(f, f->gradient_current);
+      double gTp_0 = FWI_GetProjectedGTP(f, f->gradient_current, 0.0);
+      printf("gTp_0: %.15e\n", gTp_0);
+      if(!isfinite(gamma) || !isfinite(gTp_0) || gamma <= 0.0 || gTp_0 <= 0.0f)
+      {
+        printf("ERROR: Invalid LBFGS direction\n");
+        break;
+      }
+
+      //if(k == 1) f->a_present = 1.0f;
+      const double alpha_limit = FWI_GetAlphaLimit(f, 0.10);
+      const double alpha_initial = (k == 0) ? f->a_present : 1.0;
+
+      f->a_present = fmin(alpha_initial, alpha_limit);
+
+      f->a_present = FWI_LineSearchV3(f, phi_0, gTp_0, k);
+      if(f->a_present < 0)
+      {
+        printf("Line Search Failed\n");
+        break;
+      }
+      printf("alpha: %.15e\n", f->a_present);
+
+      FWI_UpdateCurvaturePair(f, k);
+
+      FWI_UpdateModel(f);
+      FWI_SaveCurrent(f, k);
+
+      SWAP(f->gradient_current, f->gradient_next, float*);
   }
   free(gradient);
 }

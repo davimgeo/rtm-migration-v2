@@ -2,7 +2,7 @@
 
 #include "geometry.h"
 
-#define BUFFER_SIZE 256
+#define BUFFER_SIZE 2048
 #define DATA_COL 3
 
 geometry_t* Geometry_InitLoad(geometry_t* g)
@@ -11,6 +11,12 @@ geometry_t* Geometry_InitLoad(geometry_t* g)
 
   g->nsrc = 0;
   g->nrec = 0;
+
+  g->rec.x = allocf(BUFFER_SIZE);
+  g->rec.z = allocf(BUFFER_SIZE);
+
+  g->src.x = allocf(BUFFER_SIZE);
+  g->src.z = allocf(BUFFER_SIZE);
 
   return g;
 }
@@ -65,13 +71,11 @@ static void read_receivers(geometry_t* geom, const char* PATH)
 
   read_file_separed_by_comma(fptr, size, result);
 
-  geom->rec.x = allocf(geom->nrec);
-  geom->rec.z = allocf(geom->nrec);
 
   for (int i = 0; i < geom->nrec; i++)
   {
-    geom->rec.x[i] = result[i * DATA_COL + 1] / 25.0f;
-    geom->rec.z[i] = result[i * DATA_COL + 2] / 25.0f;
+    geom->rec.x[i] = result[i * DATA_COL + 1] / 10.0f;
+    geom->rec.z[i] = result[i * DATA_COL + 2] / 10.0f;
   }
 
   free(result);
@@ -99,13 +103,10 @@ static void read_sources(geometry_t* geom, const char* PATH)
 
   read_file_separed_by_comma(fptr, size, result);
 
-  geom->src.x = allocf(geom->nsrc);
-  geom->src.z = allocf(geom->nsrc);
-
   for (int i = 0; i < geom->nsrc; i++)
   {
-    geom->src.x[i] = result[i * DATA_COL + 1] / 25.0f;
-    geom->src.z[i] = result[i * DATA_COL + 2] / 25.0f;
+    geom->src.x[i] = result[i * DATA_COL + 1] / 10.0f;
+    geom->src.z[i] = result[i * DATA_COL + 2] / 10.0f;
   }
 
   free(result);
@@ -116,9 +117,17 @@ static void read_sources(geometry_t* geom, const char* PATH)
 void Geometry_Load(
   geometry_t* geom, 
   const char* REC_PATH, 
-  const char* SRC_PATH
+  const char* SRC_PATH,
+  unsigned int flags
 )
 {
-  read_receivers(geom, REC_PATH);
-  read_sources(geom, SRC_PATH);
+  if(flags & GEOMETRY_ONLY_RECEIVERS)
+  {
+    read_receivers(geom, REC_PATH);
+  }
+  else
+  {
+    read_receivers(geom, REC_PATH);
+    read_sources(geom, SRC_PATH);
+  }
 }

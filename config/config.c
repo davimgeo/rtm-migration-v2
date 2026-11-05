@@ -20,10 +20,10 @@ SpecsContext* Specs_Init(SpecsContext* specs)
     {
       .line_length = 100,
 
-      .src_depth = 8,
-      .rec_depth = 2,
+      .src_depth = 2,
+      .rec_depth = 1,
 
-      .offset_rec = 1,
+      .offset_rec = 2,
       .offset_src = 2
     },
 

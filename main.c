@@ -17,8 +17,8 @@ int main()
 
   SpecsContext* specs = Specs_Init(specs);
 
-  geometry_t* geom = Geometry_InitCreate(geom, &specs->geometry);
-  Geometry_Create(geom, 0);
+  geometry_t* geom = Geometry_InitLoad(geom);
+  Geometry_Load(geom, "data/receivers.txt", "data/sources.txt", 0);
 
   wavelet_t* wave = Wavelet_Init(wave, &specs->wavelet);
   Wavelet_Create(wave);
@@ -41,7 +41,7 @@ int main()
       PROPAGATION_ACOUSTIC);
   //Propagation_Run(prop, PROPAGATION_SAVE_SEISMOGRAM);
 
-  //float* dobs = read2d("data/dobs/seismogram_10001x101_shot0.bin", seis->nt, seis->nrec);
+  //float* dobs = read2d("data/dobs/seismogram_4001x101_shot0.bin", seis->nt, seis->nrec);
   //plot2d(dobs, seis->nt, seis->nrec);
 
   rtm_t* rtm = RTM_Init(rtm, prop);

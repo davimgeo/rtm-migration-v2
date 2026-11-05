@@ -51,7 +51,8 @@ geometry_t* Geometry_InitCreate(geometry_t* g, geometry_specs_t* specs);
 void Geometry_Load(
   geometry_t* geom, 
   const char* REC_PATH, 
-  const char* SRC_PATH
+  const char* SRC_PATH,
+  unsigned int flags
 );
 
 void Geometry_SetReceiver(geometry_t* geom, int rx, int rz);

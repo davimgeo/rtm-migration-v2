@@ -62,5 +62,6 @@ void FWI_GetVelocityFromSlowness(const float* slowness, float* velocity, int nz,
 float* FWI_GetGradient(fwi_t* f, float* vp);
 void FWI_Run(fwi_t* f);
 void FWI_Run_LBFGS(fwi_t* f);
+void FWI_Run_Parabolic(fwi_t* f);
 void FWI_RunV3(fwi_t* f);
 void FWI_Destroy(fwi_t* f);

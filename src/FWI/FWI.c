@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <math.h>
 
+#include "geometry.h"
 #include "internal.h"
 #include "model.h"
 #include "propagation.h"
@@ -210,8 +211,9 @@ float* FWI_GetGradient(fwi_t* f, float* vp)
       //if (i < 20)
        // nabla_chi[idx_nabla] = 0.0f;
       //else
+
       // removed the - just for the test
-      nabla_chi[idx_nabla] = -f->rtm->image[idx_in];
+      nabla_chi[idx_nabla] = f->rtm->image[idx_in];
     }
   }
 
@@ -266,13 +268,27 @@ float* FWI_GetDcalc(fwi_t* f, float* vp)
 
   for (int ishot = 0; ishot < base_geom->nsrc; ++ishot)
   {
-    geometry_t* geom = Geometry_InitCreate(NULL, &geometry_specs);
-    Geometry_Create(geom, GEOMETRY_ONLY_RECEIVERS);
+    //geometry_t* geom = Geometry_InitCreate(NULL, &geometry_specs);
+    //Geometry_Create(geom, GEOMETRY_ONLY_RECEIVERS);
+
+    geometry_t* geom = Geometry_InitLoad(geom);
+    Geometry_Load(
+      geom, 
+      "data/receivers.txt",
+      "data/sources.txt",
+      GEOMETRY_ONLY_RECEIVERS
+    );
+
+    //Geometry_SetSource(
+    //  geom,
+    //  ishot * geometry_specs.offset_src,
+    //  geometry_specs.src_depth
+    //);
 
     Geometry_SetSource(
       geom,
-      ishot * geometry_specs.offset_src,
-      geometry_specs.src_depth
+      2,
+      2.5 * ishot
     );
 
     seismogram_t* seis = Seismogram_Init(NULL, &seismogram_specs, geom->nrec, 0);
