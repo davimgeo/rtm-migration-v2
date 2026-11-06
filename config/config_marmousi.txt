@@ -12,57 +12,58 @@ SpecsContext* Specs_Init(SpecsContext* specs)
     {
       .dt = 1e-3f,
       .fmax = 10.0f,
-      .nt = 4001,
-      .tlag = 0.36f,
+      .nt = 12001,
+      .tlag = 0.30f,
     },
 
     .geometry =
     {
-      .line_length = 100,
+      .line_length = 681,
 
-      .src_depth = 2,
-      .rec_depth = 1,
+      .src_depth = 8,
+      .rec_depth = 2,
 
       .offset_rec = 2,
-      .offset_src = 2
+      .offset_src = 16
     },
 
     .model =
     {
-      .nx = 101,
-      .nz = 101,
+      .nx = 681,
+      .nz = 141,
       .nb = 100,
 
-      .interfaces_size = 0,
+      .interfaces_size = 1,
 
-      .interfaces = {},
-      .values = {1300.0f}
+      .interfaces = {50},
+      .values = {1500.0f, 2000.0f}
     },
 
     .seismogram =
     {
-      .nt = 4001,
+      .nt = 12001,
       .dt = 1e-3f
     },
 
     .propagation =
     {
-      .nt = 4001,
+      .nt = 12001,
       .dt = 1e-3f,
-      .dh = 10,
+      .dh = 25,
 
       .factor = 0.0015f
     },
 
     .fwi = 
     {
-      .objective_function_flag = "AWI",
-      .dobs_path = "data/dobs",
+      .objective_function_flag = "L2",
+      .dobs_path = "data/FWI/dobs_12s_10hz_ng",
       .export_path = "data/FWI/AWI_Test/",
-      .t0 = 0.20f,
+      .t0 = 0.6f,
     }
   };
 
   return specs;
 }
+
 

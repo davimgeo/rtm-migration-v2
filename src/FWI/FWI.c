@@ -261,14 +261,18 @@ float* FWI_GetDcalc(fwi_t* f, float* vp)
 
   for (int ishot = 0; ishot < base_geom->nsrc; ishot++)
   {
-    geometry_t* geom = Geometry_InitCreate(NULL, &geometry_specs);
-    Geometry_Create(geom, GEOMETRY_ONLY_RECEIVERS);
+    //geometry_t* geom = Geometry_InitCreate(NULL, &geometry_specs);
+    //Geometry_Create(geom, GEOMETRY_ONLY_RECEIVERS);
 
-    Geometry_SetSource(
-      geom,
-      ishot * geometry_specs.offset_src,
-      geometry_specs.src_depth
-    );
+    //Geometry_SetSource(
+    //  geom,
+    //  ishot * geometry_specs.offset_src,
+    //  geometry_specs.src_depth
+    //);
+    
+    geometry_t* geom = Geometry_InitLoad(geom);
+    Geometry_Load(geom, "data/receivers.txt", "data/sources.txt", GEOMETRY_ONLY_RECEIVERS);
+    Geometry_SetSource(geom, 2.0f, 2.5f * ishot);
 
     seismogram_t* seis = Seismogram_Init(NULL, &seismogram_specs, geom->nrec, 0);
 
@@ -490,7 +494,7 @@ void FWI_Run_Zoom(fwi_t* f)
   const size_t model_size = (size_t)m->nz * m->nx;
 
   float* gradient = FWI_GetGradient(f, f->vp_current);
-  write2d("nabla_chi_141x681.bin", gradient, sizeof(float), m->nz, m->nx);
+  //write2d("nabla_chi_141x681.bin", gradient, sizeof(float), m->nz, m->nx);
   //float* gradient = read2d("nabla_chi_141x681.bin", m->nz, m->nx);
   memcpy(f->gradient_current, gradient, model_size * sizeof(float));
 

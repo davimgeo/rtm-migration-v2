@@ -19,7 +19,7 @@ void Propagation_InitAcoustic(propagation_t* p)
   float dt2 = p->dt * p->dt;
   float* vp = p->model->vp;
 
-  for (size_t idx = 0; idx < p->shape; ++idx)
+  for (int idx = 0; idx < p->shape; ++idx)
   {
     a->vel_arg[idx] = dt2 * vp[idx] * vp[idx];
     a->vel_arg_homo[idx] = dt2 * vp[0] * vp[0];
