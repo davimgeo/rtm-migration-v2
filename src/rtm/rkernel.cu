@@ -303,7 +303,7 @@ void awi_adjoint_source(
 
     float _Complex* fft_u_o = get_fft_1d(trace_o, s->nt);
     float _Complex* C_u_o = conjugate1d(fft_u_o, s->nt);
-    const float eps = get_epsilon(fft_u_o, s->nt);
+    const float eps = get_epsilon(C_u_o, fft_u_o, s->nt);
 
     for (int iw = 0; iw < s->nt; ++iw)
     {
@@ -404,6 +404,7 @@ void l2_adjoint_source(
 
   double result = 0.0f;
 
+  #pragma omp parallel for reduction(+:result) schedule(static)
   for (int t = 0; t < s->nt; ++t)
   {
     for (int irec = 0; irec < s->nrec; ++irec)

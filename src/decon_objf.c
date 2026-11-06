@@ -9,7 +9,7 @@
 
 static int initialized = 0;
 
-float get_epsilonV2(float complex*arr1, float complex*arr2, int size)
+float get_epsilon(float complex*arr1, float complex*arr2, int size)
 {
   float max = 0.0f;
   for(int i = 0; i < size; i++)
@@ -20,7 +20,7 @@ float get_epsilonV2(float complex*arr1, float complex*arr2, int size)
   return 0.10f * max;
 }
 
-float get_epsilon(float complex* U_o, int size)
+float get_epsilonV2(float complex* U_o, int size)
 {
   float max = 0.0f;
   for(int i = 0; i < size; i++)
@@ -93,7 +93,7 @@ float* get_d_1d(float* dcalc, float* dobs, float dt, int nt)
 
   float complex* d = malloc((size_t)nt * sizeof(float complex));
 
-  float epsilon = get_epsilon(fft_u_o, nt);
+  float epsilon = get_epsilon(C_u_o, fft_u_o, nt);
 
   for (int iw = 0; iw < nt; ++iw)
   {

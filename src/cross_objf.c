@@ -7,7 +7,7 @@
 
 static int initialized = 0;
 
-float* get_penalty_cross(int nt, float dt, float t0)
+float* get_penaltyGaussian(int nt, float dt, float t0)
 {
   float* P = malloc(nt * sizeof(*P));
 
@@ -18,13 +18,13 @@ float* get_penalty_cross(int nt, float dt, float t0)
 
     int j = (i + nt - nt / 2) % nt;
 
-    P[j] = expf(-(tau/t0)*(tau/t0));
+    P[j] = expf((-tau/t0)*(tau/t0));
   }
 
   return P;
 }
 
-static float* get_penaltyV2(float tau0, int nt, float dt)
+static float* get_penalty(float tau0, int nt, float dt)
 {
   float* P = malloc(nt * sizeof(*P));
 
@@ -39,6 +39,7 @@ static float* get_penaltyV2(float tau0, int nt, float dt)
 
   return P;
 }
+
 
 float* get_c_1d(const float* u_s, const float* u_o, int nt)
 {
@@ -57,7 +58,7 @@ float* get_c_1d(const float* u_s, const float* u_o, int nt)
     energy_o += crealf(U_o[iw] * conjf(U_o[iw]));
   }
 
-  //float denominator = sqrtf(energy_s * energy_o) / nt;
+  float denominator = sqrtf(energy_s * energy_o) / nt;
 
   //if (denominator > 0.0f)
   //  for (int iw = 0; iw < nt; ++iw)
@@ -73,14 +74,14 @@ float* get_c_1d(const float* u_s, const float* u_o, int nt)
 }
 
 float get_cross_1d(
-  const float* u_s,
-  const float* u_o,
-  float dt,
-  int nt,
-  float tau0
+    const float* u_s,
+    const float* u_o,
+    float dt,
+    int nt,
+    float tau0
 )
 {
-  float* P = get_penalty_cross(nt, dt, tau0);
+  float* P = get_penalty(tau0, nt, dt);
   float* c = get_c_1d(u_s, u_o, nt);
 
   float result = 0.0;
@@ -104,10 +105,10 @@ float get_cross_1d(
 }
 
 float* get_c_2d(
-  const float* u_s,
-  const float* u_o,
-  int nt,
-  int nrec
+    const float* u_s,
+    const float* u_o,
+    int nt,
+    int nrec
 )
 {
   float* c_2d = malloc(nt * nrec * sizeof(*c_2d));
@@ -144,15 +145,15 @@ float* get_c_2d(
 }
 
 float get_cross_2d(
-  const float* u_s,
-  const float* u_o,
-  float dt,
-  int nt,
-  int nrec,
-  float tau0
+    const float* u_s,
+    const float* u_o,
+    float dt,
+    int nt,
+    int nrec,
+    float tau0
 )
 {
-  float* P = get_penalty_cross(nt, dt, tau0);
+  float* P = get_penalty(tau0, nt, dt);
   float* c = get_c_2d(u_s, u_o, nt, nrec);
 
   float result = 0.0f;
@@ -174,3 +175,4 @@ float get_cross_2d(
 
   return 0.5f * result;
 }
+
