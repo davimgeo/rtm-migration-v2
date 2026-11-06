@@ -15,8 +15,8 @@
 
 //#include "plot.h"
 
-#define LOW 1.0f / (1000.0f * 1000.0f)
-#define HIGH 1.0f / (2500.0f * 2500.0f)
+#define LOW 1.0f / (1200.0f * 1200.0f)
+#define HIGH 1.0f / (5200.0f * 5200.0f)
 
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
@@ -170,7 +170,7 @@ static float FWI_GetInitialAlpha(const float* model, int nz, int nx)
       min = model[i];
   }
 
-  return 0.10f * (max);
+  return 0.10f * (max - min);
 }
 
 void FWI_SetModel(fwi_t* f, float* vp)
@@ -208,12 +208,11 @@ float* FWI_GetGradient(fwi_t* f, float* vp)
       size_t idx_in = (size_t)(i + n->nb) * n->nxx + (j + n->nb);
       size_t idx_nabla = (size_t)i * n->nx + j;
 
-      //if (i < 20)
-       // nabla_chi[idx_nabla] = 0.0f;
-      //else
-
+      if (i < 20)
+        nabla_chi[idx_nabla] = 0.0f;
+      else
       // removed the - just for the test
-      nabla_chi[idx_nabla] = f->rtm->image[idx_in];
+        nabla_chi[idx_nabla] = f->rtm->image[idx_in];
     }
   }
 
@@ -268,28 +267,27 @@ float* FWI_GetDcalc(fwi_t* f, float* vp)
 
   for (int ishot = 0; ishot < base_geom->nsrc; ++ishot)
   {
-    //geometry_t* geom = Geometry_InitCreate(NULL, &geometry_specs);
-    //Geometry_Create(geom, GEOMETRY_ONLY_RECEIVERS);
-
-    geometry_t* geom = Geometry_InitLoad(geom);
-    Geometry_Load(
-      geom, 
-      "data/receivers.txt",
-      "data/sources.txt",
-      GEOMETRY_ONLY_RECEIVERS
-    );
-
-    //Geometry_SetSource(
-    //  geom,
-    //  ishot * geometry_specs.offset_src,
-    //  geometry_specs.src_depth
-    //);
+    geometry_t* geom = Geometry_InitCreate(NULL, &geometry_specs);
+    Geometry_Create(geom, GEOMETRY_ONLY_RECEIVERS);
 
     Geometry_SetSource(
       geom,
-      2,
-      2.5 * ishot
+      ishot * geometry_specs.offset_src,
+      geometry_specs.src_depth
     );
+
+    //geometry_t* geom = Geometry_InitLoad(geom);
+    //Geometry_Load(
+    //  geom, 
+    //  "data/receivers.txt",
+    //  "data/sources.txt",
+    //  GEOMETRY_ONLY_RECEIVERS
+    //);
+    //Geometry_SetSource(
+    //  geom,
+    //  2,
+    //  2.5 * ishot
+    //);
 
     seismogram_t* seis = Seismogram_Init(NULL, &seismogram_specs, geom->nrec, 0);
 

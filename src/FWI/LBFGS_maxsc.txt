@@ -21,8 +21,9 @@
 #define MAX_ITERATIONS 200
 #define MAX_LINE_SEARCH 20
 
-#define M_MIN (1.0f / (2500.0f * 2500.0f))
-#define M_MAX (1.0f / (1000.0f * 1000.0f))
+#define M_MIN (1.0f / (5200.0f * 5200.0f))
+#define M_MAX (1.0f / (1200.0f * 1200.0f))
+
 
 void project(fwi_t* f, double alpha)
 {
@@ -30,56 +31,38 @@ void project(fwi_t* f, double alpha)
 
   const size_t model_size = (size_t)n->nz * n->nx;
 
+  size_t clipped_min = 0;
+  size_t clipped_max = 0;
+
   for (size_t i = 0; i < model_size; ++i)
   {
-    double m = (double)f->m_current[i] + alpha * (double)f->direction[i];
+    double m = (double)f->m_current[i]
+             + alpha * (double)f->direction[i];
 
     if (m < M_MIN)
-        m = M_MIN;
+    {
+      m = M_MIN;
+      clipped_min++;
+    }
     else if (m > M_MAX)
-        m = M_MAX;
+    {
+      m = M_MAX;
+      clipped_max++;
+    }
 
     f->mk1[i] = (float)m;
   }
+
+  const size_t total_clipped = clipped_min + clipped_max;
+
+  if(total_clipped > 0)
+  {
+    printf("Clipped at 5200 m/s: %zu\n", clipped_min);
+    printf("Clipped at 1200 m/s: %zu\n", clipped_max);
+  }
+
 }
 
-double FWI_GetProjectedGTP(
-    fwi_t* f,
-    const float* gradient,
-    double alpha
-)
-{
-    model_t* n = f->rtm->p->model;
-
-    const size_t model_size = (size_t)n->nz * n->nx;
-
-    double gTp = 0.0;
-
-    for (size_t i = 0; i < model_size; ++i)
-    {
-        const double p = (double)f->direction[i];
-
-        const double m_trial =
-            (double)f->m_current[i] + alpha * p;
-
-        // Outside the feasible interval:
-        // projection is locally constant.
-        if (m_trial < (double)M_MIN ||
-            m_trial > (double)M_MAX)
-            continue;
-
-        // At a bound, an outward direction is blocked.
-        if (m_trial <= (double)M_MIN && p < 0.0)
-            continue;
-
-        if (m_trial >= (double)M_MAX && p > 0.0)
-            continue;
-
-        gTp += (double)gradient[i] * p;
-    }
-
-    return gTp;
-}
 
 double FWI_GetPhi_LBFGS(fwi_t* f, double alpha)
 {
@@ -130,25 +113,7 @@ double FWI_GetPhiDerivative_LBFGS(fwi_t* f, double alpha)
   // saves gK(mK + ak*pk) -> gK K+1
   memcpy(f->gradient_next, gradient, model_size * sizeof(float));
 
-  //const double phi_derivative = FWI_GetGTP(f, gradient);
-
-  double phi_derivative = 0.0;
-
-  const double m_min = 1.0 / (2500.0 * 2500.0);
-  const double m_max = 1.0 / (1000.0 * 1000.0);
-
-  for (size_t i = 0; i < model_size; ++i)
-  {
-      const double m_trial =
-          (double)f->m_current[i]
-          + alpha * (double)f->direction[i];
-
-      if (m_trial > m_min && m_trial < m_max)
-      {
-          phi_derivative +=
-              (double)gradient[i] * f->direction[i];
-      }
-  }
+  const double phi_derivative = FWI_GetGTP(f, gradient);
 
   free(gradient);
 
@@ -487,15 +452,15 @@ void FWI_GetDirection_LBFGS(fwi_t* f, float gamma, float* gradient, int k)
   {
     const float grad_scale = FWI_GradientScale(q, n_size);
 
-    float* q_cost = FWI_GradientIllumination(f, q);
+    //float* q_cost = FWI_GradientIllumination(f, q);
     //float* q_cost2 = FWI_GaussianSmooth(f, q);
 
     for (size_t i = 0; i < n_size; ++i)
       //f->direction[i] = gradient[i] / grad_scale;
       //maximizing
-      f->direction[i] = q_cost[i] / grad_scale;
+      f->direction[i] = q[i] / grad_scale;
 
-    free(q_cost);
+    //free(q_cost);
   }
   else
   {
@@ -528,13 +493,13 @@ void FWI_GetDirection_LBFGS(fwi_t* f, float gamma, float* gradient, int k)
             q[j] -= alpha[slot] * f->y[offset + j];
     }
 
-    float* q_cost = FWI_GradientIllumination(f, q);
+    //float* q_cost = FWI_GradientIllumination(f, q);
     //float* q_cost2 = FWI_GaussianSmooth(f, q);
 
     for (size_t j = 0; j < n_size; ++j)
-      r[j] = gamma * q_cost[j];
+      r[j] = gamma * q[j];
 
-    free(q_cost);
+    //free(q_cost);
 
     for (int i = k - h; i < k; ++i)
     {
@@ -610,33 +575,6 @@ int FWI_UpdateCurvaturePair(fwi_t* f, int k)
   return 0;
 }
 
-double FWI_GetAlphaLimit(fwi_t* f, double max_relative_change)
-{
-    model_t* n = f->rtm->p->model;
-
-    const size_t model_size = (size_t)n->nz * n->nx;
-
-    double alpha_max = INFINITY;
-
-    for (size_t i = 0; i < model_size; ++i)
-    {
-        const double m = (double)f->m_current[i];
-        const double p = fabs((double)f->direction[i]);
-
-        if (!isfinite(m) || m <= 0.0 || !isfinite(p))
-            return 0.0;
-
-        if (p > 0.0)
-        {
-            const double limit = max_relative_change * m / p;
-
-            if (limit < alpha_max)
-                alpha_max = limit;
-        }
-    }
-
-    return alpha_max;
-}
 void FWI_Run_LBFGS(fwi_t* f)
 {
   printf("\nStarting LBFGS Maximization Seiscope!\n\n");
@@ -665,8 +603,7 @@ void FWI_Run_LBFGS(fwi_t* f)
       double phi_0 = r->chi_0;
 
       FWI_GetDirection_LBFGS(f, gamma, f->gradient_current, k);
-      //double gTp_0 = FWI_GetGTP(f, f->gradient_current);
-      double gTp_0 = FWI_GetProjectedGTP(f, f->gradient_current, 0.0);
+      double gTp_0 = FWI_GetGTP(f, f->gradient_current);
       printf("gTp_0: %.15e\n", gTp_0);
       if(!isfinite(gamma) || !isfinite(gTp_0) || gamma <= 0.0 || gTp_0 <= 0.0f)
       {
@@ -674,12 +611,7 @@ void FWI_Run_LBFGS(fwi_t* f)
         break;
       }
 
-      //if(k == 1) f->a_present = 1.0f;
-      const double alpha_limit = FWI_GetAlphaLimit(f, 0.10);
-      const double alpha_initial = (k == 0) ? f->a_present : 1.0;
-
-      f->a_present = fmin(alpha_initial, alpha_limit);
-
+      if(k == 1) f->a_present = 1.0f;
       f->a_present = FWI_LineSearchV3(f, phi_0, gTp_0, k);
       if(f->a_present < 0)
       {

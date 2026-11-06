@@ -53,11 +53,11 @@ def animate_iterations(
   iterations,
   shot=25,
   reference_trace=90,
-  nt=4001,
-  nrec=101,
+  nt=12001,
+  nrec=341,
   dt=0.001,
-  nz=101,
-  nx=101,
+  nz=141,
+  nx=681,
   tmin=500,
   tmax=2000,
   receiver_spacing=50,
@@ -72,7 +72,7 @@ def animate_iterations(
 
   dobs = load(
     DOBS_PATH +
-    f"seismogram_4001x101_shot{shot}.bin",
+    f"seismogram_12001x341_shot{shot}.bin",
     nt, nrec
   )
 
@@ -366,10 +366,10 @@ def plot_agc(
   return dobs_agc, dcalc_agc
 
 PATH = "data/FWI/AWI_Test/"
-DOBS_PATH = "data/dobs/"
+DOBS_PATH = "data/FWI/dobs_12s_10hz_ng/"
 
 MIN_ITERATION = 1
-MAX_ITERATION = 53
+MAX_ITERATION = 1
 
 #ani = animate_traces(
 #  iteration=1,
@@ -383,8 +383,8 @@ MAX_ITERATION = 53
 
 ani = animate_iterations(iterations=range(MIN_ITERATION, MAX_ITERATION + 1))
 
-m_gradient = load("data/FWI/model_circle_101x101_10m.bin", 101, 101)
-m_current = load(PATH + f"m_{MAX_ITERATION}.bin", 101, 101)
+m_gradient = load("data/FWI/model_circle_101x101_10m.bin", 141, 681)
+m_current = load(PATH + f"m_{MAX_ITERATION}.bin", 141, 681)
 
 #wiener = load("wiener.bin", 12001, 341)
 

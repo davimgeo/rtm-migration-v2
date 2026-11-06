@@ -22,27 +22,45 @@
 #define MAX_ITERATIONS 78
 #define MAX_LINE_SEARCH 10
 
-#define LOW 1.0f / (1000.0f * 1000.0f)
-#define HIGH 1.0f / (2500.0f * 2500.0f)
+#define M_MIN (1.0f / (5200.0f * 5200.0f))
+#define M_MAX (1.0f / (1200.0f * 1200.0f))
 
 void project(fwi_t* f, double alpha)
 {
-  propagation_t* p = f->rtm->p;
-  model_t* n = p->model;
+  model_t* n = f->rtm->p->model;
 
   const size_t model_size = (size_t)n->nz * n->nx;
 
-  double threshold = 1e-10;
+  size_t clipped_min = 0;
+  size_t clipped_max = 0;
 
   for (size_t i = 0; i < model_size; ++i)
   {
-    float v = f->m_current[i] + alpha * f->direction[i];
+    double m = (double)f->m_current[i]
+             + alpha * (double)f->direction[i];
 
-    if (v > LOW)
-      f->mk1[i] = LOW - threshold;
-    else if (v < HIGH)
-      f->mk1[i] = HIGH + threshold;
+    if (m < M_MIN)
+    {
+      m = M_MIN;
+      clipped_min++;
+    }
+    else if (m > M_MAX)
+    {
+      m = M_MAX;
+      clipped_max++;
+    }
+
+    f->mk1[i] = (float)m;
   }
+
+  const size_t total_clipped = clipped_min + clipped_max;
+
+  if(total_clipped > 0)
+  {
+    printf("Clipped at 5200 m/s: %zu\n", clipped_min);
+    printf("Clipped at 1200 m/s: %zu\n", clipped_max);
+  }
+
 }
 
 double FWI_GetPhi_LBFGS(fwi_t* f, double alpha)
