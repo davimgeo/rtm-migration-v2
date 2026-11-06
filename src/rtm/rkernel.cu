@@ -171,7 +171,7 @@ __global__ void image_condition(
 {
   const size_t idx = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
 
-  if (idx < size) image[idx] += 169.0f * snap_ratio * num[idx];
+  if (idx < size) image[idx] += snap_ratio * num[idx];
 }
 
 __global__ void get_seismogram(
@@ -217,10 +217,12 @@ void awi_adjoint_source(
   const int nxx = m->nxx;
   const int nzz = m->nzz;
   const int nrec = s->nrec;
+
   const size_t wave_size = (size_t)nxx * nzz;
   const size_t wave_bytes = wave_size * sizeof(float);
   const size_t seis_bytes = (size_t)s->nt * nrec * sizeof(float);
   const size_t wavelet_bytes = (size_t)p->nt * sizeof(float);
+
   const float lap_arg = 1.0f / (p->dh * p->dh);
   const float source_scale = (p->dt * p->dt) * lap_arg;
 
@@ -256,7 +258,15 @@ void awi_adjoint_source(
 
   char PATH[256];
 
-  std::snprintf(PATH, sizeof(PATH), "%s/seismogram_%dx%d_shot%d.bin", DOBS_PATH, s->nt, s->nrec, ishot);
+  std::snprintf(
+    PATH,
+    sizeof(PATH),
+    "%s/seismogram_%dx%d_shot%d.bin",
+    DOBS_PATH,
+    s->nt,
+    s->nrec,
+    ishot
+  );
 
   float* dobs = read2d(PATH, s->nt, s->nrec);
   float* dcalc = s->seismogram;
@@ -269,46 +279,77 @@ void awi_adjoint_source(
 
   float _Complex* adj_freq = (float _Complex*)std::malloc((size_t)s->nt * sizeof(float _Complex));
 
-  double max_weighted = 0.0;
-
   for (int irec = 0; irec < s->nrec; ++irec)
   {
     double pw = 0.0;
     double wtw = 0.0;
+
     for (int itau = 0; itau < s->nt; ++itau)
     {
       const size_t idx = (size_t)itau * s->nrec + irec;
+
       const double w1 = w[idx];
       const double P1 = P[itau];
+
       pw += P1 * P1 * w1 * w1;
       wtw += w1 * w1;
     }
 
-    if (wtw == 0.0) continue;
+    if (!std::isfinite(wtw) || !std::isfinite(pw))
+    {
+      std::fprintf(stderr, "Invalid AWI values: shot=%d rec=%d\n", ishot, irec);
+      std::abort();
+    }
+
+    if (wtw <= 0.0) continue;
 
     const double f_awi = 0.5 * pw / wtw;
+
+    if (!std::isfinite(f_awi))
+    {
+      std::fprintf(stderr, "Invalid AWI objective: shot=%d rec=%d\n", ishot, irec);
+      std::abort();
+    }
+
     r->chi_0 += f_awi;
+
+    double max_weighted = 0.0;
 
     for (int itau = 0; itau < s->nt; ++itau)
     {
       const size_t idx = (size_t)itau * s->nrec + irec;
+
       weighted_d[itau] = (float)(((P[itau] * P[itau] - 2.0 * f_awi) / wtw) * w[idx]);
+
       max_weighted = std::fmax(max_weighted, std::fabs((double)weighted_d[itau]));
+
+      if (!std::isfinite(weighted_d[itau]))
+      {
+        std::fprintf(stderr, "Invalid weighted_d: shot=%d rec=%d tau=%d\n", ishot, irec, itau);
+        std::abort();
+      }
+    }
+
+    if (!std::isfinite(max_weighted))
+    {
+      std::fprintf(stderr, "Invalid AWI weighted values: shot=%d rec=%d\n", ishot, irec);
+      std::abort();
     }
 
     float _Complex* fft_weighted_d = get_fft_1d(weighted_d, s->nt);
 
     for (int t = 0; t < s->nt; ++t)
-        trace_o[t] = dobs[(size_t)t * s->nrec + irec];
+      trace_o[t] = dobs[(size_t)t * s->nrec + irec];
 
     float _Complex* fft_u_o = get_fft_1d(trace_o, s->nt);
     float _Complex* C_u_o = conjugate1d(fft_u_o, s->nt);
+
     const float eps = get_epsilon(C_u_o, fft_u_o, s->nt);
 
     for (int iw = 0; iw < s->nt; ++iw)
     {
       const float _Complex denominator = C_u_o[iw] * fft_u_o[iw] + eps;
-      const float _Complex A = fft_u_o[iw] / denominator; 
+      const float _Complex A = fft_u_o[iw] / denominator;
 
       adj_freq[iw] = A * fft_weighted_d[iw];
     }
@@ -324,7 +365,12 @@ void awi_adjoint_source(
     std::free(C_u_o);
   }
 
-  CUDA_CHECK(cudaMemcpy(d_adjoint_source, r->adjoint_source, seis_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(
+    d_adjoint_source,
+    r->adjoint_source,
+    seis_bytes,
+    cudaMemcpyHostToDevice
+  ));
 
   std::free(adj_freq);
   std::free(weighted_d);
@@ -333,6 +379,7 @@ void awi_adjoint_source(
   std::free(P);
   std::free(dobs);
 }
+
 
 void l2_adjoint_source(
   rtm_t* r,
@@ -358,10 +405,12 @@ void l2_adjoint_source(
   const int nxx = m->nxx;
   const int nzz = m->nzz;
   const int nrec = s->nrec;
+
   const size_t wave_size = (size_t)nxx * nzz;
   const size_t wave_bytes = wave_size * sizeof(float);
   const size_t seis_bytes = (size_t)s->nt * nrec * sizeof(float);
   const size_t wavelet_bytes = (size_t)p->nt * sizeof(float);
+
   const float lap_arg = 1.0f / (p->dh * p->dh);
   const float source_scale = (p->dt * p->dt) * lap_arg;
 
@@ -397,7 +446,15 @@ void l2_adjoint_source(
 
   char PATH[256];
 
-  std::snprintf(PATH, sizeof(PATH), "%s/seismogram_%dx%d_shot%d.bin", DOBS_PATH, s->nt, s->nrec, ishot);
+  std::snprintf(
+    PATH,
+    sizeof(PATH),
+    "%s/seismogram_%dx%d_shot%d.bin",
+    DOBS_PATH,
+    s->nt,
+    s->nrec,
+    ishot
+  );
 
   float* dobs = read2d(PATH, s->nt, s->nrec);
   float* dcalc = s->seismogram;
@@ -418,7 +475,16 @@ void l2_adjoint_source(
     }
   }
 
-  r->chi_0 += 0.5 * result * r->p->dt;
+  r->chi_0 += result;
+
+  CUDA_CHECK(cudaMemcpy(
+    d_adjoint_source,
+    r->adjoint_source,
+    seis_bytes,
+    cudaMemcpyHostToDevice
+  ));
+
+  free(dobs);
 }
 
 static void reset_cpu_adjoint_fields(rtm_t* r, size_t wave_bytes, size_t seis_bytes)
@@ -583,7 +649,7 @@ extern "C" void RTMv2_Run_GPU(rtm_t* r, const char* DOBS_PATH, unsigned int flag
   CUDA_CHECK(cudaMemcpy(r->image, d_image, wave_bytes, cudaMemcpyDeviceToHost));
   CUDA_CHECK(cudaMemcpy(r->dem, d_dem, wave_bytes, cudaMemcpyDeviceToHost));
 
-  //r->chi_0 *= 0.5 * (double)p->dt;
+  r->chi_0 *= 0.5f * (double)p->dt;
 
   CUDA_CHECK(cudaFree(d_upas));
   CUDA_CHECK(cudaFree(d_upre));

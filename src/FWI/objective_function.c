@@ -86,7 +86,7 @@ double FWI_DeconObjf(fwi_t* f, const float* dcalc)
 
   free(P);
 
-  return f_awi;
+  return 0.5f * f_awi * p->dt;
 }
 
 double FWI_DeconLuoObjf(fwi_t* f, const float* dcalc)

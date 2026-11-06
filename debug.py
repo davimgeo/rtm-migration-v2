@@ -58,8 +58,8 @@ def animate_iterations(
   dt=0.001,
   nz=141,
   nx=681,
-  tmin=500,
-  tmax=2000,
+  tmin=1200,
+  tmax=6000,
   receiver_spacing=50,
   interval=1000,
   save_path=None
@@ -369,7 +369,7 @@ PATH = "data/FWI/AWI_Test/"
 DOBS_PATH = "data/FWI/dobs_12s_10hz_ng/"
 
 MIN_ITERATION = 1
-MAX_ITERATION = 1
+MAX_ITERATION = 9
 
 #ani = animate_traces(
 #  iteration=1,

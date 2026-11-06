@@ -15,5 +15,5 @@ float* get_d_2d(
   int nrec
 );
 
-float get_epsilon(float complex* arr1, float complex*arr2, int size);
+float get_epsilon(float _Complex* arr1, float _Complex*arr2, int size);
 //float get_epsilon(float _Complex* U_o, int size);
