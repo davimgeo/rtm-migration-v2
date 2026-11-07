@@ -17,27 +17,21 @@ int main()
 
   SpecsContext* specs = Specs_Init(specs);
 
-  //geometry_t* geom = Geometry_InitCreate(geom, &specs->geometry);
-  //Geometry_Create(geom, 0);
-  geometry_t* geom = Geometry_InitLoad(geom);
-  Geometry_Load(geom, "data/receivers.txt", "data/sources.txt", 0);
+  geometry_t* geom = Geometry_InitCreate(geom, &specs->geometry);
+  Geometry_Create(geom, 0);
+  //geometry_t* geom = Geometry_InitLoad(geom);
+  //Geometry_Load(geom, "data/receivers.txt", "data/sources.txt", 0);
 
   wavelet_t* wave = Wavelet_Init(wave, &specs->wavelet);
   Wavelet_Create(wave);
 
-  float* circle = read2d("data/FWI/model_circle_101x101_10m.bin", 101, 101);
-  plot2d(circle, 101, 101);
-
   model_t* model = Model_Init(model, &specs->model);
-  //Model_Load(model, "data/FWI/marmousi_141z_681x_25dxdz.bin", 681, 141, 1);
-  //Model_Load(model, "data/FWI/m0_gradient.bin", 681, 141, 0);
-  //Model_Load(model, "data/FWI/m0_marmousi.bin", 681, 141, 0);
-  Model_Load(model, "data/FWI/model_circle_101x101_10m.bin", 101, 101, 0);
-  //Model_Load(model, "data/FWI/AWI_Pladys_Test/m_7.bin", 681, 141, 0);
-  //Model_Load(model, "data/FWI/AWI_Warner2016/m_38.bin", 681, 141, 0);
-  //Model_GaussianSmooth(model, 10.0f, 10.0f, 0.01, 3e-2f, 2.5f);
-  //Model_Extent(model);
-  //plot_model_geometry(model, 10, geom);
+  //Model_Create(model);
+  Model_Load(model, "data/FWI/m0_marmousi.bin", 681, 141, 0);
+  //Model_Load(model, "data/FWI/model_circle_101x101_10m.bin", 101, 101, 0);
+  Model_Extent(model);
+
+  plot_model_geometry(model, 25, geom);
 
   seismogram_t* seis = Seismogram_Init(seis, &specs->seismogram, geom->nrec, 0);
 

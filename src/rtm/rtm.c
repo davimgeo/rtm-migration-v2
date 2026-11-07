@@ -219,7 +219,7 @@ void RTM_GetSourceSnapshots(rtm_t* r, int t)
   }
 }
 
-inline void RTM_InjectAdjountSource(rtm_t* r, int t)
+static inline void RTM_InjectAdjountSource(rtm_t* r, int t)
 {
   propagation_t *p        = r->p;
   acoustic_state_t* a = p->physics_data;
@@ -802,7 +802,7 @@ static void RTM_LaplacianFilter(rtm_t* r)
   r->image = gradient;
 }
 
-inline int RTM_GetSourceIndex(geometry_t* g, model_t* m, int isrc)
+static inline int RTM_GetSourceIndex(geometry_t* g, model_t* m, int isrc)
 {
   const int sx = g->src.x[isrc];
   const int sz = g->src.z[isrc];

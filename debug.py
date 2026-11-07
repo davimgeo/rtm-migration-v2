@@ -369,7 +369,7 @@ PATH = "data/FWI/AWI_Test/"
 DOBS_PATH = "data/FWI/dobs_12s_10hz_ng/"
 
 MIN_ITERATION = 1
-MAX_ITERATION = 9
+MAX_ITERATION = 5
 
 #ani = animate_traces(
 #  iteration=1,

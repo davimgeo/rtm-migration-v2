@@ -22,8 +22,8 @@
 #define MAX_ITERATIONS 78
 #define MAX_LINE_SEARCH 10
 
-#define LOW 1.0f / (1500.0f * 1500.0f)
-#define HIGH 1.0f / (4500.0f * 4500.0f)
+#define LOW 1.0f / (1200.0f * 1200.0f)
+#define HIGH 1.0f / (5200.0f * 5200.0f)
 
 void project(fwi_t* f, double alpha)
 {
@@ -572,7 +572,7 @@ void FWI_Run_LBFGS(fwi_t* f)
 
   const size_t model_size = (size_t)m->nz * m->nx;
 
-  float* gradient = FWI_GetGradient(f, f->vp_current);
+  float* gradient = FWI_GetInitialGradient(f, f->vp_current);
   //write2d("nabla_chi_141x681.bin", gradient, sizeof(float), m->nz, m->nx);
   //float* gradient = read2d("nabla_chi_141x681.bin", m->nz, m->nx);
   memcpy(f->gradient_current, gradient, model_size * sizeof(float));

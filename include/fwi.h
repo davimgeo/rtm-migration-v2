@@ -60,6 +60,7 @@ double FWI_LineSearchV3(fwi_t* f, double phi_0, double gTp_0, int k);
 float* FWI_GetDcalc(fwi_t* f, float* vp);
 void FWI_GetVelocityFromSlowness(const float* slowness, float* velocity, int nz, int nx);
 float* FWI_GetGradient(fwi_t* f, float* vp);
+float* FWI_GetInitialGradient(fwi_t* f, float* vp);
 void FWI_Run(fwi_t* f);
 void FWI_Run_LBFGS(fwi_t* f);
 void FWI_Run_Parabolic(fwi_t* f);
