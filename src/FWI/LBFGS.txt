@@ -1,4 +1,3 @@
-
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -18,33 +17,10 @@
 #define C1 1e-4f
 #define C2 0.9f
 
-#define LBGFS_M 10
+#define LBGFS_M 5
 
-#define MAX_ITERATIONS 200
-#define MAX_LINE_SEARCH 20
-
-#define LOW 1.0f / (1500.0f * 1500.0f)
-#define HIGH 1.0f / (4500.0f * 4500.0f)
-
-void project(fwi_t* f, double alpha)
-{
-  propagation_t* p = f->rtm->p;
-  model_t* m = p->model;
-
-  const size_t model_size = (size_t)m->nz * m->nx;
-
-  double threshold = 1e-10;
-
-  for (size_t i = 0; i < model_size; ++i)
-  {
-    float v = f->m_current[i] + alpha * f->direction[i];
-
-    if(v > LOW)
-      f->mk1[i] = LOW - threshold;
-    else if(v < HIGH)
-      f->mk1[i] = HIGH + threshold;
-  }
-}
+#define MAX_ITERATIONS 78
+#define MAX_LINE_SEARCH 10
 
 double FWI_GetPhi_LBFGS(fwi_t* f, double alpha)
 {
@@ -76,7 +52,6 @@ double FWI_GetPhi_LBFGS(fwi_t* f, double alpha)
 
   return phi_alpha;
 }
-
 
 double FWI_GetPhiDerivative_LBFGS(fwi_t* f, double alpha)
 {
@@ -116,9 +91,9 @@ double zoom(double a_lo, double a_hi, fwi_t* f, double phi_0, double gTp_0, doub
     printf("Current Alpha: %.15e\n", a_j);
 
     double armijo = phi_0 + C1 * a_j * gTp_0;
-    double wolfe = C2 * gTp_0;
+    double wolfe = -C2 * gTp_0;
 
-    if(phi_aj < armijo || (phi_aj <= phi_lo))
+    if(phi_aj > armijo || (phi_aj >= phi_lo))
     {
       a_hi = a_j;
       printf("\nZoom Iteration: %d | Alpha: %.15e\n", i, a_j);
@@ -128,10 +103,10 @@ double zoom(double a_lo, double a_hi, fwi_t* f, double phi_0, double gTp_0, doub
       printf("+--------------+-------------------------+-------------------------+--------+\n");
       printf("| %-12s | %23.15e | %23.15e | %-6s |\n",
              "Zoom Armijo", phi_aj, armijo,
-             phi_aj >= armijo ? "PASS" : "FAIL");
+             phi_aj <= armijo ? "PASS" : "FAIL");
       printf("| %-12s | %23.15e | %23.15e | %-6s |\n",
              "Greater", phi_aj, phi_lo,
-             phi_aj <= phi_lo ? "PASS" : "FAIL");
+             phi_aj >= phi_lo ? "PASS" : "FAIL");
     }
     else
     {
@@ -148,7 +123,7 @@ double zoom(double a_lo, double a_hi, fwi_t* f, double phi_0, double gTp_0, doub
         return a_j;
       }
 
-      if(phi_derivative_aj * (a_hi - a_lo) <= 0.0)
+      if(phi_derivative_aj * (a_hi - a_lo) >= 0.0)
         a_hi = a_lo;
 
       a_lo = a_j;
@@ -189,19 +164,20 @@ double FWI_LineSearchV3(fwi_t* f, double phi_0, double gTp_0, int k)
   {
     const double eps = eps_values[i];
 
-    const double phi_plus = FWI_GetPhi_LBFGS(f, eps);
-    const double phi_minus = FWI_GetPhi_LBFGS(f, -eps);
+    const double phi_plus = FWI_GetPhi(f, eps);
+    const double phi_minus = FWI_GetPhi(f, -eps);
 
     const double d_fd = (phi_plus - phi_minus) / (2.0 * eps);
 
-    printf("eps = %.15e | D_fd = %.15e | ratio = %.15e\n", eps, d_fd, d_fd / gTp_0);
+    printf("eps = %.15e | D_fd = %.15e | ratio = %.15e\n",
+           eps, d_fd, d_fd / gTp_0);
   }
   #endif
 
   for (int i = 0; i < MAX_LINE_SEARCH; ++i)
   {
     const double armijo = phi_0 + C1 * a_current * gTp_0;
-    const double wolfe = C2 * gTp_0;
+    const double wolfe = -C2 * gTp_0;
 
     const double phi_ai = FWI_GetPhi_LBFGS(f, a_current);
 
@@ -211,9 +187,10 @@ double FWI_LineSearchV3(fwi_t* f, double phi_0, double gTp_0, int k)
     printf("| %-12s | %-23s | %-23s | %-6s |\n",
            "Condition", "Left Side", "Right Side", "Result");
     printf("+--------------+-------------------------+-------------------------+--------+\n");
-    printf("| %-12s | %23.15e | %23.15e | %-6s |\n", "Armijo", phi_ai, armijo, phi_ai >= armijo ? "PASS" : "FAIL");
+    printf("| %-12s | %23.15e | %23.15e | %-6s |\n",
+           "Armijo", phi_ai, armijo, phi_ai <= armijo ? "PASS" : "FAIL");
 
-    if (phi_ai < armijo || (phi_ai <= phi_past && i > 0))
+    if (phi_ai > armijo || (phi_ai >= phi_past && i > 0))
     {
       printf("| %-12s | %23s | %23s | %-6s |\n",
              "Strong Wolfe", "-", "-", "SKIP");
@@ -241,7 +218,7 @@ double FWI_LineSearchV3(fwi_t* f, double phi_0, double gTp_0, int k)
       return a_current;
     }
 
-    if (phi_ai_derivative <= 0.0)
+    if (phi_ai_derivative >= 0.0)
     {
       printf("Action: ZOOM\n");
       printf("Interval: [%.15e, %.15e]\n", a_current, a_past);
@@ -300,72 +277,6 @@ double FWI_GetInitialHessianScalar(fwi_t* f, int k)
 }
 
 
-float* FWI_GaussianSmooth(fwi_t* f, const float* q)
-{
-  propagation_t* p = f->rtm->p;
-  model_t* m = p->model;
-
-  const int nz = m->nz;
-  const int nx = m->nx;
-
-  const float dz = p->dh;
-  const float dx = p->dh;
-  const float f_ref = 10.0f;
-
-  const size_t size = (size_t)nz * nx;
-
-  float* smooth = allocf(size * sizeof(*smooth));
-
-  for(int i = 0; i < nz; i++)
-  {
-    for(int j = 0; j < nx; j++)
-    {
-      const size_t idx = (size_t)i * nx + j;
-
-      const float vp = f->vp_current[idx];
-      const float length = 0.3f * vp / f_ref;
-
-      const float sigma_z = length / dz;
-      const float sigma_x = length / dx;
-
-      const int rz = (int)ceilf(3.0f * sigma_z);
-      const int rx = (int)ceilf(3.0f * sigma_x);
-
-      const int i0 = (i - rz > 0) ? i - rz : 0;
-      const int i1 = (i + rz < nz) ? i + rz : nz - 1;
-
-      const int j0 = (j - rx > 0) ? j - rx : 0;
-      const int j1 = (j + rx < nx) ? j + rx : nx - 1;
-
-      double sum = 0.0;
-      double sum_weights = 0.0;
-
-      for(int iz = i0; iz <= i1; ++iz)
-      {
-        const float z = (iz - i) * dz;
-        const float zz = (z / length) * (z / length);
-
-        for(int ix = j0; ix <= j1; ++ix)
-        {
-          const float x = (ix - j) * dx;
-          const float xx = (x / length) * (x / length);
-
-          const float G = expf(-0.5f * (zz + xx));
-
-          const size_t index = (size_t)iz * nx + ix;
-
-          sum += (double)G * q[index];
-          sum_weights += G;
-        }
-      }
-
-      smooth[idx] = (float)(sum / sum_weights);
-    }
-  }
-  return smooth;
-}
-
-
 float* FWI_GradientIllumination(fwi_t* f, const float* q)
 {
   propagation_t* p = f->rtm->p;
@@ -415,7 +326,6 @@ float* FWI_GradientIllumination(fwi_t* f, const float* q)
   return grad_cost;
 }
 
-
 void FWI_GetDirection_LBFGS(fwi_t* f, float gamma, float* gradient, int k)
 {
   model_t* m = f->rtm->p->model;
@@ -435,17 +345,12 @@ void FWI_GetDirection_LBFGS(fwi_t* f, float gamma, float* gradient, int k)
   {
     const float grad_scale = FWI_GradientScale(q, n);
 
-    //float* q_cost = FWI_GradientIllumination(f, q);
-    //float* q_cost2 = FWI_GaussianSmooth(f, q);
+    float* q_cost = FWI_GradientIllumination(f, q);
 
     for (size_t i = 0; i < n; ++i)
-      //f->direction[i] = gradient[i] / grad_scale;
-      // maximizing
-      f->direction[i] = q[i] / grad_scale;
+      f->direction[i] = -q_cost[i] / grad_scale;
 
-    //write2d("smooth_ilum.bin", q_cost, sizeof(float), m->nz, m->nx);
-
-    //free(q_cost);
+    free(q_cost);
   }
   else
   {
@@ -472,15 +377,14 @@ void FWI_GetDirection_LBFGS(fwi_t* f, float gamma, float* gradient, int k)
         q[j] -= alpha[slot] * f->y[offset + j];
     }
 
-    //float* q_cost = FWI_GradientIllumination(f, q);
-    //float* q_cost2 = FWI_GaussianSmooth(f, q);
+    //float* smooth_q = FWI_GaussianSmooth(f, q);
+    float* q_cost = FWI_GradientIllumination(f, q);
+    //write2d("smooth_q.bin", smooth_q, sizeof(float), m->nz, m->nx);
 
     for(size_t j = 0; j < n; j++)
-      r[j] = gamma * q[j];
+      r[j] = gamma * q_cost[j];
 
-    //write2d("smooth_ilum.bin", q_cost, sizeof(float), m->nz, m->nx);
-
-    //free(q_cost);
+    free(q_cost);
 
     for(int i = k - h; i < k; i++)
     {
@@ -509,9 +413,7 @@ void FWI_GetDirection_LBFGS(fwi_t* f, float gamma, float* gradient, int k)
     }
 
     for(int j = 0; j < n; j++)
-      // botar + maxima a inversao
-      // mas eh preciso trocar o sinal do armijo tb
-      f->direction[j] = r[j];
+      f->direction[j] = -r[j];
   }
 
   free(q); free(r);
@@ -536,15 +438,13 @@ int FWI_UpdateCurvaturePair(fwi_t* f, int k)
   for(size_t j = 0; j < model_size; j++)
   {
     const float s = f->mk1[j] - f->m_current[j];
-    const float y = f->gradient_current[j] - f->gradient_next[j];
+    const float y = f->gradient_next[j] - f->gradient_current[j];
 
     if(!isfinite(s) || !isfinite(y))
     {
       printf("Invalid curvature pair at k = %d, j = %zu\n", k, j);
       printf("\nLBFGS Curvature Pair - Iteration %d\n", k);
       printf("Slot        = %d\n", k % LBGFS_M);
-      printf("Nonzero s = %zu / %zu\n", nonzero_s, model_size);
-      printf("Nonzero y = %zu / %zu\n", nonzero_y, model_size);
       printf("max|s|    = %.15e\n", smax);
       printf("max|y|    = %.15e\n", ymax);
       printf("sTy       = %.15e\n", sy);
@@ -561,9 +461,6 @@ int FWI_UpdateCurvaturePair(fwi_t* f, int k)
 
     sy += (double)s * y;
     yy += (double)y * y;
-
-    if(s != 0.0f) nonzero_s++;
-    if(y != 0.0f) nonzero_y++;
   }
 
   printf("sy update pair: %.15e\n", sy);
@@ -574,7 +471,7 @@ int FWI_UpdateCurvaturePair(fwi_t* f, int k)
 
 void FWI_Run_LBFGS(fwi_t* f)
 {
-  printf("\nStarting LBFGS Maximization Seiscope!\n\n");
+  printf("\nStarting LBFGS!\n\n");
 
   rtm_t* r = f->rtm;
   propagation_t* p = r->p;
@@ -582,8 +479,8 @@ void FWI_Run_LBFGS(fwi_t* f)
 
   const size_t model_size = (size_t)m->nz * m->nx;
 
-  float* gradient = FWI_GetGradient(f, f->vp_current);
-  write2d("nabla_chi_141x681.bin", gradient, sizeof(float), m->nz, m->nx);
+  float* gradient = FWI_GetInitialGradient(f, f->vp_current);
+  //write2d("nabla_chi_141x681.bin", gradient, sizeof(float), m->nz, m->nx);
   //float* gradient = read2d("nabla_chi_141x681.bin", m->nz, m->nx);
   memcpy(f->gradient_current, gradient, model_size * sizeof(float));
 
@@ -604,7 +501,7 @@ void FWI_Run_LBFGS(fwi_t* f)
     //plot2d(f->direction, m->nz, m->nx);
     double gTp_0 = FWI_GetGTP(f, f->gradient_current);
     printf("gTp_0: %.15e\n", gTp_0);
-    if(!isfinite(gamma) || !isfinite(gTp_0) || gamma <= 0.0 || gTp_0 <= 0.0f)
+    if(!isfinite(gamma) || !isfinite(gTp_0) || gamma <= 0.0 || gTp_0 >= 0.0f)
     {
       printf("ERROR: Invalid LBFGS direction\n");
       break;
@@ -628,3 +525,4 @@ void FWI_Run_LBFGS(fwi_t* f)
   }
   free(gradient);
 }
+

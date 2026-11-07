@@ -17,7 +17,7 @@ float get_epsilon(float complex*arr1, float complex*arr2, int size)
     float temp = cabsf(arr1[i] * arr2[i]);
     if (temp > max) max = temp;
   }
-  return 0.10f * max;
+  return 0.01f * max;
 }
 
 float get_epsilonV2(float complex* U_o, int size)
@@ -33,7 +33,7 @@ float get_epsilonV2(float complex* U_o, int size)
   return 1e-2f * max;
 }
 
-float* get_penaltyV3(int nt, float dt, float t0)
+float* get_penalty(int nt, float dt, float t0)
 {
   float* P = malloc(nt * sizeof(*P));
 
@@ -50,7 +50,7 @@ float* get_penaltyV3(int nt, float dt, float t0)
   return P;
 }
 
-float* get_penalty(int nt, float dt, float t0)
+float* get_penaltyV3(int nt, float dt, float t0)
 {
   float* P = malloc(nt * sizeof(*P));
 
@@ -62,7 +62,8 @@ float* get_penalty(int nt, float dt, float t0)
     int j = (i + nt - nt / 2) % nt;
 
     if (fabsf(tau) <= t0)
-      P[j] = fabsf(tau);
+      P[j] = 1.0f - expf(-(tau/t0)*(tau/t0));
+      //P[j] = fabsf(tau);
     else
       P[j] = 0.0f;
   }

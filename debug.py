@@ -52,15 +52,15 @@ def plot_model_and_real(model, perc=99) -> None:
 def animate_iterations(
   iterations,
   shot=25,
-  reference_trace=90,
-  nt=12001,
-  nrec=341,
+  reference_trace=55,
+  nt=4001,
+  nrec=101,
   dt=0.001,
-  nz=141,
-  nx=681,
-  tmin=1200,
-  tmax=6000,
-  receiver_spacing=50,
+  nz=101,
+  nx=101,
+  tmin=500,
+  tmax=3000,
+  receiver_spacing=10,
   interval=1000,
   save_path=None
 ):
@@ -72,7 +72,7 @@ def animate_iterations(
 
   dobs = load(
     DOBS_PATH +
-    f"seismogram_12001x341_shot{shot}.bin",
+    f"seismogram_4001x101_shot{shot}.bin",
     nt, nrec
   )
 
@@ -365,29 +365,37 @@ def plot_agc(
 
   return dobs_agc, dcalc_agc
 
-PATH = "data/FWI/AWI_Test/"
-DOBS_PATH = "data/FWI/dobs_12s_10hz_ng/"
+PATH = "data/FWI/AWI_Circle_Test2/"
+DOBS_PATH = "data/dobs/"
 
-MIN_ITERATION = 1
-MAX_ITERATION = 5
-
-#ani = animate_traces(
-#  iteration=1,
-#  shot=25,
-#  tmin=1000,
-#  tmax=12000,
-#  t0=0.5,
-#  receiver_step=1,
-#  interval=100
-#)
+MIN_ITERATION = 10
+MAX_ITERATION = 22
 
 ani = animate_iterations(iterations=range(MIN_ITERATION, MAX_ITERATION + 1))
 
-m_gradient = load("data/FWI/model_circle_101x101_10m.bin", 141, 681)
-m_current = load(PATH + f"m_{MAX_ITERATION}.bin", 141, 681)
+model1 = load(PATH + f"m_{MAX_ITERATION}.bin", 101, 101)
+model2 = load("data/FWI/AWI_Circle_1700/" + f"m_{MAX_ITERATION}.bin", 101, 101)
 
-#wiener = load("wiener.bin", 12001, 341)
+diff = model1 - model2
 
-#plot_model_and_real(m_current)
-plot_model(m_current)
+fig, ax = plt.subplots(1, 3, figsize=(18, 5), constrained_layout=True)
+
+vmin = min(model1.min(), model2.min())
+vmax = max(model1.max(), model2.max())
+
+dmax = np.max(np.abs(diff))
+
+im0 = ax[0].imshow(model1, cmap="jet", aspect="auto")
+ax[0].set_title("Test 1")
+fig.colorbar(im0, ax=ax[0])
+
+im1 = ax[1].imshow(model2, cmap="jet", aspect="auto")
+ax[1].set_title("Test 2")
+fig.colorbar(im1, ax=ax[1])
+
+im2 = ax[2].imshow(diff, cmap="seismic", vmin=-dmax, vmax=dmax, aspect="auto")
+ax[2].set_title("Difference (Model 1 - Model 2)")
+fig.colorbar(im2, ax=ax[2])
+
+plt.show()
 

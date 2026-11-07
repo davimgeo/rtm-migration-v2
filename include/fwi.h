@@ -8,6 +8,7 @@ typedef struct
   char* dobs_path;
   char* export_path;
   float t0;
+  float vmin; float vmax;
 
 } fwi_specs_t;
 
@@ -23,6 +24,7 @@ typedef struct
   const char* DOBS_PATH;
   const char* export_path;
   float t0;
+  float vmin; float vmax;
 
   // L-BFGS
   float* s;
@@ -59,6 +61,7 @@ double FWI_GetPhiDerivative(fwi_t* f, double alpha);
 double FWI_LineSearchV3(fwi_t* f, double phi_0, double gTp_0, int k);
 float* FWI_GetDcalc(fwi_t* f, float* vp);
 void FWI_GetVelocityFromSlowness(const float* slowness, float* velocity, int nz, int nx);
+void project(fwi_t* f, double alpha);
 float* FWI_GetGradient(fwi_t* f, float* vp);
 float* FWI_GetInitialGradient(fwi_t* f, float* vp);
 void FWI_Run(fwi_t* f);

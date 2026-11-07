@@ -13,23 +13,15 @@
 
 #include "fwi.h"
 
-#define LOW 1.0f / (1200.0f * 1200.0f)
-#define HIGH 1.0f / (5200.0f * 5200.0f)
-
-#define MIN(x, y) (((x) < (y)) ? (x) : (y))
-
-#define TOL 1e-6f
 #define C1 1e-4f
 #define C2 0.9f
 
 #define LBGFS_M 5
 
-#define MAX_ITERATIONS 200
+#define MAX_ITERATIONS 38
 #define MAX_LINE_SEARCH 12
 
 //#include "plot.h"
-
-static int initialized = 0;
 
 static void FWI_GetSlownessFromVelocity(
   const float* velocity,
@@ -50,6 +42,9 @@ fwi_t* FWI_Init(fwi_t* f, rtm_t* rtm, fwi_specs_t* specs)
 
   f->t0 = specs->t0;
 
+  f->vmin = specs->vmin;
+  f->vmax = specs->vmax;
+
   char objective[32];
 
   size_t len = strlen(specs->objective_function_flag);
@@ -59,9 +54,10 @@ fwi_t* FWI_Init(fwi_t* f, rtm_t* rtm, fwi_specs_t* specs)
   for(size_t i = 0; i <= len; ++i)
     objective[i] = toupper((unsigned char)specs->objective_function_flag[i]);
 
-  printf("Ricker Max Frequency: %g\n", rtm->p->wavelet->fmax);
+  printf("Ricker Max Frequency: %g Hz\n", rtm->p->wavelet->fmax);
   printf("DOBS_PATH: %s\n", f->DOBS_PATH);
   printf("EXPORT_PATH: %s\n", f->export_path);
+  printf("Max and Min velocities allowed: [%g, %g]\n", f->vmin, f->vmax);
 
   if(strcmp(objective, "DECON") == 0)
   {
@@ -85,6 +81,11 @@ fwi_t* FWI_Init(fwi_t* f, rtm_t* rtm, fwi_specs_t* specs)
   {
     f->objective_function = RTM_L2_ADJOINT_SOURCE;
     printf("Using L2 Objective Function\n");
+  }
+  else 
+  {
+    printf("Invalid Objective Function\n");
+    exit(0);
   }
 
   seismogram_t* s = rtm->p->seismogram;
@@ -174,7 +175,7 @@ static float FWI_GetInitialAlpha(const float* model, int nz, int nx)
       min = model[i];
   }
 
-  return 0.05f * (max - min);
+  return 0.05f * (max);
 }
 
 void FWI_SetModel(fwi_t* f, float* vp)
@@ -190,6 +191,71 @@ void FWI_SetModel(fwi_t* f, float* vp)
 
   for (size_t i = 0; i < p->shape; ++i)
     a->vel_arg[i] = dt2 * m->vp[i] * m->vp[i];
+}
+
+float* FWI_GaussianSmooth(fwi_t* f, const float* q)
+{
+  propagation_t* p = f->rtm->p;
+  model_t* m = p->model;
+
+  const int nz = m->nz;
+  const int nx = m->nx;
+
+  const float dz = p->dh;
+  const float dx = p->dh;
+  const float f_ref = 10.0f;
+
+  const size_t size = (size_t)nz * nx;
+
+  float* smooth = allocf(size * sizeof(*smooth));
+
+  for(int i = 0; i < nz; i++)
+  {
+    for(int j = 0; j < nx; j++)
+    {
+      const size_t idx = (size_t)i * nx + j;
+
+      const float vp = f->vp_current[idx];
+      const float length = 0.3f * vp / f_ref;
+
+      const float sigma_z = length / dz;
+      const float sigma_x = length / dx;
+
+      const int rz = (int)ceilf(3.0f * sigma_z);
+      const int rx = (int)ceilf(3.0f * sigma_x);
+
+      const int i0 = (i - rz > 0) ? i - rz : 0;
+      const int i1 = (i + rz < nz) ? i + rz : nz - 1;
+
+      const int j0 = (j - rx > 0) ? j - rx : 0;
+      const int j1 = (j + rx < nx) ? j + rx : nx - 1;
+
+      double sum = 0.0;
+      double sum_weights = 0.0;
+
+      for(int iz = i0; iz <= i1; ++iz)
+      {
+        const float z = (iz - i) * dz;
+        const float zz = (z / length) * (z / length);
+
+        for(int ix = j0; ix <= j1; ++ix)
+        {
+          const float x = (ix - j) * dx;
+          const float xx = (x / length) * (x / length);
+
+          const float G = expf(-0.5f * (zz + xx));
+
+          const size_t index = (size_t)iz * nx + ix;
+
+          sum += (double)G * q[index];
+          sum_weights += G;
+        }
+      }
+
+      smooth[idx] = (float)(sum / sum_weights);
+    }
+  }
+  return smooth;
 }
 
 float* FWI_GetGradient(fwi_t* f, float* vp)
@@ -212,14 +278,16 @@ float* FWI_GetGradient(fwi_t* f, float* vp)
       size_t idx_im = (size_t)(i + m->nb) * m->nxx + (j + m->nb);
       size_t idx_nabla = (size_t)i * m->nx + j;
 
-      if (i < 20)
-        nabla_chi[idx_nabla] = 0.0f;
-      else
+      //if (i < 20)
+      //  nabla_chi[idx_nabla] = 0.0f;
+      //else
       nabla_chi[idx_nabla] = f->rtm->image[idx_im];
     }
   }
 
-  return nabla_chi;
+  float* nabla_cost = FWI_GaussianSmooth(f, nabla_chi);
+
+  return nabla_cost;
 }
 
 float* FWI_GetInitialGradient(fwi_t* f, float* vp)
@@ -240,10 +308,10 @@ float* FWI_GetInitialGradient(fwi_t* f, float* vp)
       size_t idx_im = (size_t)(i + m->nb) * m->nxx + (j + m->nb);
       size_t idx_nabla = (size_t)i * m->nx + j;
 
-      if (i < 20)
-        nabla_chi[idx_nabla] = 0.0f;
-      else
-        nabla_chi[idx_nabla] = f->rtm->image[idx_im];
+      //if (i < 20)
+      //  nabla_chi[idx_nabla] = 0.0f;
+      //else
+      nabla_chi[idx_nabla] = f->rtm->image[idx_im];
     }
   }
 
@@ -298,18 +366,17 @@ float* FWI_GetDcalc(fwi_t* f, float* vp)
 
   for (int ishot = 0; ishot < base_geom->nsrc; ishot++)
   {
-    geometry_t* geom = Geometry_InitCreate(NULL, &geometry_specs);
-    Geometry_Create(geom, GEOMETRY_ONLY_RECEIVERS);
-
-    Geometry_SetSource(
-      geom,
-      ishot * geometry_specs.offset_src,
-      geometry_specs.src_depth
-    );
+    //geometry_t* geom = Geometry_InitCreate(NULL, &geometry_specs);
+    //Geometry_Create(geom, GEOMETRY_ONLY_RECEIVERS);
+    //Geometry_SetSource(
+    //  geom,
+    //  ishot * geometry_specs.offset_src,
+    //  geometry_specs.src_depth
+    //);
     
-    //geometry_t* geom = Geometry_InitLoad(geom);
-    //Geometry_Load(geom, "data/receivers.txt", "data/sources.txt", GEOMETRY_ONLY_RECEIVERS);
-    //Geometry_SetSource(geom, 2.0f, 2.5f * ishot);
+    geometry_t* geom = Geometry_InitLoad(geom);
+    Geometry_Load(geom, "data/receivers.txt", "data/sources.txt", GEOMETRY_ONLY_RECEIVERS);
+    Geometry_SetSource(geom, 2.0f, 2.5f * ishot);
 
     seismogram_t* seis = Seismogram_Init(NULL, &seismogram_specs, geom->nrec, 0);
 
@@ -379,23 +446,41 @@ void FWI_SaveCurrent(fwi_t* f, int it)
   printf("Saved Current model at: %s\n", filename);
 }
 
-void project2(fwi_t* f, double alpha)
+void project(fwi_t* f, double alpha)
 {
   propagation_t* p = f->rtm->p;
   model_t* m = p->model;
 
   const size_t model_size = (size_t)m->nz * m->nx;
 
-  double threshold = 1e-10;
+  float LOW = (1.0f / (f->vmin * f->vmin));
+  float HIGH = (1.0f / (f->vmax * f->vmax));
+
+  int clipped_min = 0;
+  int clipped_max = 0;
 
   for (size_t i = 0; i < model_size; ++i)
   {
     float v = f->m_current[i] + alpha * f->direction[i];
 
     if(v > LOW)
-      f->mk1[i] = LOW - threshold;
+    {
+      v = LOW;
+      clipped_min++;
+    }
     else if(v < HIGH)
-      f->mk1[i] = HIGH + threshold;
+    {
+      v = HIGH;
+      clipped_max++;
+    }
+
+    f->mk1[i] = v;
+  }
+
+  if(clipped_max > 0 || clipped_min > 0)
+  {
+    printf("Values Clipped to Max: %d\n", clipped_max);
+    printf("Values Clipped to Min: %d\n", clipped_min);
   }
 }
 
@@ -413,7 +498,7 @@ double FWI_GetPhi(fwi_t* f, double alpha)
     f->mk1[i] = v;
   }
 
-  project2(f, alpha);
+  project(f, alpha);
 
   FWI_GetVelocityFromSlowness(f->mk1, f->vp_k1, m->nz, m->nx);
 
@@ -449,7 +534,7 @@ double FWI_GetPhiDerivative(fwi_t* f, double alpha)
     f->mk1[i] = v;
   }
 
-  project2(f, alpha);
+  project(f, alpha);
 
   FWI_GetVelocityFromSlowness(f->mk1, f->vp_k1, m->nz, m->nx);
 

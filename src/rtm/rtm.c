@@ -353,9 +353,6 @@ void RTM_DeconLuo_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int i
 
   float* P = get_penalty(s->nt, s->dt, t0);
   float* d = get_d_2d(dcalc, dobs, s->dt, s->nt, s->nrec);
-  //shift_time(w, s->nt, s->nrec);
-  //plot_column(w, 140, s->nt, s->nrec);
-  //plot2d(w, s->nt, s->nrec);
 
   float* trace_o = malloc(s->nt * sizeof(*trace_o));
   float* trace_d = malloc(s->nt * s->nrec * sizeof(*trace_o));
