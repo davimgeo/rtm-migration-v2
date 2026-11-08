@@ -20,7 +20,7 @@ LIBS        = -lm -lfftw3f
 
 TARGET      = run.out
 
-C_SRC       = $(shell find src -name "*.c") tests/moving_rickers.c tests/euclidian.c config/config.c main.c
+C_SRC       = $(shell find src -name "*.c") config/config.c main.c
 CU_SRC      = $(shell find src -name "*.cu")
 
 C_OBJ       = $(patsubst %.c,build/%.o,$(C_SRC))

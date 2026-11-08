@@ -2,6 +2,10 @@
 
 #include "rtm.h"
 
+#define FWI_MIN_GAUSSIAN_PENALTY_FUNCTION (1U << 0)
+#define FWI_MAX_GAUSSIAN_PENALTY_FUNCTION (1U << 1)
+#define FWI_LUO_GAUSSIAN_PENALTY_FUNCTION (1U << 2)
+
 typedef struct
 {
   char* objective_function_flag;
@@ -9,6 +13,8 @@ typedef struct
   char* export_path;
   float t0;
   float vmin; float vmax;
+  float zeta;
+  int penalty_function_flag;
 
 } fwi_specs_t;
 
@@ -25,6 +31,9 @@ typedef struct
   const char* export_path;
   float t0;
   float vmin; float vmax;
+  int ARMIJO_FALLBACK;
+  float zeta;
+  int penalty_function_flag;
 
   // L-BFGS
   float* s;

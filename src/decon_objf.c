@@ -9,7 +9,7 @@
 
 static int initialized = 0;
 
-float get_epsilon(float complex*arr1, float complex*arr2, int size)
+float get_epsilon(float complex*arr1, float complex*arr2, int size, float zeta)
 {
   float max = 0.0f;
   for(int i = 0; i < size; i++)
@@ -17,7 +17,7 @@ float get_epsilon(float complex*arr1, float complex*arr2, int size)
     float temp = cabsf(arr1[i] * arr2[i]);
     if (temp > max) max = temp;
   }
-  return 0.01f * max;
+  return zeta * max;
 }
 
 float get_epsilonV2(float complex* U_o, int size)
@@ -33,9 +33,11 @@ float get_epsilonV2(float complex* U_o, int size)
   return 1e-2f * max;
 }
 
-float* get_penalty(int nt, float dt, float t0)
+float* get_penalty(int nt, float dt, float t0, int penalty_flag)
 {
-  float* P = malloc(nt * sizeof(*P));
+  if (penalty_flag < 0 || penalty_flag > 2) return NULL;
+
+  float* P = malloc((size_t)nt * sizeof(*P));
 
   for (int i = 0; i < nt; ++i)
   {
@@ -44,32 +46,31 @@ float* get_penalty(int nt, float dt, float t0)
 
     int j = (i + nt - nt / 2) % nt;
 
-    P[j] = expf(-(tau/t0)*(tau/t0));
+    switch (penalty_flag)
+    {
+      case 0: // Gaussian
+        P[j] = expf(-(tau/t0)*(tau/t0));
+        break;
+
+      case 1: // 1 - Gaussian
+        if (fabsf(tau) <= t0)
+          P[j] = 1.0f - expf(-(tau/t0)*(tau/t0));
+        else
+          P[j] = 0.0f;
+        break;
+
+      case 2: // Absolute lag
+        if (fabsf(tau) <= t0)
+          P[j] = fabsf(tau);
+        else
+          P[j] = 0.0f;
+        break;
+    }
   }
 
   return P;
 }
 
-float* get_penaltyV3(int nt, float dt, float t0)
-{
-  float* P = malloc(nt * sizeof(*P));
-
-  for (int i = 0; i < nt; ++i)
-  {
-    int lag_index = i - nt / 2;
-    float tau = lag_index * dt;
-
-    int j = (i + nt - nt / 2) % nt;
-
-    if (fabsf(tau) <= t0)
-      P[j] = 1.0f - expf(-(tau/t0)*(tau/t0));
-      //P[j] = fabsf(tau);
-    else
-      P[j] = 0.0f;
-  }
-
-  return P;
-}
 
 float* get_penaltyV2(int nt, float dt, float t0)
 {
@@ -86,7 +87,13 @@ float* get_penaltyV2(int nt, float dt, float t0)
   return P;
 }
 
-float* get_d_1d(float* dcalc, float* dobs, float dt, int nt)
+float* get_d_1d(
+  float* dcalc,
+  float* dobs,
+  float dt,
+  int nt,
+  float zeta
+)
 {
   float complex* fft_u_o = get_fft_1d(dobs, nt);
   float complex* fft_u_s = get_fft_1d(dcalc, nt);
@@ -94,7 +101,7 @@ float* get_d_1d(float* dcalc, float* dobs, float dt, int nt)
 
   float complex* d = malloc((size_t)nt * sizeof(float complex));
 
-  float epsilon = get_epsilon(C_u_o, fft_u_o, nt);
+  float epsilon = get_epsilon(C_u_o, fft_u_o, nt, zeta);
 
   for (int iw = 0; iw < nt; ++iw)
   {
@@ -115,12 +122,20 @@ float* get_d_1d(float* dcalc, float* dobs, float dt, int nt)
   return result;
 }
 
-float get_luo_1d(float *dcalc, float *dobs, float dt, int nt, float t0)
+float get_luo_1d(
+  float *dcalc,
+  float *dobs,
+  float dt,
+  int nt,
+  float t0,
+  float zeta,
+  int penalty_flag
+)
 {
   float result = 0.0f;
 
-  float* d = get_d_1d(dcalc, dobs, dt, nt);
-  float* P = get_penalty(nt, dt, t0);
+  float* d = get_d_1d(dcalc, dobs, dt, nt, zeta);
+  float* P = get_penalty(nt, dt, t0, penalty_flag);
 
   if(!initialized)
   {
@@ -143,12 +158,20 @@ float get_luo_1d(float *dcalc, float *dobs, float dt, int nt, float t0)
   return 0.5f * result;
 }
 
-float get_awi_1d(float *dcalc, float *dobs, float dt, int nt, float t0)
+float get_awi_1d(
+  float *dcalc,
+  float *dobs,
+  float dt,
+  int nt,
+  float t0,
+  float zeta,
+  int penalty_flag
+)
 {
   float result = 0.0f;
 
-  float* d = get_d_1d(dcalc, dobs, dt, nt);
-  float* P = get_penalty(nt, dt, t0);
+  float* d = get_d_1d(dcalc, dobs, dt, nt, zeta);
+  float* P = get_penalty(nt, dt, t0, penalty_flag);
 
   float w = 0.0f;
 
@@ -178,7 +201,8 @@ float* get_d_2d(
   const float* u_o,
   float dt,
   int nt,
-  int nrec
+  int nrec,
+  float zeta
 )
 {
   float* d_2d = malloc(nt * nrec * sizeof(*d_2d));
@@ -196,7 +220,7 @@ float* get_d_2d(
       trace_o[t] = u_o[idx];
     }
 
-    float* d_1d = get_d_1d(trace_s, trace_o, dt, nt);
+    float* d_1d = get_d_1d(trace_s, trace_o, dt, nt, zeta);
 
     for (int itau = 0; itau < nt; ++itau)
     {
@@ -220,11 +244,13 @@ float get_decon_2d(
   float dt,
   int nt,
   int nrec,
-  float t0
+  float t0,
+  float zeta,
+  int penalty_flag
 )
 {
-  float* P = get_penalty(nt, dt, t0);
-  float* d = get_d_2d(dcalc, dobs, dt, nt, nrec);
+  float* P = get_penalty(nt, dt, t0, penalty_flag);
+  float* d = get_d_2d(dcalc, dobs, dt, nt, nrec, zeta);
 
   float total = 0.0f;
 

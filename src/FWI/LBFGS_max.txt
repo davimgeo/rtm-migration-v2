@@ -21,7 +21,7 @@
 #define LBGFS_M 5
 
 #define MAX_ITERATIONS 78
-#define MAX_LINE_SEARCH 20
+#define MAX_LINE_SEARCH 10
 
 double FWI_GetPhi_LBFGS(fwi_t* f, double alpha)
 {
@@ -130,14 +130,17 @@ double zoom(double a_lo, double a_hi, fwi_t* f, double phi_0, double gTp_0, doub
       a_lo = a_j;
       phi_lo = phi_aj;
 
-
     }
-      if((i == MAX_LINE_SEARCH - 1) && (phi_aj >= armijo))
-      {
-        printf("WARNING: Armijo-only fallback\n");
-        printf("Alpha: %.15e\n", phi_aj);
-      }
-        return phi_aj;
+
+    if((i == MAX_LINE_SEARCH - 1) && (phi_aj >= armijo))
+    {
+      printf("WARNING: Armijo-only fallback\n");
+      printf("Alpha: %.15e\n", a_j);
+
+      f->ARMIJO_FALLBACK = 1;
+
+      return a_j;
+    }
   }
 
   return -1.0;
@@ -531,6 +534,9 @@ void FWI_Run_LBFGS(fwi_t* f)
       break;
     }
     printf("alpha: %.15e\n", f->a_present);
+
+    if(f->ARMIJO_FALLBACK == 1)
+      FWI_GetPhiDerivative_LBFGS(f, f->a_present);
 
     FWI_UpdateCurvaturePair(f, k);
 

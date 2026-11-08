@@ -351,8 +351,8 @@ void RTM_DeconLuo_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int i
   float* dobs = read2d(PATH, s->nt, s->nrec);
   float* dcalc = s->seismogram;
 
-  float* P = get_penalty(s->nt, s->dt, t0);
-  float* d = get_d_2d(dcalc, dobs, s->dt, s->nt, s->nrec);
+  float* P = get_penalty(s->nt, s->dt, t0, r->penalty_function_flag);
+  float* d = get_d_2d(dcalc, dobs, s->dt, s->nt, s->nrec, r->zeta);
 
   float* trace_o = malloc(s->nt * sizeof(*trace_o));
   float* trace_d = malloc(s->nt * s->nrec * sizeof(*trace_o));
@@ -380,7 +380,7 @@ void RTM_DeconLuo_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int i
     float complex* C_u_o = conjugate1d(fft_u_o, s->nt);
     float complex* fft_d = get_fft_1d(trace_d, s->nt);
 
-    float eps = get_epsilon(C_u_o, fft_u_o, s->nt);
+    float eps = get_epsilon(C_u_o, fft_u_o, s->nt, r->zeta);
 
     for (int iw = 0; iw < s->nt; ++iw)
     {
@@ -545,8 +545,8 @@ void RTM_Decon_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int isho
   //plot2d(dcalc, s->nt, s->nrec);
   //plot_column(dcalc, 40, s->nt, s->nrec);
 
-  float* P = get_penalty(s->nt, s->dt, t0);
-  float* w = get_d_2d(dcalc, dobs, s->dt, s->nt, s->nrec);
+  float* P = get_penalty(s->nt, s->dt, t0, r->penalty_function_flag);
+  float* w = get_d_2d(dcalc, dobs, s->dt, s->nt, s->nrec, r->zeta);
 
   float* trace_o = malloc(s->nt * sizeof(*trace_o));
   //float* test = malloc(s->nt * s->nrec * sizeof(*trace_o));
@@ -602,7 +602,7 @@ void RTM_Decon_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int isho
     float complex* fft_u_o = get_fft_1d(trace_o, s->nt);
     float complex* C_u_o = conjugate1d(fft_u_o, s->nt);
 
-    float eps = get_epsilon(C_u_o, fft_u_o, s->nt);
+    float eps = get_epsilon(C_u_o, fft_u_o, s->nt, r->zeta);
 
     for (int iw = 0; iw < s->nt; ++iw)
     {

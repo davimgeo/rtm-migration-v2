@@ -32,6 +32,98 @@ static void FWI_GetSlownessFromVelocity(
 
 static float FWI_GetInitialAlpha(const float* model, int nz, int nx);
 
+void FWI_Debug(fwi_t* f, fwi_specs_t* specs)
+{
+  char objective[32];
+
+  size_t len = strlen(specs->objective_function_flag);
+
+  if (len >= sizeof(objective))
+  {
+    fprintf(stderr, "Objective Function name too long\n");
+    exit(EXIT_FAILURE);
+  }
+
+  for (size_t i = 0; i <= len; ++i)
+    objective[i] = toupper((unsigned char)specs->objective_function_flag[i]);
+
+  if (strcmp(objective, "DECON") == 0)
+    f->objective_function = RTM_DECON_ADJOINT_SOURCE;
+  else if (strcmp(objective, "AWI") == 0)
+    f->objective_function = RTM_AWI_ADJOINT_SOURCE;
+  else if (strcmp(objective, "CROSS") == 0)
+    f->objective_function = RTM_CROSS_ADJOINT_SOURCE;
+  else if (strcmp(objective, "L2") == 0)
+    f->objective_function = RTM_L2_ADJOINT_SOURCE;
+  else
+  {
+    fprintf(stderr, "Invalid Objective Function: %s\n", objective);
+    exit(EXIT_FAILURE);
+  }
+
+  char* penalty;
+
+  if(specs->penalty_function_flag == 0)
+    penalty = "Max Gaussian( e^{-(tau/t0)^2} )";
+  else if(specs->penalty_function_flag == 1)
+    penalty = "Min Gaussian( 1 - e^{-(tau/t0)^2} )";
+  else if(specs->penalty_function_flag == 2)
+    penalty = "|tau| if tau > t0 else 0";
+
+  char path[512];
+  snprintf(path, sizeof(path), "%s/config.dat", f->export_path);
+
+  FILE* fptr = fopen(path, "w");
+
+  if (fptr == NULL)
+    perror(path);
+
+  FILE* outputs[] = {stdout, fptr};
+
+  for (int i = 0; i < 2; ++i)
+  {
+    FILE* out = outputs[i];
+
+    if (out == NULL)
+      continue;
+
+    fprintf(out, "Ricker Max Frequency: %g Hz\n", f->rtm->p->wavelet->fmax);
+    fprintf(out, "DOBS_PATH: %s\n", f->DOBS_PATH);
+    fprintf(out, "EXPORT_PATH: %s\n", f->export_path);
+    fprintf(out, "Max and Min velocities allowed: [%g, %g]\n", f->vmin, f->vmax);
+
+    switch (f->objective_function)
+    {
+      case RTM_DECON_ADJOINT_SOURCE:
+        fprintf(out, "Using Deconvolution Objective Function\n");
+        fprintf(out, "T0 = %gs\n", f->t0);
+        fprintf(out, "Zeta = %g%%\n", specs->zeta * 100.0f);
+        fprintf(out, "Penalty Function: %s\n", penalty);
+        break;
+
+      case RTM_AWI_ADJOINT_SOURCE:
+        fprintf(out, "Using AWI Objective Function\n");
+        fprintf(out, "T0 = %gs\n", f->t0);
+        fprintf(out, "Zeta = %g%%\n", specs->zeta * 100.0f);
+        fprintf(out, "Penalty Function: %s\n", penalty);
+        break;
+
+      case RTM_CROSS_ADJOINT_SOURCE:
+        fprintf(out, "Using Cross-correlation Objective Function\n");
+        fprintf(out, "T0 = %gs\n", f->t0);
+        fprintf(out, "Penalty Function: %s\n", penalty);
+        break;
+
+      case RTM_L2_ADJOINT_SOURCE:
+        fprintf(out, "Using L2 Objective Function\n");
+        break;
+    }
+  }
+
+  if (fptr != NULL)
+    fclose(fptr);
+}
+
 fwi_t* FWI_Init(fwi_t* f, rtm_t* rtm, fwi_specs_t* specs)
 {
   f = alloc_struct(1, f);
@@ -42,51 +134,14 @@ fwi_t* FWI_Init(fwi_t* f, rtm_t* rtm, fwi_specs_t* specs)
 
   f->t0 = specs->t0;
 
+  // need to change this
+  rtm->zeta = specs->zeta;
+  rtm->penalty_function_flag = specs->penalty_function_flag;
+
   f->vmin = specs->vmin;
   f->vmax = specs->vmax;
 
-  char objective[32];
-
-  size_t len = strlen(specs->objective_function_flag);
-
-  if(len >= sizeof(objective)) return NULL;
-
-  for(size_t i = 0; i <= len; ++i)
-    objective[i] = toupper((unsigned char)specs->objective_function_flag[i]);
-
-  printf("Ricker Max Frequency: %g Hz\n", rtm->p->wavelet->fmax);
-  printf("DOBS_PATH: %s\n", f->DOBS_PATH);
-  printf("EXPORT_PATH: %s\n", f->export_path);
-  printf("Max and Min velocities allowed: [%g, %g]\n", f->vmin, f->vmax);
-
-  if(strcmp(objective, "DECON") == 0)
-  {
-    f->objective_function = RTM_DECON_ADJOINT_SOURCE;
-    printf("Using Deconvolution Objective Function\n");
-    printf("T0 = %gs\n", f->t0);
-  }
-  else if(strcmp(objective, "AWI") == 0)
-  {
-    f->objective_function = RTM_AWI_ADJOINT_SOURCE;
-    printf("Using AWI Objective Function\n");
-    printf("T0 = %gs\n", f->t0);
-  }
-  else if(strcmp(objective, "CROSS") == 0)
-  {
-    f->objective_function = RTM_CROSS_ADJOINT_SOURCE;
-    printf("Using Cross-correlation Objective Function\n");
-    printf("T0 = %gs\n", f->t0);
-  }
-  else if(strcmp(objective, "L2") == 0)
-  {
-    f->objective_function = RTM_L2_ADJOINT_SOURCE;
-    printf("Using L2 Objective Function\n");
-  }
-  else 
-  {
-    printf("Invalid Objective Function\n");
-    exit(0);
-  }
+  FWI_Debug(f, specs);
 
   seismogram_t* s = rtm->p->seismogram;
   model_t* m = rtm->p->model;
@@ -285,9 +340,9 @@ float* FWI_GetGradient(fwi_t* f, float* vp)
     }
   }
 
-  float* nabla_cost = FWI_GaussianSmooth(f, nabla_chi);
+  //float* nabla_cost = FWI_GaussianSmooth(f, nabla_chi);
 
-  return nabla_cost;
+  return nabla_chi;
 }
 
 float* FWI_GetInitialGradient(fwi_t* f, float* vp)
@@ -304,16 +359,18 @@ float* FWI_GetInitialGradient(fwi_t* f, float* vp)
   for (int i = 0; i < m->nz; ++i)
   {
     for (int j = 0; j < m->nx; ++j)
-    {
-      size_t idx_im = (size_t)(i + m->nb) * m->nxx + (j + m->nb);
-      size_t idx_nabla = (size_t)i * m->nx + j;
+      {
+        size_t idx_im = (size_t)(i + m->nb) * m->nxx + (j + m->nb);
+        size_t idx_nabla = (size_t)i * m->nx + j;
 
-      //if (i < 20)
-      //  nabla_chi[idx_nabla] = 0.0f;
-      //else
-      nabla_chi[idx_nabla] = f->rtm->image[idx_im];
+        if (i < 20)
+          nabla_chi[idx_nabla] = 0.0f;
+        else
+          nabla_chi[idx_nabla] = f->rtm->image[idx_im];
     }
   }
+
+  //float* nabla_cost = FWI_GaussianSmooth(f, nabla_chi);
 
   return nabla_chi;
 }
@@ -364,19 +421,23 @@ float* FWI_GetDcalc(fwi_t* f, float* vp)
   Model_Set(model, vp);
   Model_Extent(model);
 
+  float* src_x = f->rtm->p->geometry->src.x;
+  float* src_z = f->rtm->p->geometry->src.z;
+
   for (int ishot = 0; ishot < base_geom->nsrc; ishot++)
   {
-    //geometry_t* geom = Geometry_InitCreate(NULL, &geometry_specs);
-    //Geometry_Create(geom, GEOMETRY_ONLY_RECEIVERS);
+    geometry_t* geom = Geometry_InitCreate(NULL, &geometry_specs);
+    Geometry_Create(geom, GEOMETRY_ONLY_RECEIVERS);
     //Geometry_SetSource(
     //  geom,
     //  ishot * geometry_specs.offset_src,
     //  geometry_specs.src_depth
     //);
     
-    geometry_t* geom = Geometry_InitLoad(geom);
-    Geometry_Load(geom, "data/receivers.txt", "data/sources.txt", GEOMETRY_ONLY_RECEIVERS);
-    Geometry_SetSource(geom, 2.0f, 2.5f * ishot);
+    //geometry_t* geom = Geometry_InitLoad(geom);
+    //Geometry_Load(geom, "data/receivers.txt", "data/sources.txt", GEOMETRY_ONLY_RECEIVERS);
+
+    Geometry_SetSource(geom, src_x[ishot], src_z[ishot]);
 
     seismogram_t* seis = Seismogram_Init(NULL, &seismogram_specs, geom->nrec, 0);
 

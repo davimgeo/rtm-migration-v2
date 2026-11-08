@@ -23,7 +23,7 @@ double FWI_DeconObjf(fwi_t* f, const float* dcalc)
 
   const size_t shot_size = (size_t)s->nt * s->nrec;
 
-  float* P = get_penalty(s->nt, s->dt, f->t0);
+  float* P = get_penalty(s->nt, s->dt, f->t0, f->penalty_function_flag);
 
   for (int ishot = 0; ishot < g->nsrc; ++ishot)
   {
@@ -42,24 +42,36 @@ double FWI_DeconObjf(fwi_t* f, const float* dcalc)
     const float* u_s = dcalc + (size_t)ishot * shot_size;
     float* u_o = read2d(path, s->nt, s->nrec);
 
+    float* w = get_d_2d(u_s, u_o, s->dt, s->nt, s->nrec, f->zeta);
+
     if(ishot == 25)
     {
-      char filename[256];
+      char dcalc_filename[256];
 
       snprintf(
-        filename,
-        sizeof(filename),
+        dcalc_filename,
+        sizeof(dcalc_filename),
         "%sdata/dcalc_%01d.bin",
         f->export_path,
         f->FWI_ITERATION + 1
       );
 
-      write2d(filename, u_s, sizeof(float), s->nt, s->nrec);
+      write2d(dcalc_filename, u_s, sizeof(float), s->nt, s->nrec);
 
-      printf("Saved dcalc in %s\n", filename);
+      char wiener_filename[256];
+
+      snprintf(
+        wiener_filename,
+        sizeof(wiener_filename),
+        "%sdata/wiener_%01d.bin",
+        f->export_path,
+        f->FWI_ITERATION + 1
+      );
+
+      write2d(wiener_filename, w, sizeof(float), s->nt, s->nrec);
+
+      printf("Saved dcalc in %s\n", wiener_filename);
     }
-
-    float* w = get_d_2d(u_s, u_o, s->dt, s->nt, s->nrec);
 
     for (int irec = 0; irec < s->nrec; ++irec)
     {
@@ -86,7 +98,7 @@ double FWI_DeconObjf(fwi_t* f, const float* dcalc)
 
   free(P);
 
-  return 0.5f * f_awi * p->dt;
+  return f_awi;
 }
 
 double FWI_DeconLuoObjf(fwi_t* f, const float* dcalc)
@@ -99,7 +111,7 @@ double FWI_DeconLuoObjf(fwi_t* f, const float* dcalc)
 
   const size_t shot_size = (size_t)s->nt * s->nrec;
 
-  float* P = get_penalty(s->nt, s->dt, f->t0);
+  float* P = get_penalty(s->nt, s->dt, f->t0, f->penalty_function_flag);
 
   for (int ishot = 0; ishot < g->nsrc; ++ishot)
   {
@@ -136,7 +148,7 @@ double FWI_DeconLuoObjf(fwi_t* f, const float* dcalc)
       printf("Saved dcalc in %s\n", filename);
     }
 
-    float* d = get_d_2d(u_s, u_o, s->dt, s->nt, s->nrec);
+    float* d = get_d_2d(u_s, u_o, s->dt, s->nt, s->nrec, f->zeta);
 
     for (int irec = 0; irec < s->nrec; ++irec)
     {
@@ -160,7 +172,7 @@ double FWI_DeconLuoObjf(fwi_t* f, const float* dcalc)
 
   free(P);
 
-  return 0.5f * result * (double)s->dt;
+  return result;
 }
 
 double FWI_CrossObjf(fwi_t* f, const float* dcalc)
@@ -173,7 +185,7 @@ double FWI_CrossObjf(fwi_t* f, const float* dcalc)
 
   const size_t shot_size = (size_t)s->nt * s->nrec;
 
-  float* P = get_penalty(s->nt, s->dt, f->t0);
+  float* P = get_penalty(s->nt, s->dt, f->t0, f->penalty_function_flag);
 
   for (int ishot = 0; ishot < g->nsrc; ++ishot)
   {
@@ -217,7 +229,7 @@ double FWI_CrossObjf(fwi_t* f, const float* dcalc)
 
   free(P);
 
-  return 0.5f * chi * (double)s->dt;
+  return chi;
 }
 
 double FWI_L2Norm(fwi_t* f, const float* dcalc)

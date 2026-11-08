@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from scipy.ndimage import uniform_filter1d
 
-
 def load(path: str, height: int, weight: int) -> np.ndarray:
   return np.fromfile(
     path, dtype=np.float32, count=height*weight
@@ -52,14 +51,14 @@ def plot_model_and_real(model, perc=99) -> None:
 def animate_iterations(
   iterations,
   shot=25,
-  reference_trace=55,
-  nt=4001,
-  nrec=101,
+  reference_trace=90,
+  nt=12001,
+  nrec=341,
   dt=0.001,
-  nz=101,
-  nx=101,
-  tmin=500,
-  tmax=3000,
+  nz=141,
+  nx=681,
+  tmin=1200,
+  tmax=6000,
   receiver_spacing=10,
   interval=1000,
   save_path=None
@@ -72,7 +71,7 @@ def animate_iterations(
 
   dobs = load(
     DOBS_PATH +
-    f"seismogram_4001x101_shot{shot}.bin",
+    f"seismogram_12001x341_shot{shot}.bin",
     nt, nrec
   )
 
@@ -84,8 +83,8 @@ def animate_iterations(
   window = max(1, int(0.5 / dt))
 
   models = [
-    load(PATH + f"m_{iteration}.bin", nz, nx)
-    for iteration in iterations
+      load(PATH + f"m_{iteration}.bin", nz, nx)
+      for iteration in iterations
   ]
 
   vmin = min(np.percentile(model, 1) for model in models)
@@ -365,16 +364,16 @@ def plot_agc(
 
   return dobs_agc, dcalc_agc
 
-PATH = "data/FWI/AWI_Circle_Test2/"
-DOBS_PATH = "data/dobs/"
+PATH = "data/FWI/L2_Good_Test2/"
+DOBS_PATH = "data/FWI/dobs_12s_10hz_ng/"
 
-MIN_ITERATION = 10
-MAX_ITERATION = 22
+MIN_ITERATION = 1
+MAX_ITERATION = 52
 
 ani = animate_iterations(iterations=range(MIN_ITERATION, MAX_ITERATION + 1))
 
-model1 = load(PATH + f"m_{MAX_ITERATION}.bin", 101, 101)
-model2 = load("data/FWI/AWI_Circle_1700/" + f"m_{MAX_ITERATION}.bin", 101, 101)
+model1 = load(PATH + f"m_{MAX_ITERATION}.bin", 141, 681)
+model2 = load("data/FWI/L2_Good_Test2/" + f"m_{MAX_ITERATION}.bin", 141, 681)
 
 diff = model1 - model2
 
@@ -386,11 +385,11 @@ vmax = max(model1.max(), model2.max())
 dmax = np.max(np.abs(diff))
 
 im0 = ax[0].imshow(model1, cmap="jet", aspect="auto")
-ax[0].set_title("Test 1")
+ax[0].set_title("L2 Good 1")
 fig.colorbar(im0, ax=ax[0])
 
 im1 = ax[1].imshow(model2, cmap="jet", aspect="auto")
-ax[1].set_title("Test 2")
+ax[1].set_title("L2 Good 2")
 fig.colorbar(im1, ax=ax[1])
 
 im2 = ax[2].imshow(diff, cmap="seismic", vmin=-dmax, vmax=dmax, aspect="auto")

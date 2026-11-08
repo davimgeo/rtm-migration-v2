@@ -172,7 +172,7 @@ __global__ void image_condition(
 {
   const size_t idx = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
 
-  if (idx < size) image[idx] += snap_ratio * num[idx];
+  if (idx < size) image[idx] += num[idx];
 }
 
 __global__ void get_seismogram(
@@ -272,8 +272,8 @@ void awi_adjoint_source(
   float* dobs = read2d(PATH, s->nt, s->nrec);
   float* dcalc = s->seismogram;
 
-  float* P = get_penalty(s->nt, s->dt, t0);
-  float* w = get_d_2d(dcalc, dobs, s->dt, s->nt, s->nrec);
+  float* P = get_penalty(s->nt, s->dt, t0, r->penalty_function_flag);
+  float* w = get_d_2d(dcalc, dobs, s->dt, s->nt, s->nrec, r->zeta);
 
   float* trace_o = (float*)std::malloc((size_t)s->nt * sizeof(float));
   float* weighted_d = (float*)std::calloc((size_t)s->nt, sizeof(float));
@@ -345,7 +345,7 @@ void awi_adjoint_source(
     float _Complex* fft_u_o = get_fft_1d(trace_o, s->nt);
     float _Complex* C_u_o = conjugate1d(fft_u_o, s->nt);
 
-    const float eps = get_epsilon(C_u_o, fft_u_o, s->nt);
+    const float eps = get_epsilon(C_u_o, fft_u_o, s->nt, r->zeta);
 
     for (int iw = 0; iw < s->nt; ++iw)
     {
@@ -459,8 +459,8 @@ void luo_adjoint_source(
   float* dobs = read2d(PATH, s->nt, s->nrec);
   float* dcalc = s->seismogram;
 
-  float* P = get_penalty(s->nt, s->dt, t0);
-  float* d = get_d_2d(dcalc, dobs, s->dt, s->nt, s->nrec);
+  float* P = get_penalty(s->nt, s->dt, t0, r->penalty_function_flag);
+  float* d = get_d_2d(dcalc, dobs, s->dt, s->nt, s->nrec, r->zeta);
 
   float* trace_o = (float*)malloc(s->nt * sizeof(*trace_o));
   float* trace_d = (float*)malloc(s->nt * s->nrec * sizeof(*trace_o));
@@ -487,7 +487,7 @@ void luo_adjoint_source(
     float _Complex* C_u_o = conjugate1d(fft_u_o, s->nt);
     float _Complex* fft_d = get_fft_1d(trace_d, s->nt);
 
-    float eps = get_epsilon(C_u_o, fft_u_o, s->nt);
+    float eps = get_epsilon(C_u_o, fft_u_o, s->nt, r->zeta);
 
     for (int iw = 0; iw < s->nt; ++iw)
     {
@@ -799,7 +799,8 @@ extern "C" void RTMv2_Run_GPU(rtm_t* r, const char* DOBS_PATH, unsigned int flag
   CUDA_CHECK(cudaMemcpy(r->image, d_image, wave_bytes, cudaMemcpyDeviceToHost));
   CUDA_CHECK(cudaMemcpy(r->dem, d_dem, wave_bytes, cudaMemcpyDeviceToHost));
 
-  r->chi_0 *= 0.5f * (double)p->dt;
+  if(flags & RTM_L2_ADJOINT_SOURCE)
+    r->chi_0 *= 0.5f * (double)p->dt;
 
   CUDA_CHECK(cudaFree(d_upas));
   CUDA_CHECK(cudaFree(d_upre));

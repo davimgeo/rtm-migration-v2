@@ -22,6 +22,8 @@ typedef struct
   int current_step;
 
   double chi_0;
+  float zeta;
+  int penalty_function_flag;
 
   float* snaps;
   int snap_ratio;

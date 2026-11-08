@@ -17,18 +17,18 @@ int main()
 
   SpecsContext* specs = Specs_Init(specs);
 
-  //geometry_t* geom = Geometry_InitCreate(geom, &specs->geometry);
-  //Geometry_Create(geom, 0);
-  geometry_t* geom = Geometry_InitLoad(geom);
-  Geometry_Load(geom, "data/receivers.txt", "data/sources.txt", 0);
+  geometry_t* geom = Geometry_InitCreate(geom, &specs->geometry);
+  Geometry_Create(geom, 0);
+  //geometry_t* geom = Geometry_InitLoad(geom);
+  //Geometry_Load(geom, "data/receivers.txt", "data/sources.txt", 0);
 
   wavelet_t* wave = Wavelet_Init(wave, &specs->wavelet);
   Wavelet_Create(wave);
 
   model_t* model = Model_Init(model, &specs->model);
-  //Model_Load(model, "data/FWI/m0_marmousi.bin", 681, 141, 0);
+  Model_Load(model, "data/FWI/m0_marmousi.bin", 681, 141, 0);
   //Model_Load(model, "data/FWI/model_circle_101x101_10m.bin", 101, 101, 0);
-  Model_Create(model);
+  //Model_Create(model);
   Model_Extent(model);
 
   plot_model_geometry(model, specs->propagation.dh, geom);
@@ -45,7 +45,16 @@ int main()
     PROPAGATION_ACOUSTIC);
   //Propagation_Run(prop, PROPAGATION_SAVE_SEISMOGRAM);
 
+  //float* dobs = read2d("data/dobs/seismogram_6001x103_shot0.bin", 6001, 103);
+  //plot2d(dobs, 6001, 103);
+
   rtm_t* rtm = RTM_Init(rtm, prop);
+  //RTMv2_Run_GPU(
+  //  rtm,
+  //  specs->fwi.dobs_path,
+  //  RTM_AWI_ADJOINT_SOURCE,
+  //  specs->fwi.t0
+  //);
 
   fwi_t* fwi = FWI_Init(fwi, rtm, &specs->fwi);
   FWI_Run_LBFGS(fwi);

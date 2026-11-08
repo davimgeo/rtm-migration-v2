@@ -306,7 +306,7 @@ float* FWI_GradientIllumination(fwi_t* f, const float* q)
   }
 
   double Hmax = sqrt(Imax);
-  double floor_H = 0.05 * Hmax;
+  double floor_H = 0.01 * Hmax;
 
   for(int i = 0; i < nz; i++)
   {
@@ -345,12 +345,16 @@ void FWI_GetDirection_LBFGS(fwi_t* f, float gamma, float* gradient, int k)
   {
     const float grad_scale = FWI_GradientScale(q, n);
 
-    float* q_cost = FWI_GradientIllumination(f, q);
+    //float* q_cost = FWI_GradientIllumination(f, q);
+
+    //plot2d(q, 141, 681);
+    //printf("%g\n", grad_scale);
+    //plot2d(q_cost, 141, 681);
 
     for (size_t i = 0; i < n; ++i)
-      f->direction[i] = -q_cost[i] / grad_scale;
+      f->direction[i] = -q[i] / grad_scale;
 
-    free(q_cost);
+    //free(q_cost);
   }
   else
   {
@@ -378,13 +382,13 @@ void FWI_GetDirection_LBFGS(fwi_t* f, float gamma, float* gradient, int k)
     }
 
     //float* smooth_q = FWI_GaussianSmooth(f, q);
-    float* q_cost = FWI_GradientIllumination(f, q);
+    //float* q_cost = FWI_GradientIllumination(f, q);
     //write2d("smooth_q.bin", smooth_q, sizeof(float), m->nz, m->nx);
 
     for(size_t j = 0; j < n; j++)
-      r[j] = gamma * q_cost[j];
+      r[j] = gamma * q[j];
 
-    free(q_cost);
+    //free(q_cost);
 
     for(int i = k - h; i < k; i++)
     {
