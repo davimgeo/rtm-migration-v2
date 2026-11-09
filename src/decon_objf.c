@@ -14,7 +14,8 @@ float get_epsilon(float complex*arr1, float complex*arr2, int size, float zeta)
   float max = 0.0f;
   for(int i = 0; i < size; i++)
   {
-    float temp = cabsf(arr1[i] * arr2[i]);
+    // tirei a multiplicacao de arr2 aqui para teste
+    float temp = cabsf(arr1[i]);
     if (temp > max) max = temp;
   }
   return zeta * max;
@@ -53,10 +54,10 @@ float* get_penalty(int nt, float dt, float t0, int penalty_flag)
         break;
 
       case 1: // 1 - Gaussian
-        if (fabsf(tau) <= t0)
+        //if (fabsf(tau) <= t0)
           P[j] = 1.0f - expf(-(tau/t0)*(tau/t0));
-        else
-          P[j] = 0.0f;
+        //else
+          //P[j] = 0.0f;
         break;
 
       case 2: // Absolute lag

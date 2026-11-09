@@ -16,7 +16,7 @@
 
 #define TOL 1e-6f
 #define C1 1e-4f
-#define C2 0.95f
+#define C2 0.9f
 
 #define LBGFS_M 5
 
@@ -498,9 +498,7 @@ void FWI_Run_LBFGS(fwi_t* f)
 
   const size_t model_size = (size_t)m->nz * m->nx;
 
-  float* gradient = FWI_GetGradient(f, f->vp_current);
-  //write2d("nabla_chi_141x681.bin", gradient, sizeof(float), m->nz, m->nx);
-  //float* gradient = read2d("nabla_chi_141x681.bin", m->nz, m->nx);
+  float* gradient = FWI_GetInitialGradient(f, f->vp_current);
   memcpy(f->gradient_current, gradient, model_size * sizeof(float));
 
   printf("phi_0: %.15e\n", r->chi_0);

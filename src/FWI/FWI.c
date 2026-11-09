@@ -134,6 +134,9 @@ fwi_t* FWI_Init(fwi_t* f, rtm_t* rtm, fwi_specs_t* specs)
 
   f->t0 = specs->t0;
 
+  f->zeta = specs->zeta;
+  f->penalty_function_flag = specs->penalty_function_flag;
+
   // need to change this
   rtm->zeta = specs->zeta;
   rtm->penalty_function_flag = specs->penalty_function_flag;
@@ -359,18 +362,20 @@ float* FWI_GetInitialGradient(fwi_t* f, float* vp)
   for (int i = 0; i < m->nz; ++i)
   {
     for (int j = 0; j < m->nx; ++j)
-      {
-        size_t idx_im = (size_t)(i + m->nb) * m->nxx + (j + m->nb);
-        size_t idx_nabla = (size_t)i * m->nx + j;
+    {
+      size_t idx_im = (size_t)(i + m->nb) * m->nxx + (j + m->nb);
+      size_t idx_nabla = (size_t)i * m->nx + j;
 
-        if (i < 20)
-          nabla_chi[idx_nabla] = 0.0f;
-        else
-          nabla_chi[idx_nabla] = f->rtm->image[idx_im];
+      //if (i < 20)
+      //  nabla_chi[idx_nabla] = 0.0f;
+      //else
+        nabla_chi[idx_nabla] = f->rtm->image[idx_im];
     }
   }
 
+  plot2d(nabla_chi, 101, 101);
   float* nabla_cost = FWI_GaussianSmooth(f, nabla_chi);
+  plot2d(nabla_cost, 101, 101);
 
   return nabla_cost;
 }
@@ -426,16 +431,16 @@ float* FWI_GetDcalc(fwi_t* f, float* vp)
 
   for (int ishot = 0; ishot < base_geom->nsrc; ishot++)
   {
-    geometry_t* geom = Geometry_InitCreate(NULL, &geometry_specs);
-    Geometry_Create(geom, GEOMETRY_ONLY_RECEIVERS);
+    //geometry_t* geom = Geometry_InitCreate(NULL, &geometry_specs);
+    //Geometry_Create(geom, GEOMETRY_ONLY_RECEIVERS);
     //Geometry_SetSource(
     //  geom,
     //  ishot * geometry_specs.offset_src,
     //  geometry_specs.src_depth
     //);
     
-    //geometry_t* geom = Geometry_InitLoad(geom);
-    //Geometry_Load(geom, "data/receivers.txt", "data/sources.txt", GEOMETRY_ONLY_RECEIVERS);
+    geometry_t* geom = Geometry_InitLoad(geom);
+    Geometry_Load(geom, "data/receivers.txt", "data/sources.txt", GEOMETRY_ONLY_RECEIVERS);
 
     Geometry_SetSource(geom, src_x[ishot], src_z[ishot]);
 

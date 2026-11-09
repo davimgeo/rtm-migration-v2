@@ -152,9 +152,6 @@ double FWI_LineSearchV3(fwi_t* f, double phi_0, double gTp_0, int k)
   printf("phi'(0) = %.15e\n", gTp_0);
   printf("a_max   = %.15e\n", a_max);
 
-  double phi_00 = FWI_GetPhi_LBFGS(f, 0.0);
-  printf("%g\n", phi_00);
-
   #if 0
   const double eps_values[] = {
     1e-10, 2e-10, 5e-10, 1e-9, 2e-9
@@ -480,7 +477,9 @@ void FWI_Run_LBFGS(fwi_t* f)
 
   const size_t model_size = (size_t)m->nz * m->nx;
 
-  FILE* fptr = fopen("data/FWI/Test/phi_history.txt", "w");
+  char path[256];
+  snprintf(path, sizeof(path), "%s/phi_history.txt", f->export_path);
+  FILE* fptr = fopen(path, "w");
 
   float* gradient = FWI_GetInitialGradient(f, f->vp_current);
   memcpy(f->gradient_current, gradient, model_size * sizeof(float));

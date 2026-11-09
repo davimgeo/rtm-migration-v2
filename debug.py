@@ -27,38 +27,17 @@ def plot_model(model) -> None:
   plt.tight_layout()
   plt.show()
 
-def plot_model_and_real(model, perc=99) -> None:
-  real_model = load_fortran("data/FWI/marmousi_141z_681x_25dxdz.bin", 141, 681)
-
-  fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(16, 8))
-
-  img = ax[0].imshow(model, aspect="auto", cmap="jet")
-  plt.colorbar(img, ax=ax[0], label="VP [m/s]")
-
-  img = ax[1].imshow(real_model, aspect="auto", cmap="jet")
-  plt.colorbar(img, ax=ax[1], label="VP [m/s]")
-
-  ax[0].set_title("Inverted Model", fontsize=13)
-  ax[1].set_title("Real Model", fontsize=13)
-
-  for ax in ax: 
-    ax.set_xlabel("Distance [m]", fontsize=13)
-    ax.set_ylabel("Depth [m]", fontsize=13)
-
-  plt.tight_layout()
-  plt.show()
-
 def animate_iterations(
   iterations,
   shot=25,
   reference_trace=90,
-  nt=12001,
-  nrec=341,
+  nt=6001,
+  nrec=101,
   dt=0.001,
-  nz=141,
-  nx=681,
-  tmin=1200,
-  tmax=6000,
+  nz=101,
+  nx=101,
+  tmin=500,
+  tmax=3000,
   receiver_spacing=10,
   interval=1000,
   save_path=None
@@ -71,7 +50,7 @@ def animate_iterations(
 
   dobs = load(
     DOBS_PATH +
-    f"seismogram_12001x341_shot{shot}.bin",
+    f"seismogram_6001x101_shot{shot}.bin",
     nt, nrec
   )
 
@@ -364,16 +343,76 @@ def plot_agc(
 
   return dobs_agc, dcalc_agc
 
-PATH = "data/FWI/Test/"
-DOBS_PATH = "data/FWI/dobs_12s_10hz_ng/"
+PATH = "data/FWI/AWI_Circle_1700_2/"
+DOBS_PATH = "data/dobs/"
 
 MIN_ITERATION = 1
-MAX_ITERATION = 4
+MAX_ITERATION = 5
 
 ani = animate_iterations(iterations=range(MIN_ITERATION, MAX_ITERATION + 1))
 
+model = load(PATH + f"m_{MAX_ITERATION}.bin", 101, 101)
+plot_model(model)
+
+phi_history = np.loadtxt(PATH + "phi_history.txt", dtype=np.float32)
+max_phi = np.max(phi_history)
+phi_history /= max_phi
+
+plt.plot(phi_history, '-o', label="gaussian")
+
+plt.grid(True)
+plt.legend()
+plt.show()
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+wiener = load(PATH + "data/wiener_1.bin", 6001, 101)
+
+rec = 40
+dt = 1e-3
+sigma = 0.30
+
+w1 = np.fft.fftshift(wiener[:, rec].copy())
+w1 /= max(np.max(np.abs(w1)), 1e-12)
+
+nt = len(w1)
+lags = np.arange(nt) - nt // 2
+time = lags * dt
+
+P = np.exp(-(time**2) / sigma**2)
+
+w_penalized = P * w1
+
+fig, ax = plt.subplots(
+    nrows=1, ncols=3,
+    figsize=(18, 5),
+    sharex=True
+)
+
+ax[0].plot(time, w1)
+ax[0].set_title("Original Wiener (Normalized)")
+
+ax[1].plot(time, P)
+ax[1].set_title("Penalty: 1 - Gaussian")
+
+ax[2].plot(time, w1, "--", alpha=0.4, label="Original")
+ax[2].plot(time, w_penalized, label="Penalized")
+ax[2].set_title("Wiener × Penalty")
+ax[2].legend()
+
+for a in ax:
+    a.set_xlabel("Lag [s]")
+    a.set_ylabel("Amplitude")
+    a.grid(alpha=0.3)
+    a.axvline(0, color="red", linestyle="--", alpha=0.5)
+    a.set_xlim(-2, 2)
+
+plt.tight_layout()
+plt.show()
+
 model1 = load(PATH + f"m_{MAX_ITERATION}.bin", 141, 681)
-model2 = load("data/FWI/L2_Good_Test/" + f"m_{MAX_ITERATION}.bin", 141, 681)
+model2 = load("data/FWI/L2_Good_Test2/" + f"m_{MAX_ITERATION}.bin", 141, 681)
 
 diff = model1 - model2
 
