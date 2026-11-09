@@ -364,16 +364,16 @@ def plot_agc(
 
   return dobs_agc, dcalc_agc
 
-PATH = "data/FWI/L2_Good_Test2/"
+PATH = "data/FWI/Test/"
 DOBS_PATH = "data/FWI/dobs_12s_10hz_ng/"
 
 MIN_ITERATION = 1
-MAX_ITERATION = 52
+MAX_ITERATION = 4
 
 ani = animate_iterations(iterations=range(MIN_ITERATION, MAX_ITERATION + 1))
 
 model1 = load(PATH + f"m_{MAX_ITERATION}.bin", 141, 681)
-model2 = load("data/FWI/L2_Good_Test2/" + f"m_{MAX_ITERATION}.bin", 141, 681)
+model2 = load("data/FWI/L2_Good_Test/" + f"m_{MAX_ITERATION}.bin", 141, 681)
 
 diff = model1 - model2
 

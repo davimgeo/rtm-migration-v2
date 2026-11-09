@@ -56,10 +56,10 @@ SpecsContext* Specs_Init(SpecsContext* specs)
 
     .fwi = 
     {
-      .objective_function_flag = "L2",
+      .objective_function_flag = "AWI",
 
       .dobs_path = "data/FWI/dobs_12s_10hz_ng",
-      .export_path = "data/FWI/L2_Good_Test2/",
+      .export_path = "data/FWI/Test/",
 
       .vmin = 1200.0f,
       .vmax = 5200.0f,

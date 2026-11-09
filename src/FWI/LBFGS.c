@@ -152,6 +152,9 @@ double FWI_LineSearchV3(fwi_t* f, double phi_0, double gTp_0, int k)
   printf("phi'(0) = %.15e\n", gTp_0);
   printf("a_max   = %.15e\n", a_max);
 
+  double phi_00 = FWI_GetPhi_LBFGS(f, 0.0);
+  printf("%g\n", phi_00);
+
   #if 0
   const double eps_values[] = {
     1e-10, 2e-10, 5e-10, 1e-9, 2e-9
@@ -345,16 +348,12 @@ void FWI_GetDirection_LBFGS(fwi_t* f, float gamma, float* gradient, int k)
   {
     const float grad_scale = FWI_GradientScale(q, n);
 
-    //float* q_cost = FWI_GradientIllumination(f, q);
-
-    //plot2d(q, 141, 681);
-    //printf("%g\n", grad_scale);
-    //plot2d(q_cost, 141, 681);
+    float* q_cost = FWI_GradientIllumination(f, q);
 
     for (size_t i = 0; i < n; ++i)
-      f->direction[i] = -q[i] / grad_scale;
+      f->direction[i] = -q_cost[i] / grad_scale;
 
-    //free(q_cost);
+    free(q_cost);
   }
   else
   {
@@ -381,14 +380,12 @@ void FWI_GetDirection_LBFGS(fwi_t* f, float gamma, float* gradient, int k)
         q[j] -= alpha[slot] * f->y[offset + j];
     }
 
-    //float* smooth_q = FWI_GaussianSmooth(f, q);
-    //float* q_cost = FWI_GradientIllumination(f, q);
-    //write2d("smooth_q.bin", smooth_q, sizeof(float), m->nz, m->nx);
+    float* q_cost = FWI_GradientIllumination(f, q);
 
     for(size_t j = 0; j < n; j++)
-      r[j] = gamma * q[j];
+      r[j] = gamma * q_cost[j];
 
-    //free(q_cost);
+    free(q_cost);
 
     for(int i = k - h; i < k; i++)
     {
@@ -483,9 +480,9 @@ void FWI_Run_LBFGS(fwi_t* f)
 
   const size_t model_size = (size_t)m->nz * m->nx;
 
+  FILE* fptr = fopen("data/FWI/Test/phi_history.txt", "w");
+
   float* gradient = FWI_GetInitialGradient(f, f->vp_current);
-  //write2d("nabla_chi_141x681.bin", gradient, sizeof(float), m->nz, m->nx);
-  //float* gradient = read2d("nabla_chi_141x681.bin", m->nz, m->nx);
   memcpy(f->gradient_current, gradient, model_size * sizeof(float));
 
   printf("phi_0: %.15e\n", r->chi_0);
@@ -501,10 +498,14 @@ void FWI_Run_LBFGS(fwi_t* f)
 
     double phi_0 = r->chi_0;
 
+    fprintf(fptr, "%.15e\n", phi_0);
+    fflush(fptr);
+
     FWI_GetDirection_LBFGS(f, gamma, f->gradient_current, k);
-    //plot2d(f->direction, m->nz, m->nx);
     double gTp_0 = FWI_GetGTP(f, f->gradient_current);
+
     printf("gTp_0: %.15e\n", gTp_0);
+
     if(!isfinite(gamma) || !isfinite(gTp_0) || gamma <= 0.0 || gTp_0 >= 0.0f)
     {
       printf("ERROR: Invalid LBFGS direction\n");
@@ -512,12 +513,15 @@ void FWI_Run_LBFGS(fwi_t* f)
     }
 
     if(k == 1) f->a_present = 1.0f;
+
     f->a_present = FWI_LineSearchV3(f, phi_0, gTp_0, k);
+
     if(f->a_present < 0)
     {
       printf("Line Search Failed\n");
       break;
     }
+
     printf("alpha: %.15e\n", f->a_present);
 
     FWI_UpdateCurvaturePair(f, k);
@@ -527,6 +531,7 @@ void FWI_Run_LBFGS(fwi_t* f)
 
     SWAP(f->gradient_current, f->gradient_next, float*);
   }
+
+  fclose(fptr);
   free(gradient);
 }
-

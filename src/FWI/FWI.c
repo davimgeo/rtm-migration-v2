@@ -340,9 +340,9 @@ float* FWI_GetGradient(fwi_t* f, float* vp)
     }
   }
 
-  //float* nabla_cost = FWI_GaussianSmooth(f, nabla_chi);
+  float* nabla_cost = FWI_GaussianSmooth(f, nabla_chi);
 
-  return nabla_chi;
+  return nabla_cost;
 }
 
 float* FWI_GetInitialGradient(fwi_t* f, float* vp)
@@ -370,9 +370,9 @@ float* FWI_GetInitialGradient(fwi_t* f, float* vp)
     }
   }
 
-  //float* nabla_cost = FWI_GaussianSmooth(f, nabla_chi);
+  float* nabla_cost = FWI_GaussianSmooth(f, nabla_chi);
 
-  return nabla_chi;
+  return nabla_cost;
 }
 
 float* FWI_GetDcalc(fwi_t* f, float* vp)

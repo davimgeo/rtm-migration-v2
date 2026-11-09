@@ -58,6 +58,8 @@ double FWI_DeconObjf(fwi_t* f, const float* dcalc)
 
       write2d(dcalc_filename, u_s, sizeof(float), s->nt, s->nrec);
 
+      printf("Saved dcalc in %s\n", dcalc_filename);
+
       char wiener_filename[256];
 
       snprintf(
@@ -70,7 +72,7 @@ double FWI_DeconObjf(fwi_t* f, const float* dcalc)
 
       write2d(wiener_filename, w, sizeof(float), s->nt, s->nrec);
 
-      printf("Saved dcalc in %s\n", wiener_filename);
+      printf("Saved wiener in %s\n", wiener_filename);
     }
 
     for (int irec = 0; irec < s->nrec; ++irec)
