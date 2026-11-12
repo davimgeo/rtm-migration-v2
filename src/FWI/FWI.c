@@ -137,6 +137,9 @@ fwi_t* FWI_Init(fwi_t* f, rtm_t* rtm, fwi_specs_t* specs)
   f->zeta = specs->zeta;
   f->penalty_function_flag = specs->penalty_function_flag;
 
+  f->eps_tv = specs->eps_tv;
+  f->lambda_tv = specs->lambda_tv;
+
   // need to change this
   rtm->zeta = specs->zeta;
   rtm->penalty_function_flag = specs->penalty_function_flag;
@@ -166,6 +169,7 @@ fwi_t* FWI_Init(fwi_t* f, rtm_t* rtm, fwi_specs_t* specs)
 
   f->m_current = malloc(model_size * sizeof(float));
   f->mk1 = malloc(model_size * sizeof(float));
+  f->m0 = malloc(model_size * sizeof(float));
 
   f->direction = malloc(model_size * sizeof(float));
 
@@ -173,6 +177,12 @@ fwi_t* FWI_Init(fwi_t* f, rtm_t* rtm, fwi_specs_t* specs)
   {
     memcpy(
         f->vp_current + (size_t)i * nx,
+        m->vp + (size_t)(i + m->nb) * m->nxx + m->nb,
+        (size_t)nx * sizeof(float)
+    );
+
+    memcpy(
+        f->m0 + (size_t)i * nx,
         m->vp + (size_t)(i + m->nb) * m->nxx + m->nb,
         (size_t)nx * sizeof(float)
     );
@@ -233,7 +243,7 @@ static float FWI_GetInitialAlpha(const float* model, int nz, int nx)
       min = model[i];
   }
 
-  return 0.05f * (max);
+  return 0.05f * (max - min);
 }
 
 void FWI_SetModel(fwi_t* f, float* vp)
@@ -316,6 +326,55 @@ float* FWI_GaussianSmooth(fwi_t* f, const float* q)
   return smooth;
 }
 
+float* FWI_GradientIllumination2(fwi_t* f, const float* q)
+{
+  propagation_t* p = f->rtm->p;
+  model_t* m = p->model;
+
+  const int nz = m->nz;
+  const int nx = m->nx;
+  const int nb = m->nb;
+
+  const size_t size = (size_t)nz * nx;
+  const int n_ext = m->nzz * m->nxx;
+
+  float* grad_cost = allocf(size * sizeof(*grad_cost));
+
+  float* illum = f->rtm->dem;
+
+  double Imax = 0.0;
+
+  for(int i = 0; i < nz; i++)
+  {
+    for(int j = 0; j < nx; j++)
+    {
+      size_t idx_dem = (size_t)(i + nb) * m->nxx + j + nb;
+
+      Imax = fmax(Imax, illum[idx_dem]);
+    }
+  }
+
+  double Hmax = sqrt(Imax);
+  double floor_H = 0.05 * Hmax;
+
+  for(int i = 0; i < nz; i++)
+  {
+    for(int j = 0; j < nx; j++)
+    {
+      size_t idx = (size_t)i * nx + j;
+      size_t idx_dem = (size_t)(i + nb) * m->nxx + j + nb;
+
+      double H = sqrt(illum[idx_dem]);
+
+      double weight = Hmax / fmax(H, floor_H);
+
+      grad_cost[idx] = (float)(q[idx] * weight);
+    }
+  }
+
+  return grad_cost;
+}
+
 float* FWI_GetGradient(fwi_t* f, float* vp)
 {
   propagation_t* p = f->rtm->p;
@@ -329,19 +388,57 @@ float* FWI_GetGradient(fwi_t* f, float* vp)
 
   float* nabla_chi = malloc(model_size * sizeof(float));
 
-  for (int i = 0; i < m->nz; ++i)
+  for(int i = 0; i < m->nz; i++)
   {
-    for (int j = 0; j < m->nx; ++j)
+    for(int j = 0; j < m->nx; j++)
     {
       size_t idx_im = (size_t)(i + m->nb) * m->nxx + (j + m->nb);
-      size_t idx_nabla = (size_t)i * m->nx + j;
+      size_t idx = (size_t)i * m->nx + j;
 
-      //if (i < 20)
-      //  nabla_chi[idx_nabla] = 0.0f;
-      //else
-      nabla_chi[idx_nabla] = f->rtm->image[idx_im];
+      nabla_chi[idx] = f->rtm->image[idx_im];
     }
   }
+
+  double inv_dh = 1.0 / p->dh;
+
+  double* g_rtv = calloc(model_size, sizeof(double));
+
+  for(int i = 2; i < m->nz - 2; i++)
+  {
+    for(int j = 2; j < m->nx - 2; j++)
+    {
+      int idx0 = i * m->nx + j;
+      int idx1 = (i + 1) * m->nx + j;
+
+      double s0 = vp[idx0];
+      double s1 = vp[idx1];
+
+      double nabla_vp = (s1 - s0) * inv_dh;
+      double nabla_vp2 = nabla_vp * nabla_vp;
+
+      double inner_arg = nabla_vp / sqrt(f->eps_tv + nabla_vp2);
+
+      g_rtv[idx0] -= inner_arg * inv_dh;
+      g_rtv[idx1] += inner_arg * inv_dh;
+    }
+  }
+
+  for(int i = 2; i < m->nz - 1; i++)
+  {
+    for(int j = 2; j < m->nx - 2; j++)
+    {
+      int idx = i * m->nx + j;
+
+      double vp3 = (double)vp[idx] * vp[idx] * vp[idx];
+
+      double g_m = -0.5 * vp3 * g_rtv[idx];
+
+      // += for minimization and -= for maximization
+      nabla_chi[idx] -= f->lambda_tv * g_m;
+    }
+  }
+
+  free(g_rtv);
 
   float* nabla_cost = FWI_GaussianSmooth(f, nabla_chi);
 
@@ -359,23 +456,57 @@ float* FWI_GetInitialGradient(fwi_t* f, float* vp)
 
   float* nabla_chi = malloc(model_size * sizeof(float));
 
-  for (int i = 0; i < m->nz; ++i)
+  for(int i = 0; i < m->nz; i++)
   {
-    for (int j = 0; j < m->nx; ++j)
+    for(int j = 0; j < m->nx; j++)
     {
       size_t idx_im = (size_t)(i + m->nb) * m->nxx + (j + m->nb);
-      size_t idx_nabla = (size_t)i * m->nx + j;
+      size_t idx = (size_t)i * m->nx + j;
 
-      //if (i < 20)
-      //  nabla_chi[idx_nabla] = 0.0f;
-      //else
-        nabla_chi[idx_nabla] = f->rtm->image[idx_im];
+      nabla_chi[idx] = f->rtm->image[idx_im];
     }
   }
 
-  plot2d(nabla_chi, 101, 101);
+  double inv_dh = 1.0 / p->dh;
+
+  double* g_rtv = calloc(model_size, sizeof(double));
+
+  for(int i = 2; i < m->nz - 2; i++)
+  {
+    for(int j = 2; j < m->nx - 2; j++)
+    {
+      int idx0 = i * m->nx + j;
+      int idx1 = (i + 1) * m->nx + j;
+
+      double s0 = vp[idx0];
+      double s1 = vp[idx1];
+
+      double nabla_vp = (s1 - s0) * inv_dh;
+      double nabla_vp2 = nabla_vp * nabla_vp;
+
+      double inner_arg = nabla_vp / sqrt(f->eps_tv + nabla_vp2);
+
+      g_rtv[idx0] -= inner_arg * inv_dh;
+      g_rtv[idx1] += inner_arg * inv_dh;
+    }
+  }
+
+  for(int i = 2; i < m->nz - 1; i++)
+  {
+    for(int j = 2; j < m->nx - 2; j++)
+    {
+      int idx = i * m->nx + j;
+
+      double vp3 = (double)vp[idx] * vp[idx] * vp[idx];
+
+      double g_m = -0.5 * vp3 * g_rtv[idx];
+
+      // += for minimization and -= for maximization
+      nabla_chi[idx] -= f->lambda_tv * g_m;
+    }
+  }
+
   float* nabla_cost = FWI_GaussianSmooth(f, nabla_chi);
-  plot2d(nabla_cost, 101, 101);
 
   return nabla_cost;
 }
@@ -433,11 +564,6 @@ float* FWI_GetDcalc(fwi_t* f, float* vp)
   {
     //geometry_t* geom = Geometry_InitCreate(NULL, &geometry_specs);
     //Geometry_Create(geom, GEOMETRY_ONLY_RECEIVERS);
-    //Geometry_SetSource(
-    //  geom,
-    //  ishot * geometry_specs.offset_src,
-    //  geometry_specs.src_depth
-    //);
     
     geometry_t* geom = Geometry_InitLoad(geom);
     Geometry_Load(geom, "data/receivers.txt", "data/sources.txt", GEOMETRY_ONLY_RECEIVERS);
@@ -782,6 +908,7 @@ void FWI_Destroy(fwi_t* f)
 
   free(f->mk1);
   free(f->m_current);
+  free(f->m0);
 
   free(f);
 }

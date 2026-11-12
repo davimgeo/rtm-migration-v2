@@ -15,6 +15,7 @@ typedef struct
   float vmin; float vmax;
   float zeta;
   int penalty_function_flag;
+  float lambda_tv; float eps_tv;
 
 } fwi_specs_t;
 
@@ -34,6 +35,9 @@ typedef struct
   int ARMIJO_FALLBACK;
   float zeta;
   int penalty_function_flag;
+  float lambda_tv; float eps_tv;
+
+  float* m0;
 
   // L-BFGS
   float* s;

@@ -202,6 +202,7 @@ def plot1d(arr: np.ndarray) -> None:
   ax.plot(arr)
   
   plt.tight_layout()
+  plt.grid(True)
   plt.show()
 
 def plot1d_3(arr1, arr2, arr3, title1, title2, title3) -> None:

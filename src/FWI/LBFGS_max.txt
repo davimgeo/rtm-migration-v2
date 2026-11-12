@@ -51,6 +51,30 @@ double FWI_GetPhi_LBFGS(fwi_t* f, double alpha)
 
   free(dcalc_1);
 
+  ///////////////////////////////////////
+  double inv_dh = 1.0 / p->dh;
+
+  double rtv = 0.0;
+  for(int i = 2; i < m->nz - 2; i++)
+  {
+    for(int j = 2; j < m->nx - 2; j++)
+    {
+      int idx1 = (i + 1) * m->nx + j;
+      int idx0 = i * m->nx + j;
+
+      double delta_vp1 = f->m0[idx1] - f->vp_k1[idx1];
+      double delta_vp0 = f->m0[idx0] - f->vp_k1[idx0];
+
+      double nabla_m = (delta_vp1 - delta_vp0) * inv_dh;
+      double nabla_m2 = nabla_m * nabla_m;
+
+      rtv += sqrt(f->eps_tv + nabla_m2);
+    }
+  }
+
+  phi_alpha -= f->lambda_tv * rtv;
+  ///////////////////////////////////////
+
   return phi_alpha;
 }
 
@@ -74,6 +98,7 @@ double FWI_GetPhiDerivative_LBFGS(fwi_t* f, double alpha)
   const double phi_derivative = FWI_GetGTP(f, gradient);
 
   free(gradient);
+
 
   return phi_derivative;
 }
@@ -498,6 +523,10 @@ void FWI_Run_LBFGS(fwi_t* f)
 
   const size_t model_size = (size_t)m->nz * m->nx;
 
+  char path[256];
+  snprintf(path, sizeof(path), "%s/phi_history.txt", f->export_path);
+  FILE* fptr = fopen(path, "w");
+
   float* gradient = FWI_GetInitialGradient(f, f->vp_current);
   memcpy(f->gradient_current, gradient, model_size * sizeof(float));
 
@@ -513,6 +542,35 @@ void FWI_Run_LBFGS(fwi_t* f)
     printf("gamma: %.15e\n", gamma);
 
     double phi_0 = r->chi_0;
+
+    ///////////////////////////////////////
+    double inv_dh = 1.0 / p->dh;
+
+    double rtv = 0.0;
+    for(int i = 2; i < m->nz - 2; i++)
+    {
+      for(int j = 2; j < m->nx - 2; j++)
+      {
+        int idx1 = (i + 1) * m->nx + j;
+        int idx0 = i * m->nx + j;
+
+        double delta_vp1 = f->m0[idx1] - f->vp_current[idx1];
+        double delta_vp0 = f->m0[idx0] - f->vp_current[idx0];
+
+        double nabla_m = (delta_vp1 - delta_vp0) * inv_dh;
+        double nabla_m2 = nabla_m * nabla_m;
+
+        rtv += sqrt(f->eps_tv + nabla_m2);
+      }
+    }
+
+    phi_0 -= f->lambda_tv * rtv;
+
+    printf("R_Tv: %.15e\n", f->lambda_tv * rtv);
+    ///////////////////////////////////////
+
+    fprintf(fptr, "%.15e\n", phi_0);
+    fflush(fptr);
 
     FWI_GetDirection_LBFGS(f, gamma, f->gradient_current, k);
     //plot2d(f->direction, m->nz, m->nx);
@@ -543,5 +601,6 @@ void FWI_Run_LBFGS(fwi_t* f)
 
     SWAP(f->gradient_current, f->gradient_next, float*);
   }
+  fclose(fptr);
   free(gradient);
 }

@@ -59,15 +59,18 @@ SpecsContext* Specs_Init(SpecsContext* specs)
       .objective_function_flag = "AWI",
 
       .dobs_path = "data/dobs",
-      .export_path = "data/FWI/AWI_Circle_1700_2/",
+      .export_path = "data/FWI/AWI_Pladys_TV3/",
 
       .vmin = 1000.0f, 
       .vmax = 2500.0f,
 
+      .lambda_tv = 0.0f,
+      .eps_tv = 1.0,
+
       .zeta = 1e-2f,
       .t0 = 0.35f,
 
-      .penalty_function_flag = 1 // 0 - Max Gaussian; 1 - Min Gaussian; 2 - fabs(tau) else 0
+      .penalty_function_flag = 2 // 0 - Max Gaussian; 1 - Min Gaussian; 2 - fabs(tau) else 0
     }
   };
 

@@ -26,7 +26,8 @@ int main()
   Wavelet_Create(wave);
 
   model_t* model = Model_Init(model, &specs->model);
-  //Model_Load(model, "data/FWI/m0_marmousi.bin", 681, 141, 0);
+  //Model_Load(model, "data/FWI/marmousi_real_141x681x_dh25m.bin", 681, 141, 0);
+  //Model_Load(model, "data/FWI/m0_gradient.bin", 681, 141, 0);
   //Model_Load(model, "data/FWI/model_circle_101x101_10m.bin", 101, 101, 0);
   Model_Create(model);
   Model_Extent(model);
@@ -45,8 +46,8 @@ int main()
     PROPAGATION_ACOUSTIC);
   //Propagation_Run(prop, PROPAGATION_SAVE_SEISMOGRAM);
 
-  //float* dobs = read2d("data/dobs/seismogram_6001x101_shot0.bin", 6001, 101);
-  //plot2d(dobs, 6001, 101);
+  ///float* dobs = read2d("data/dobs/seismogram_12001x171_shot0.bin", 12001, 171);
+  ///plot2d(dobs, 12001, 171);
 
   rtm_t* rtm = RTM_Init(rtm, prop);
   //RTMv2_Run_GPU(
@@ -71,4 +72,6 @@ int main()
 
   return 0;
 }
+
+
 

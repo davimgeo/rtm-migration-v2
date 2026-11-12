@@ -50,6 +50,30 @@ double FWI_GetPhi_LBFGS(fwi_t* f, double alpha)
 
   free(dcalc_1);
 
+  ///////////////////////////////////////
+  double inv_dh = 1.0 / p->dh;
+
+  double rtv = 0.0;
+  for(int i = 2; i < m->nz - 2; i++)
+  {
+    for(int j = 2; j < m->nx - 2; j++)
+    {
+      int idx1 = (i + 1) * m->nx + j;
+      int idx0 = i * m->nx + j;
+
+      double delta_vp1 = f->m0[idx1] - f->vp_k1[idx1];
+      double delta_vp0 = f->m0[idx0] - f->vp_k1[idx0];
+
+      double nabla_m = (delta_vp1 - delta_vp0) * inv_dh;
+      double nabla_m2 = nabla_m * nabla_m;
+
+      rtv += sqrt(f->eps_tv + nabla_m2);
+    }
+  }
+
+  phi_alpha += f->lambda_tv * rtv;
+  ///////////////////////////////////////
+
   return phi_alpha;
 }
 
@@ -73,6 +97,7 @@ double FWI_GetPhiDerivative_LBFGS(fwi_t* f, double alpha)
   const double phi_derivative = FWI_GetGTP(f, gradient);
 
   free(gradient);
+
 
   return phi_derivative;
 }
@@ -443,8 +468,6 @@ int FWI_UpdateCurvaturePair(fwi_t* f, int k)
       printf("Invalid curvature pair at k = %d, j = %zu\n", k, j);
       printf("\nLBFGS Curvature Pair - Iteration %d\n", k);
       printf("Slot        = %d\n", k % LBGFS_M);
-      printf("max|s|    = %.15e\n", smax);
-      printf("max|y|    = %.15e\n", ymax);
       printf("sTy       = %.15e\n", sy);
       printf("yTy       = %.15e\n", yy);
 
@@ -453,9 +476,6 @@ int FWI_UpdateCurvaturePair(fwi_t* f, int k)
 
     f->s[offset + j] = s;
     f->y[offset + j] = y;
-
-    smax = fmax(smax, fabs((double)s));
-    ymax = fmax(ymax, fabs((double)y));
 
     sy += (double)s * y;
     yy += (double)y * y;
@@ -496,6 +516,32 @@ void FWI_Run_LBFGS(fwi_t* f)
     printf("gamma: %.15e\n", gamma);
 
     double phi_0 = r->chi_0;
+
+    ///////////////////////////////////////
+    double inv_dh = 1.0 / p->dh;
+
+    double rtv = 0.0;
+    for(int i = 2; i < m->nz - 2; i++)
+    {
+      for(int j = 2; j < m->nx - 2; j++)
+      {
+        int idx1 = (i + 1) * m->nx + j;
+        int idx0 = i * m->nx + j;
+
+        double delta_vp1 = f->m0[idx1] - f->vp_current[idx1];
+        double delta_vp0 = f->m0[idx0] - f->vp_current[idx0];
+
+        double nabla_m = (delta_vp1 - delta_vp0) * inv_dh;
+        double nabla_m2 = nabla_m * nabla_m;
+
+        rtv += sqrt(f->eps_tv + nabla_m2);
+      }
+    }
+
+    phi_0 += f->lambda_tv * rtv;
+
+    printf("R_Tv: %.15e\n", f->lambda_tv * rtv);
+    ///////////////////////////////////////
 
     fprintf(fptr, "%.15e\n", phi_0);
     fflush(fptr);

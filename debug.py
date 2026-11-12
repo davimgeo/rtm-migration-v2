@@ -17,7 +17,7 @@ def load_fortran(path: str, height: int, weight: int) -> np.ndarray:
 def plot_model(model) -> None:
   fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(16, 8))
 
-  img = ax.imshow(model, aspect="auto", cmap="jet")
+  img = ax.imshow(model, aspect="auto", cmap="jet", interpolation="bicubic")
   plt.colorbar(img, ax=ax, label="VP [m/s]")
 
   ax.set_title("Inverted Model", fontsize=13)
@@ -31,13 +31,13 @@ def animate_iterations(
   iterations,
   shot=25,
   reference_trace=90,
-  nt=6001,
-  nrec=101,
+  nt=12001,
+  nrec=341,
   dt=0.001,
-  nz=101,
-  nx=101,
-  tmin=500,
-  tmax=3000,
+  nz=141,
+  nx=681,
+  tmin=1200,
+  tmax=6000,
   receiver_spacing=10,
   interval=1000,
   save_path=None
@@ -50,7 +50,7 @@ def animate_iterations(
 
   dobs = load(
     DOBS_PATH +
-    f"seismogram_6001x101_shot{shot}.bin",
+    f"seismogram_12001x341_shot{shot}.bin",
     nt, nrec
   )
 
@@ -343,35 +343,33 @@ def plot_agc(
 
   return dobs_agc, dcalc_agc
 
-PATH = "data/FWI/AWI_Circle_1700_2/"
-DOBS_PATH = "data/dobs/"
+PATH = "data/FWI/AWI_Grad/"
+DOBS_PATH = "data/FWI/dobs_12s_10hz_ng/"
 
 MIN_ITERATION = 1
-MAX_ITERATION = 5
+MAX_ITERATION = 1
 
 ani = animate_iterations(iterations=range(MIN_ITERATION, MAX_ITERATION + 1))
 
-model = load(PATH + f"m_{MAX_ITERATION}.bin", 101, 101)
+#model_old = load(PATH + f"m_{MAX_ITERATION - 1}.bin", 101, 101)
+model = load(PATH + f"m_{MAX_ITERATION}.bin", 141, 681)
 plot_model(model)
 
 phi_history = np.loadtxt(PATH + "phi_history.txt", dtype=np.float32)
 max_phi = np.max(phi_history)
 phi_history /= max_phi
 
-plt.plot(phi_history, '-o', label="gaussian")
+plt.plot(phi_history[:MAX_ITERATION], '-o')
 
 plt.grid(True)
 plt.legend()
 plt.show()
 
-import numpy as np
-import matplotlib.pyplot as plt
-
-wiener = load(PATH + "data/wiener_1.bin", 6001, 101)
+wiener = load(PATH + "data/wiener_1.bin", 12001, 341)
 
 rec = 40
 dt = 1e-3
-sigma = 0.30
+sigma = 0.60
 
 w1 = np.fft.fftshift(wiener[:, rec].copy())
 w1 /= max(np.max(np.abs(w1)), 1e-12)
@@ -380,7 +378,8 @@ nt = len(w1)
 lags = np.arange(nt) - nt // 2
 time = lags * dt
 
-P = np.exp(-(time**2) / sigma**2)
+P = 1 - np.exp(-(time**2) / sigma**2)
+#P = np.where(np.abs(time) <= sigma, np.abs(time), 0.0)
 
 w_penalized = P * w1
 
@@ -394,7 +393,7 @@ ax[0].plot(time, w1)
 ax[0].set_title("Original Wiener (Normalized)")
 
 ax[1].plot(time, P)
-ax[1].set_title("Penalty: 1 - Gaussian")
+ax[1].set_title("Penalty")
 
 ax[2].plot(time, w1, "--", alpha=0.4, label="Original")
 ax[2].plot(time, w_penalized, label="Penalized")
@@ -411,8 +410,8 @@ for a in ax:
 plt.tight_layout()
 plt.show()
 
-model1 = load(PATH + f"m_{MAX_ITERATION}.bin", 141, 681)
-model2 = load("data/FWI/L2_Good_Test2/" + f"m_{MAX_ITERATION}.bin", 141, 681)
+model1 = load(PATH + f"m_{MAX_ITERATION}.bin", 101, 101)
+model2 = load("data/FWI/AWI_Circle_1700/" + f"m_{MAX_ITERATION}.bin", 101, 101)
 
 diff = model1 - model2
 

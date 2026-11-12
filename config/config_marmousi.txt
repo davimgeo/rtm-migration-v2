@@ -13,18 +13,18 @@ SpecsContext* Specs_Init(SpecsContext* specs)
       .dt = 1e-3f,
       .fmax = 10.0f,
       .nt = 12001,
-      .tlag = 0.30f,
+      .tlag = 0.36f,
     },
 
     .geometry =
     {
       .line_length = 681,
 
-      .src_depth = 8,
-      .rec_depth = 2,
+      .rec_depth = 18,
+      .src_depth = 2,
 
-      .offset_rec = 2,
-      .offset_src = 16
+      .offset_rec = 4,
+      .offset_src = 8
     },
 
     .model =
@@ -58,15 +58,19 @@ SpecsContext* Specs_Init(SpecsContext* specs)
     {
       .objective_function_flag = "AWI",
 
-      .dobs_path = "data/FWI/dobs_12s_10hz_ng",
-      .export_path = "data/FWI/Test3/",
+      .dobs_path = "data/dobs/",
+      .export_path = "data/FWI/AWI_Grad/",
 
       .vmin = 1200.0f,
       .vmax = 5200.0f,
 
-      .zeta = 0.01f,
-      .t0 = 0.25f,
-      .penalty_function_flag = 1 // 0 - Max Gaussian; 1 - Min Gaussian; 2 - fabs(tau) else 0
+      .eps_tv = 1.0, 
+      .lambda_tv = 1e-7f,
+
+      .zeta = 1e-2f,
+      .t0 = 0.60f,
+
+      .penalty_function_flag = 2 // 0 - Max Gaussian; 1 - Min Gaussian; 2 - fabs(tau) else 0
     }
   };
 

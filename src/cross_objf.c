@@ -2,44 +2,12 @@
 #include <math.h>
 #include <stdlib.h>
 
+#include "decon_objf.h"
+
 #include "fft.h"
 //#include "plot.h"
 
 static int initialized = 0;
-
-float* get_penaltyGaussian(int nt, float dt, float t0)
-{
-  float* P = malloc(nt * sizeof(*P));
-
-  for (int i = 0; i < nt; ++i)
-  {
-    int lag_index = i - nt / 2;
-    float tau = lag_index * dt;
-
-    int j = (i + nt - nt / 2) % nt;
-
-    P[j] = expf((-tau/t0)*(tau/t0));
-  }
-
-  return P;
-}
-
-static float* get_penalty(float tau0, int nt, float dt)
-{
-  float* P = malloc(nt * sizeof(*P));
-
-  for (int itau = 0; itau < nt; ++itau)
-  {
-    int lag_index = (itau <= nt / 2) ? itau : itau - nt;
-
-    float tau = lag_index * dt;
-
-    P[itau] = (fabsf(tau) <= tau0) ? tau : 0.0f;
-  }
-
-  return P;
-}
-
 
 float* get_c_1d(const float* u_s, const float* u_o, int nt)
 {
@@ -78,10 +46,11 @@ float get_cross_1d(
     const float* u_o,
     float dt,
     int nt,
-    float tau0
+    float tau0,
+    int penalty_flag
 )
 {
-  float* P = get_penalty(tau0, nt, dt);
+  float* P = get_penalty(tau0, nt, dt, penalty_flag);
   float* c = get_c_1d(u_s, u_o, nt);
 
   float result = 0.0;
@@ -150,10 +119,11 @@ float get_cross_2d(
     float dt,
     int nt,
     int nrec,
-    float tau0
+    float tau0,
+    int penalty_flag
 )
 {
-  float* P = get_penalty(tau0, nt, dt);
+  float* P = get_penalty(tau0, nt, dt, penalty_flag);
   float* c = get_c_2d(u_s, u_o, nt, nrec);
 
   float result = 0.0f;

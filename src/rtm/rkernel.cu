@@ -12,6 +12,7 @@ extern "C"
 #include "internal.h"
 #include "rtm.h"
 #include "decon_objf.h"
+#include "cross_objf.h"
 #include "fft.h"
 #include "propagation/acoustic/acoustic_c.h"
 }
@@ -192,6 +193,141 @@ __global__ void get_seismogram(
 
     const size_t r_idx = (size_t)t * nrec + irec;
     seismogram[r_idx] = upre[(size_t)rz * nxx + rx];
+}
+
+void cross_adjoint_source(
+  rtm_t* r,
+  const char* DOBS_PATH,
+  size_t isrc,
+  int ishot,
+  float t0,
+  float* d_upas,
+  float* d_upre,
+  const float* d_vel_arg,
+  float* d_wavelet,
+  const float* d_damp_x,
+  const float* d_damp_z,
+  const float* d_rec_x,
+  const float* d_rec_z,
+  float* d_adjoint_source
+)
+{
+  propagation_t* p = r->p;
+  seismogram_t* s = p->seismogram;
+  model_t* m = p->model;
+
+  const int nxx = m->nxx;
+  const int nzz = m->nzz;
+  const int nrec = s->nrec;
+
+  const size_t wave_size = (size_t)nxx * nzz;
+  const size_t wave_bytes = wave_size * sizeof(float);
+  const size_t seis_bytes = (size_t)s->nt * nrec * sizeof(float);
+  const size_t wavelet_bytes = (size_t)p->nt * sizeof(float);
+
+  const float lap_arg = 1.0f / (p->dh * p->dh);
+  const float source_scale = (p->dt * p->dt) * lap_arg;
+
+  const int blocks = (int)((wave_size + THREADS - 1) / THREADS);
+  const int rec_blocks = (nrec + THREADS - 1) / THREADS;
+
+  CUDA_CHECK(cudaMemcpy(d_wavelet, p->wavelet->wavelet, wavelet_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemset(d_upas, 0, wave_bytes));
+  CUDA_CHECK(cudaMemset(d_upre, 0, wave_bytes));
+  CUDA_CHECK(cudaMemset(d_adjoint_source, 0, seis_bytes));
+
+  float* upas = d_upas;
+  float* upre = d_upre;
+
+  for (int t = 1; t < p->nt - 1; ++t)
+  {
+    forward_kernel<<<blocks, THREADS>>>(upas, upre, d_vel_arg, lap_arg, nzz, nxx);
+    CUDA_CHECK(cudaGetLastError());
+
+    get_damp<<<blocks, THREADS>>>(upas, upre, d_damp_x, d_damp_z, nzz, nxx);
+    CUDA_CHECK(cudaGetLastError());
+
+    std::swap(upre, upas);
+
+    get_seismogram<<<rec_blocks, THREADS>>>(upre, d_adjoint_source, d_rec_x, d_rec_z, nxx, nzz, m->nb, nrec, t);
+    CUDA_CHECK(cudaGetLastError());
+
+    inject_source<<<1, 1>>>(upre, d_wavelet, isrc, source_scale, t);
+    CUDA_CHECK(cudaGetLastError());
+  }
+
+  CUDA_CHECK(cudaMemcpy(s->seismogram, d_adjoint_source, seis_bytes, cudaMemcpyDeviceToHost));
+
+  char PATH[256];
+
+  std::snprintf(
+    PATH,
+    sizeof(PATH),
+    "%s/seismogram_%dx%d_shot%d.bin",
+    DOBS_PATH,
+    s->nt,
+    s->nrec,
+    ishot
+  );
+
+  float* dobs = read2d(PATH, s->nt, s->nrec);
+  float* dcalc = s->seismogram;
+  float* P = get_penalty(s->nt, s->dt, t0, r->penalty_function_flag);
+  float* c = get_c_2d(dcalc, dobs, s->nt, s->nrec);
+
+  float* trace_o = (float*)std::malloc(s->nt * sizeof(*trace_o));
+  float* trace_c = (float*)std::malloc(s->nt * s->nrec * sizeof(*trace_o));
+
+  float _Complex* adj_freq = (float _Complex*)malloc(s->nt * sizeof(*adj_freq));
+
+  for (int irec = 0; irec < s->nrec; ++irec)
+  {
+    double result = 0.0f;
+
+    for (int t = 0; t < s->nt; ++t)
+    {
+      int idx = t * s->nrec + irec;
+
+      trace_o[t] = dobs[idx];
+      trace_c[t] = P[t] * P[t] * c[idx];
+
+      float pc = P[t] * c[idx];
+
+      result += pc * pc;
+    }
+
+    float _Complex* fft_u_o = get_fft_1d(trace_o, s->nt);
+    float _Complex* fft_c = get_fft_1d(trace_c, s->nt);
+
+    for (int iw = 0; iw < s->nt; ++iw)
+      adj_freq[iw] = fft_u_o[iw] * fft_c[iw];
+      //adj_freq[iw] = fft_u_o[iw] * conjf(fft_c[iw]);
+
+    float* adj_time = get_ifft_1d(adj_freq, s->nt);
+
+    for (int t = 0; t < s->nt; ++t)
+      r->adjoint_source[t * s->nrec + irec] = -adj_time[t];
+
+    r->chi_0 += result;
+
+    free(adj_time);
+    free(fft_u_o);
+    free(fft_c);
+  }
+
+  CUDA_CHECK(cudaMemcpy(
+    d_adjoint_source,
+    r->adjoint_source,
+    seis_bytes,
+    cudaMemcpyHostToDevice
+  ));
+
+  std::free(adj_freq);
+  std::free(trace_o);
+  std::free(c);
+  std::free(P);
+  std::free(dobs);
+
 }
 
 void awi_adjoint_source(
@@ -732,6 +868,17 @@ extern "C" void RTMv2_Run_GPU(rtm_t* r, const char* DOBS_PATH, unsigned int flag
           d_upas, d_upre, d_vel_arg, d_second_ricker,
           d_damp_x, d_damp_z, d_rec_x, d_rec_z, d_adjoint_source
       );
+    else if(flags & RTM_CROSS_ADJOINT_SOURCE)
+      cross_adjoint_source(
+          r, DOBS_PATH, sidx, shot, t0,
+          d_upas, d_upre, d_vel_arg, d_second_ricker,
+          d_damp_x, d_damp_z, d_rec_x, d_rec_z, d_adjoint_source
+      );
+    else 
+    {
+      printf("Wrong flag inside rkernel.cu");
+      exit(0);
+    }
 
     CUDA_CHECK(cudaMemcpy(d_second_ricker, wavelet_2nd_derivative, (size_t)p->nt * sizeof(float), cudaMemcpyHostToDevice));
 
@@ -799,7 +946,7 @@ extern "C" void RTMv2_Run_GPU(rtm_t* r, const char* DOBS_PATH, unsigned int flag
   CUDA_CHECK(cudaMemcpy(r->image, d_image, wave_bytes, cudaMemcpyDeviceToHost));
   CUDA_CHECK(cudaMemcpy(r->dem, d_dem, wave_bytes, cudaMemcpyDeviceToHost));
 
-  if(flags & RTM_L2_ADJOINT_SOURCE)
+  if((flags & RTM_L2_ADJOINT_SOURCE) || (flags & RTM_CROSS_ADJOINT_SOURCE))
     r->chi_0 *= 0.5f * (double)p->dt;
 
   CUDA_CHECK(cudaFree(d_upas));

@@ -11,8 +11,8 @@
 
 #include "fwi.h"
 
-#define LOW 1.0f / (1500.0f * 1500.0f)
-#define HIGH 1.0f / (4500.0f * 4500.0f)
+#define LOW 1.0f / (1000.0f * 1000.0f)
+#define HIGH 1.0f / (2500.0f * 2500.0f)
 
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
@@ -112,8 +112,14 @@ double FWI_LineSearch_Parabolic(fwi_t* f, double phi_0)
     alpha_saida = a3;
   }
 
+  if(alpha_saida < 0)
+  {
+    printf("Negative alpha, closing program\n");
+    exit(0);
+  }
+
   printf("\n");
-  printf("+----------------+-------------------------+\n");
+
   printf("| %-14s | %-23s |\n", "Result", "Value");
   printf("+----------------+-------------------------+\n");
   printf("| %-14s | %23.15e |\n", "Selected Alpha", alpha_saida);

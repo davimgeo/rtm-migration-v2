@@ -14,7 +14,7 @@ float get_epsilon(float complex*arr1, float complex*arr2, int size, float zeta)
   float max = 0.0f;
   for(int i = 0; i < size; i++)
   {
-    // tirei a multiplicacao de arr2 aqui para teste
+    // removed * arr2[i] just for test
     float temp = cabsf(arr1[i]);
     if (temp > max) max = temp;
   }

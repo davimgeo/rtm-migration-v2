@@ -449,12 +449,8 @@ void RTM_Cross_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int isho
   float* dobs = read2d(PATH, s->nt, s->nrec);
   float* dcalc = s->seismogram;
 
-  float* P = get_penaltyGaussian(s->nt, s->dt, t0);
+  float* P = get_penalty(s->nt, s->dt, t0, r->penalty_function_flag);
   float* c = get_c_2d(dcalc, dobs, s->nt, s->nrec);
-  //shift_time(c, s->nt, s->nrec);
-
-  //plot_column(c, 140, s->nt, s->nrec);
-  //plot2d(c, s->nt, s->nrec);
 
   float* trace_o = malloc(s->nt * sizeof(*trace_o));
   float* trace_c = malloc(s->nt * s->nrec * sizeof(*trace_o));
@@ -497,14 +493,6 @@ void RTM_Cross_AdjointSource(rtm_t* r, const char* DOBS_PATH, int isrc, int isho
     free(fft_u_o);
     free(fft_c);
   }
-
-  //shift_time(test, s->nt, s->nrec);
-  //plot_column(test, 140, s->nt, s->nrec);
-  //if(ishot == 25) plot2d(r->adjoint_source, s->nt, s->nrec);
-  //plot2d(r->adjoint_source, s->nt, s->nrec);
-
-  //shift_time(test, s->nt, s->nrec);
-  //write2d("test.bin", test, sizeof(float), s->nt, s->nrec);
 
   free(adj_freq);
   free(trace_o);

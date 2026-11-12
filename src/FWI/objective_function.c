@@ -209,6 +209,36 @@ double FWI_CrossObjf(fwi_t* f, const float* dcalc)
 
     float* c = get_c_2d(u_s, u_o, s->nt, s->nrec);
 
+    if(ishot == 25)
+    {
+      char dcalc_filename[256];
+
+      snprintf(
+        dcalc_filename,
+        sizeof(dcalc_filename),
+        "%sdata/dcalc_%01d.bin",
+        f->export_path,
+        f->FWI_ITERATION + 1
+      );
+
+      write2d(dcalc_filename, u_s, sizeof(float), s->nt, s->nrec);
+
+      printf("Saved dcalc in %s\n", dcalc_filename);
+
+      char c_filename[256];
+
+      snprintf(
+        c_filename,
+        sizeof(c_filename),
+        "%sdata/c_%01d.bin",
+        f->export_path,
+        f->FWI_ITERATION + 1
+      );
+
+      write2d(c_filename, c, sizeof(float), s->nt, s->nrec);
+
+      printf("Saved c in %s\n", c_filename);
+    }
     for (int irec = 0; irec < s->nrec; ++irec)
     {
       double result = 0.0;
@@ -231,7 +261,7 @@ double FWI_CrossObjf(fwi_t* f, const float* dcalc)
 
   free(P);
 
-  return chi;
+  return 0.5f * chi * (double)p->dt;
 }
 
 double FWI_L2Norm(fwi_t* f, const float* dcalc)
